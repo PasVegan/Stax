@@ -15,7 +15,6 @@ import org.junit.jupiter.api.extension.RegisterExtension
  */
 @OptIn(ExperimentalTestApi::class)
 class ExampleInstrumentedTest {
-
     @JvmField
     @RegisterExtension
     val compose = createComposeExtension()

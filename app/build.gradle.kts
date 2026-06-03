@@ -6,9 +6,10 @@ plugins {
 android {
     namespace = "io.stax.health"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version =
+            release(36) {
+                minorApiLevel = 1
+            }
     }
 
     defaultConfig {
@@ -19,7 +20,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "de.mannodermaus.junit5.AndroidJUnit5Runner"
-        
+
         vectorDrawables {
             useSupportLibrary = false
         }
@@ -36,14 +37,14 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
-            
+
             // Modern 2026 optimizations
             optimization {
                 enable = true
             }
-            
+
             signingConfig = signingConfigs.getByName("debug") // Placeholder for demo
         }
     }
@@ -78,7 +79,7 @@ android {
             it.useJUnitPlatform()
         }
     }
-    
+
     experimentalProperties["android.experimental.privatizeResources"] = true
 }
 
@@ -87,7 +88,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         freeCompilerArgs.addAll(
-            "-Xopt-in=kotlin.RequiresOptIn"
+            "-Xopt-in=kotlin.RequiresOptIn",
         )
     }
 }
@@ -121,11 +122,11 @@ dependencies {
     androidTestImplementation(libs.junit5.android.test.core)
     androidTestImplementation(libs.junit5.android.test.compose)
     androidTestRuntimeOnly(libs.junit5.android.test.runner)
-    
+
     androidTestImplementation(libs.assertk)
     androidTestImplementation(libs.turbine)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    
+
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

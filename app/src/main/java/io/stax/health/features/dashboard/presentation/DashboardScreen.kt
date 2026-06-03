@@ -18,9 +18,7 @@ import io.stax.health.core.presentation.ObserveAsEvents
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun DashboardRoot(
-    viewModel: DashboardViewModel = koinViewModel()
-) {
+fun DashboardRoot(viewModel: DashboardViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     ObserveAsEvents(viewModel.events) { event ->
@@ -33,23 +31,24 @@ fun DashboardRoot(
 
     DashboardScreen(
         state = state,
-        onAction = viewModel::onAction
+        onAction = viewModel::onAction,
     )
 }
 
 @Composable
 fun DashboardScreen(
     state: DashboardState,
-    onAction: (DashboardAction) -> Unit
+    onAction: (DashboardAction) -> Unit,
 ) {
     Scaffold(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) { padding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            contentAlignment = Alignment.Center,
         ) {
             if (state.isLoading) {
                 CircularProgressIndicator()
@@ -70,6 +69,6 @@ fun DashboardScreen(
 private fun DashboardScreenPreview() {
     DashboardScreen(
         state = DashboardState(),
-        onAction = {}
+        onAction = {},
     )
 }

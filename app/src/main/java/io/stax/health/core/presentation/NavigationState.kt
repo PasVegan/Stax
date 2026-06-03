@@ -18,7 +18,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 @Composable
 fun rememberNavigationState(
     startRoute: NavKey,
-    topLevelRoutes: Set<NavKey>
+    topLevelRoutes: Set<NavKey>,
 ): NavigationState {
     val topLevelRoute = remember { mutableStateOf(startRoute) }
 
@@ -28,7 +28,7 @@ fun rememberNavigationState(
         NavigationState(
             startRoute = startRoute,
             topLevelRoute = topLevelRoute,
-            backStacks = backStacks
+            backStacks = backStacks,
         )
     }
 }
@@ -36,38 +36,41 @@ fun rememberNavigationState(
 class NavigationState(
     val startRoute: NavKey,
     topLevelRoute: MutableState<NavKey>,
-    val backStacks: Map<NavKey, NavBackStack<NavKey>>
+    val backStacks: Map<NavKey, NavBackStack<NavKey>>,
 ) {
     var topLevelRoute: NavKey by topLevelRoute
     val stacksInUse: List<NavKey>
-        get() = if (topLevelRoute == startRoute) {
-            listOf(startRoute)
-        } else {
-            listOf(startRoute, topLevelRoute)
-        }
+        get() =
+            if (topLevelRoute == startRoute) {
+                listOf(startRoute)
+            } else {
+                listOf(startRoute, topLevelRoute)
+            }
 }
 
 @Composable
-fun NavigationState.toEntries(
-    entryProvider: (NavKey) -> NavEntry<NavKey>
-): SnapshotStateList<NavEntry<NavKey>> {
-    val decoratedEntries = backStacks.mapValues { (_, stack) ->
-        val decorators = listOf(
-            rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
-        )
-        rememberDecoratedNavEntries(
-            backStack = stack,
-            entryDecorators = decorators,
-            entryProvider = entryProvider
-        )
-    }
+fun NavigationState.toEntries(entryProvider: (NavKey) -> NavEntry<NavKey>): SnapshotStateList<NavEntry<NavKey>> {
+    val decoratedEntries =
+        backStacks.mapValues { (_, stack) ->
+            val decorators =
+                listOf(
+                    rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
+                )
+            rememberDecoratedNavEntries(
+                backStack = stack,
+                entryDecorators = decorators,
+                entryProvider = entryProvider,
+            )
+        }
 
     return stacksInUse
         .flatMap { decoratedEntries[it] ?: emptyList() }
         .toMutableStateList()
 }
 
-class Navigator(val state: NavigationState) {
+class Navigator(
+    val state: NavigationState,
+) {
     fun navigate(route: NavKey) {
         if (route in state.backStacks.keys) {
             state.topLevelRoute = route

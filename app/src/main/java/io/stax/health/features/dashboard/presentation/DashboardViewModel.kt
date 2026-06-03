@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 class DashboardViewModel : ViewModel() {
-
     private val _state = MutableStateFlow(DashboardState())
     val state = _state.asStateFlow()
 

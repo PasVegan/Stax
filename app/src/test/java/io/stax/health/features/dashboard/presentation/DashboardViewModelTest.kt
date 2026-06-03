@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModelTest {
-
     private val testDispatcher = StandardTestDispatcher()
 
     @BeforeEach
@@ -30,24 +29,25 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `onAction OnRefreshClick updates isLoading state`() = runTest {
-        val viewModel = DashboardViewModel()
+    fun `onAction OnRefreshClick updates isLoading state`() =
+        runTest {
+            val viewModel = DashboardViewModel()
 
-        viewModel.state.test {
-            // Initial state
-            val initialState = awaitItem()
-            assertThat(initialState.isLoading).isFalse()
+            viewModel.state.test {
+                // Initial state
+                val initialState = awaitItem()
+                assertThat(initialState.isLoading).isFalse()
 
-            viewModel.onAction(DashboardAction.OnRefreshClick)
+                viewModel.onAction(DashboardAction.OnRefreshClick)
 
-            // Loading state
-            val loadingState = awaitItem()
-            assertThat(loadingState.isLoading).isTrue()
+                // Loading state
+                val loadingState = awaitItem()
+                assertThat(loadingState.isLoading).isTrue()
 
-            // After delay (simulated in ViewModel)
-            testDispatcher.scheduler.advanceTimeBy(1001)
-            val finalState = awaitItem()
-            assertThat(finalState.isLoading).isFalse()
+                // After delay (simulated in ViewModel)
+                testDispatcher.scheduler.advanceTimeBy(1001)
+                val finalState = awaitItem()
+                assertThat(finalState.isLoading).isFalse()
+            }
         }
-    }
 }

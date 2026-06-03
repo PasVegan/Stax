@@ -15,7 +15,7 @@ class StaxApp : Application() {
             androidContext(this@StaxApp)
             modules(
                 appModule,
-                dashboardModule
+                dashboardModule,
             )
         }
     }

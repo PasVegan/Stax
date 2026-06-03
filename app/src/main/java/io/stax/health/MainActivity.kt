@@ -4,14 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.remember
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.ui.NavDisplay
+import io.stax.health.features.dashboard.presentation.DashboardRoot
+import io.stax.health.features.dashboard.presentation.DashboardRoute
+import io.stax.health.core.presentation.rememberNavigationState
+import io.stax.health.core.presentation.Navigator
+import io.stax.health.core.presentation.toEntries
 import io.stax.health.ui.theme.StaxTheme
+import androidx.navigation3.runtime.NavKey
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,32 +21,24 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             StaxTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding),
-                    )
+                val navigationState = rememberNavigationState(
+                    startRoute = DashboardRoute,
+                    topLevelRoutes = setOf(DashboardRoute)
+                )
+                val navigator = remember { Navigator(navigationState) }
+                val entryProvider = remember {
+                    entryProvider<NavKey> {
+                        entry<DashboardRoute> {
+                            DashboardRoot()
+                        }
+                    }
                 }
+
+                NavDisplay(
+                    entries = navigationState.toEntries(entryProvider),
+                    onBack = { navigator.goBack() }
+                )
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(
-    name: String,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier,
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    StaxTheme {
-        Greeting("Android")
     }
 }

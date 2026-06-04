@@ -42,6 +42,31 @@ Android 16+ application
 
 ## 3. Domain Model
 
+### 3.0 Quantities and units
+
+Dose, volume, inventory, and concentration values are never represented as bare numbers in domain code.
+
+```
+Quantity:
+value: Decimal                           // exact decimal, not Double
+unit: UnitCode                           // mcg | mg | g | IU | mL | capsule | tablet | scoop | drop
+```
+
+```
+Concentration:
+amount: Quantity                         // e.g. 2.5 mg
+per: Quantity                            // e.g. 1 mL or 1 tablet
+```
+
+**Rules**:
+- Unit conversion is only allowed inside compatible families:
+  - Mass: mcg, mg, g
+  - Volume: mL
+  - Count: capsule, tablet, scoop, drop
+  - IU: no generic conversion unless the compound defines one
+- Insulin units are display-only, derived from mL and syringe scale.
+- Stored decimal values are not rounded for persistence. UI may round for display.
+
 ### 3.1 CompoundSupply
 ```
 id: Long
@@ -49,11 +74,10 @@ name: String                            // required, ≥1 char
 category: Peptide | Supplement | Hormone | Medication
 form: Injectable | Capsule | Tablet | Powder | Liquid | Topical
 containerType: Vial | Bottle | Blister | Packet | Tub | Ampoule
-primaryUnit: mcg | mg | g | IU | mL | capsule | tablet | scoop | drop
-amountPerContainer: Double              // e.g. 5 (mg), 60 (capsules)
-concentration: Double?                  // mass per mL (or per dose form)
-concentrationUnit: String?              // e.g. "mcg/mL", "IU/tablet"
-numberOfContainers: Int                 // total unopened container, so total container is: numberOfContainers + 1 if currentOpened != null
+primaryUnit: UnitCode                    // mcg | mg | g | IU | mL | capsule | tablet | scoop | drop
+amountPerContainer: Quantity             // e.g. 5 mg, 60 capsules
+concentration: Concentration?            // e.g. 2.5 mg / 1 mL, 1 IU / 1 tablet
+numberOfContainers: Int                 // unopened containers; total containers = numberOfContainers + 1 if currentOpened != null
 currentOpened: OpenedContainer?         // at most one
 batchExpiryDate: LocalDate?
 expiryAfterOpeningDays: Int?            // template; copies into OpenedContainer on open
@@ -69,8 +93,7 @@ updatedAt: Instant
 ### 3.1.1 OpenedContainer
 ```
 openedAt: Instant                       // required
-remainingAmount: Double                 // required, in compound's primaryUnit
-remainingUnit: String
+remainingAmount: Quantity                // required, same unit family as compound.primaryUnit
 expiryAfterOpeningDays: Int?            // copy of compound's, mutable per-container
 userDefinedExpiryDate: LocalDate?       // manual override; wins if set
 predictedExpiryDate: LocalDate?         // derived: openedAt.date + expiryAfterOpeningDays
@@ -78,17 +101,19 @@ predictedExpiryDate: LocalDate?         // derived: openedAt.date + expiryAfterO
 
 **Rules**:
 - One open container max per compound.
-- When `remainingAmount` reaches ≤0 via dose deduction: decrement `numberOfContainers` by 1. If `numberOfContainers > 0` after decrement, prompt "Open new container?" via snackbar action (default: auto-open).
+- `numberOfContainers` means unopened containers only.
+- Opening a container decrements `numberOfContainers` by 1 and creates `OpenedContainer`.
+- When `remainingAmount` reaches ≤0 via dose deduction: remove `OpenedContainer`. Do not decrement `numberOfContainers` again.
+- If `numberOfContainers > 0` after depletion, prompt "Open new container?" via snackbar action (default: auto-open).
+- Delete OpenedContainer (via §4.5 Edit Opened Container sheet) = lost/discarded path. Removes the OpenedContainer record but does not change `numberOfContainers`.
 - Effective expiry display: `userDefinedExpiryDate ?? predictedExpiryDate ?? null`. If both null, hide expiry from UI.
-- Delete OpenedContainer (via §4.5 Edit Opened Container sheet) = container lost/discarded path: removes the OpenedContainer record but does NOT decrement `numberOfContainers` (already counted as opened). Compound reverts to "no opened container" state. Next dose log auto-opens fresh container from unopened pool.
 
 ### 3.2 Protocol
 ```
 id: Long
 name: String                            // required
 compoundSupplyId: Long                  // required
-plannedDose: Double                     // in plannedDoseUnit
-plannedDoseUnit: String                 // same family as compound.primaryUnit
+plannedDose: Quantity                    // same family as compound.primaryUnit
 route: Subcutaneous | Intramuscular | Oral | Topical
 schedule: Schedule
 dosageTimes: List<LocalTime>            // empty = no specific time
@@ -120,12 +145,12 @@ timesPerMonth: Int?                   // for XTimesPerMonth (≥1)
 
 ```
 Escalation:
-startDose: Double
-targetDose: Double
-increaseAmount: Double                // > 0
+startDose: Quantity
+targetDose: Quantity
+increaseAmount: Quantity              // > 0
 increaseEvery: EveryXDays | EveryXWeeks | AfterXDoses
 increaseEveryValue: Int               // ≥ 1
-maxDose: Double?
+maxDose: Quantity?
 stopAtTarget: Boolean
 ```
 
@@ -144,8 +169,7 @@ protocolId: Long
 compoundSupplyId: Long
 scheduledAt: Instant                    // when no time-of-day, start of day in user TZ
 hasTimeOfDay: Boolean                   // derived from protocol.dosageTimes at gen time
-plannedDose: Double                     // captured at gen time (after escalation)
-plannedDoseUnit: String
+plannedDose: Quantity                   // captured at gen time (after escalation)
 route: Route
 status: Pending | Taken | Skipped | Missed | Partial
 administrationEventId: Long?            // set when logged
@@ -175,16 +199,13 @@ administrationEventId: Long
 scheduledDoseId: Long?                  // null for manual logs
 protocolId: Long?                       // null for manual off-protocol logs
 compoundSupplyId: Long
-plannedDose: Double                     // snapshot from protocol at log time (0 if manual)
-plannedDoseUnit: String
-actualDose: Double
-actualDoseUnit: String
+plannedDose: Quantity?                  // snapshot from protocol at log time; null if manual
+actualDose: Quantity
 notes: String?
-inventoryDeductedAmount: Double         // computed at save, stored for audit (in compound's container unit)
-inventoryDeductedUnit: String           // typically mL for injectables, count for orals
+inventoryDeducted: Quantity             // computed at save, stored for audit
 ```
 
-Inventory-deducted quantity = `actualDose / compoundSupply.concentration` for injectables; = `actualDose` for unit-based forms (capsule/tablet count).
+Inventory-deducted quantity = `actualDose / compoundSupply.concentration` for concentration-based forms; = `actualDose` for unit-based forms (capsule/tablet count).
 
 ### 3.6 InjectionSite
 ```
@@ -203,7 +224,7 @@ isAvailable: Boolean                    // user can mark unavailable (bruise, sc
 ```
 id: Long
 compoundSupplyId: Long
-delta: Double                           // +/- in primaryUnit
+delta: Quantity                         // signed quantity in compound stock unit
 type: Manual | DoseDeduction | ContainerOpen | ContainerClose
 sourceEventId: Long?                    // AdministrationEvent.id when type=DoseDeduction
 reason: String?                         // user-provided note for manual
@@ -491,7 +512,7 @@ Section labels = `primary` color. No card wrap.
 - Topical → Tub · g · topical · 50 g
 
 **Stock**:
-1. **# of containers** — numeric, side-by-side w/ next.
+1. **# of containers** — numeric total owned, side-by-side w/ next. Persistence stores this as unopened count: if no opened container is added, `numberOfContainers = total`; if an opened container is added, `numberOfContainers = total - 1`.
 2. **Amount per container** + unit picker.
 3. **Concentration** (Optional) — numeric + unit picker inline. **Trailing "Helper" tonal button** (`secondary-container`, `calculate` icon) → §4.6 Reconstitution Helper. Required only when `Form == Injectable AND ContainerType != Ampoule` (pre-mixed).
 
@@ -513,8 +534,8 @@ Section labels = `primary` color. No card wrap.
 
 On tap "Save compound":
 - Validate all required fields. If any empty → focus first error field, scroll into view, show inline error.
-- Insert/update `CompoundSupply` row.
-- If "Mark as already opened" was used: create `OpenedContainer` linked to the new compound.
+- Insert/update `CompoundSupply` row. Persist `numberOfContainers` as unopened count.
+- If "Mark as already opened" was used: create `OpenedContainer` linked to the new compound and subtract one from the total-owned container input when storing `numberOfContainers`.
 - Returns to caller: Compounds list (default) or Onboarding step 2 progresses to step 3.
 
 #### 4.4.5 Behaviors
@@ -544,12 +565,13 @@ Inline at top of sheet content: title ("Add opened {container type}" / "Edit {co
 #### 4.5.4 Actions (Edit variant only)
 Bottom row: `Delete` (`error-container`, leading `delete` icon) + `Save` (filled `primary`).
 
-**Delete behavior**: removes the `OpenedContainer` (lost/discarded path). Does NOT decrement `numberOfContainers`. Compound reverts to "no opened container" state. Snackbar "Opened container removed" (no undo).
+**Delete behavior**: removes the `OpenedContainer` (lost/discarded path). Does not change `numberOfContainers`. Compound reverts to "no opened container" state. Snackbar "Opened container removed" (no undo).
 
 #### 4.5.5 Save behavior
-- Create: creates `OpenedContainer` row linked to compound. Updates compound's `currentOpened` ref.
+- Create for an existing compound: decrements `numberOfContainers`, creates `OpenedContainer` row linked to compound, and updates compound's `currentOpened` ref.
+- Create during New Compound flow: stages the opened-container fields until "Save compound"; final save stores `numberOfContainers` as total-owned input minus one.
 - Edit: updates fields on existing `OpenedContainer`.
-- If `remainingAmount == 0` after save: triggers natural depletion → decrement `numberOfContainers`, dialog "Open new container?" w/ "Open new" (default) / "Leave closed" actions.
+- If `remainingAmount == 0` after save: triggers natural depletion. Remove `OpenedContainer` without decrementing `numberOfContainers` again, then show dialog "Open new container?" w/ "Open new" (default) / "Leave closed" actions when unopened stock remains.
 
 ---
 
@@ -613,7 +635,7 @@ Section header "Result".
 Sticky bottom dock, filled `primary` button: leading `check` + "Save & set concentration".
 
 On tap:
-- Update `CompoundSupply.concentration` + `concentrationUnit`.
+- Update `CompoundSupply.concentration`.
 - Regenerate displayed volume on all Pending `ScheduledDose` for this compound (plannedDose unit untouched).
 - Return to caller (Create Compound → field filled, Edit Compound → field filled).
 
@@ -971,7 +993,7 @@ Section header "Dose components · N".
 
 Per-component card (`surface-container`):
 - Top row: `primary-container` avatar w/ `colorize` + compound name + protocol context "Sema weekly titration" (or "Manual entry" if no protocol).
-- 3 stat tiles (equal-grow, corner 12dp):
+- 3 stat tiles:
   - **Planned** (`surface-container-low`): dose value
   - **Actual** (`secondary-container`): dose value
   - **Volume** (`tertiary-container`): mL value
@@ -1229,6 +1251,12 @@ Generation is idempotent — uses `(protocolId, scheduledAt)` uniqueness; never 
 
 ### 5.3 Inventory deduction
 
+**Container opening operation**:
+- Requires `numberOfContainers > 0`.
+- Decrement `compound_supply.numberOfContainers` by 1.
+- Create `OpenedContainer` with `openedAt=now` and `remainingAmount=amountPerContainer`.
+- Insert `InventoryTransaction { type=ContainerOpen, delta=amountPerContainer }`.
+
 On AdministrationEvent save:
 - **Taken / Partial**: for each DoseComponent:
   - Compute deduction in compound's container unit. For injectables: `actualDose / compoundSupply.concentration` (in mL). For unit-based: `actualDose` (count).
@@ -1236,11 +1264,9 @@ On AdministrationEvent save:
   - Insert `InventoryTransaction { type=DoseDeduction, delta=-deduction, sourceEventId }`.
   - If `remainingAmount <= 0`:
     - Set `currentOpened = null`.
-    - Decrement `numberOfContainers` by 1.
     - Insert `InventoryTransaction { type=ContainerClose, delta=0 }` (audit).
-    - If `numberOfContainers > 0` → snackbar prompt: "Open new container?" → on confirm, create new OpenedContainer w/ `openedAt=now, remainingAmount=amountPerContainer`. Default action = auto-open after 5s timeout.
+    - If `numberOfContainers > 0` → snackbar prompt: "Open new container?" → on confirm, run the container opening operation. Default action = auto-open after 5s timeout.
 - **Skipped / Missed**: no deduction.
-- **Manual adjustment** (Adjust Inventory bottom sheet): insert `InventoryTransaction { type=Manual, delta, reason }`. If positive delta: add to `currentOpened.remainingAmount` (or open new container if none open and delta ≥ amountPerContainer). If negative: subtract from opened first, then unopened.
 
 ### 5.4 Protocol editing summary
 - Edit save regenerates only `Pending` ScheduledDoses (incl. snoozed in future).
@@ -1273,7 +1299,164 @@ On AdministrationEvent save:
 - DST handled by `kotlinx.datetime` — 8:00 PM dose remains 8:00 PM local across DST transitions.
 - On TZ change: future Pending ScheduledDoses re-anchored, alarms re-scheduled.
 
-### 5.8 Motion specs (M3 Expressive)
+### 5.8 Database implementation (Room)
+
+Room is the single source of truth. ViewModels observe domain models mapped from Room `Flow` queries. Room entities are persistence models only; domain models are separate and created through mappers.
+
+Room stores:
+- `Instant` as epoch millis UTC.
+- `LocalDate` as ISO-8601 text (`YYYY-MM-DD`).
+- `LocalTime` as ISO-8601 text (`HH:mm[:ss]`).
+- Enums as stable text names, never ordinals.
+- `Quantity` as flattened columns:
+  - `<field>Value: String` — exact decimal text, e.g. `"0.25"`, `"100"`, `"1.5"`.
+  - `<field>Unit: String` — stable `UnitCode` name, e.g. `MG`, `MCG`, `ML`, `IU`, `CAPSULE`.
+- `Concentration` as flattened columns:
+  - `<field>AmountValue`, `<field>AmountUnit`
+  - `<field>PerValue`, `<field>PerUnit`
+
+Room must not store object references directly. Fields like `CompoundSupply.currentOpened` and `AdministrationEvent.components` are relation projections, not columns on the parent table.
+
+#### 5.8.1 Tables
+
+| Table                   | Purpose                                                                |
+|-------------------------|------------------------------------------------------------------------|
+| `compound_supply`       | One compound/inventory item. Soft-deleted via `deletedAt`.             |
+| `opened_container`      | Current opened container for a compound. At most one row per compound. |
+| `protocol`              | Usage plan for one compound. Soft-deleted via `deletedAt`.             |
+| `scheduled_dose`        | Generated pending/history schedule rows.                               |
+| `administration_event`  | One logged administration event.                                       |
+| `dose_component`        | One compound inside an administration event.                           |
+| `injection_site`        | Preset or user-created injection site.                                 |
+| `inventory_transaction` | Append-only inventory audit ledger.                                    |
+| `settings`              | Singleton row with app/user settings.                                  |
+
+#### 5.8.2 Relations + foreign keys
+
+| Child                                    | Parent                    | Rule                                                   |
+|------------------------------------------|---------------------------|--------------------------------------------------------|
+| `opened_container.compoundSupplyId`      | `compound_supply.id`      | `CASCADE`; unique, enforces one opened container.      |
+| `protocol.compoundSupplyId`              | `compound_supply.id`      | `NO ACTION`; compounds are archived, not hard-deleted. |
+| `scheduled_dose.protocolId`              | `protocol.id`             | `CASCADE` only for hard reset/internal cleanup.        |
+| `scheduled_dose.compoundSupplyId`        | `compound_supply.id`      | `NO ACTION`.                                           |
+| `scheduled_dose.administrationEventId`   | `administration_event.id` | nullable; `SET NULL` if event is deleted.              |
+| `administration_event.injectionSiteId`   | `injection_site.id`       | nullable; `SET NULL` if site is deleted.               |
+| `dose_component.administrationEventId`   | `administration_event.id` | `CASCADE`.                                             |
+| `dose_component.scheduledDoseId`         | `scheduled_dose.id`       | nullable; `SET NULL` if pending doses are regenerated. |
+| `dose_component.protocolId`              | `protocol.id`             | nullable; `NO ACTION`.                                 |
+| `dose_component.compoundSupplyId`        | `compound_supply.id`      | `NO ACTION`.                                           |
+| `inventory_transaction.compoundSupplyId` | `compound_supply.id`      | `NO ACTION`.                                           |
+| `inventory_transaction.sourceEventId`    | `administration_event.id` | nullable; `SET NULL` if event is deleted.              |
+
+Hard-delete is only used by Reset all data or controlled cleanup. Normal user delete/archive uses `deletedAt`.
+
+#### 5.8.3 Unique constraints
+
+- `opened_container.compoundSupplyId` is unique.
+- `scheduled_dose(protocolId, scheduledAt)` is unique for idempotent generation.
+- `dose_component.scheduledDoseId` is unique when non-null, so one scheduled dose cannot be logged twice.
+- `settings.id` is always `1`.
+
+#### 5.8.4 Indexes
+
+Required indexes:
+
+- `compound_supply(deletedAt)`
+- `compound_supply(category, form, deletedAt)`
+- `compound_supply(name)`
+- `compound_supply(batchExpiryDate)`
+- `protocol(compoundSupplyId, status, deletedAt)`
+- `protocol(status, startDate, endDate)`
+- `scheduled_dose(protocolId, scheduledAt)`
+- `scheduled_dose(status, scheduledAt)`
+- `scheduled_dose(compoundSupplyId, status, scheduledAt)`
+- `administration_event(loggedAt)`
+- `administration_event(status, loggedAt)`
+- `administration_event(injectionSiteId, loggedAt)`
+- `dose_component(administrationEventId)`
+- `dose_component(compoundSupplyId)`
+- `dose_component(protocolId)`
+- `dose_component(scheduledDoseId)`
+- `injection_site(bodyRegion, side, isAvailable, avoidUntil)`
+- `inventory_transaction(compoundSupplyId, at)`
+- `inventory_transaction(sourceEventId)`
+
+#### 5.8.5 Transaction boundaries
+
+These operations must run inside one Room transaction:
+
+- Create compound with already-opened container.
+- Open container:
+  - decrement `compound_supply.numberOfContainers`
+  - insert `opened_container`
+  - insert `InventoryTransaction(type=ContainerOpen)`
+- Log administration event:
+  - insert `administration_event`
+  - insert all `dose_component` rows
+  - update linked `scheduled_dose` rows
+  - deduct opened inventory
+  - insert inventory transactions
+  - update injection site `lastUsedAt` / `avoidUntil`
+- Edit administration event:
+  - compute inventory delta
+  - update event/components
+  - update scheduled dose status
+  - insert reversal/adjustment inventory transactions
+- Delete administration event:
+  - reverse inventory effects
+  - set linked scheduled doses back to `Pending`
+  - delete event/components
+- Create/edit protocol:
+  - insert/update protocol
+  - delete/regenerate only future `Pending` scheduled doses
+- Snooze dose:
+  - update `scheduledAt`
+  - reschedule reminder after transaction commit
+- Import JSON.
+- Reset all data.
+- Time zone change re-anchoring of future pending doses.
+
+Alarm scheduling happens only after the DB transaction succeeds.
+
+#### 5.8.6 Migrations
+
+Database starts at version `1`.
+
+Rules:
+- `exportSchema = true`.
+- Schema JSON is committed to version control.
+- No destructive migrations.
+- Use Room auto-migrations for simple additive changes.
+- Use manual migrations for renames, deletes, unit semantics changes, enum changes, or data backfills.
+- Every migration from each previous version to latest must have a Room migration test.
+- Export file `schemaVersion` is separate from Room DB version.
+
+#### 5.8.7 Import/export conflict behavior
+
+Export:
+- Export every table, including soft-deleted rows.
+- Include `schemaVersion`, app version, exportedAt, and timezone.
+- IDs are compacted per table in the JSON file.
+- All foreign keys are rewritten to compact IDs.
+- Rows are exported in deterministic order by table, then ID.
+
+Import:
+- Validate the entire file before writing anything.
+- If `schemaVersion` is newer than supported, reject import.
+- If required fields, enum values, units, or foreign keys are invalid, reject import with a preview error list.
+- If database is empty, imported IDs may be preserved.
+- If database has data, import appends as a separate dataset:
+  - assign fresh local IDs
+  - rewrite every FK through oldId -> newId maps
+  - allow duplicate compound/protocol names
+  - replace settings only after explicit confirmation
+- Import is all-or-nothing in one transaction.
+- After successful import:
+  - run scheduled-dose reconciliation
+  - run alarm reconciliation
+  - refresh inventory/expiry warning state
+
+### 5.9 Motion specs (M3 Expressive)
 
 | Use                          | Spec                                                                                                |
 |------------------------------|-----------------------------------------------------------------------------------------------------|
@@ -1286,9 +1469,8 @@ On AdministrationEvent save:
 | Day chip select              | shape morph 999r → 20r + color cross-fade 200ms                                                     |
 | Theme change                 | `defaultEffectsSpec()` 300ms cross-fade                                                             |
 
-### 5.9 Accessibility
+### 5.10 Accessibility
 - Status communicated through both icon + color (never color alone).
-- Reduce motion respected: `Settings.System.TRANSITION_ANIMATION_SCALE` honored, falls back to instant transitions. (should be native ?)
 - Body map dots: each has content description "{site name}, {status}".
 
 ---

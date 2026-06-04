@@ -30,6 +30,61 @@ Android 16+ application
 - Beautiful UI non-negotiable: animations, M3 Expressive motion, dynamic color, shaders stay. Performance = doing them correctly (hardware-accelerated, hoisted state, stable composables) not removing them.
 - `remember` for expensive calcs. Lazy layout keys. `derivedStateOf` to limit recomposition. Defer reads. Avoid backwards writes. Flatten hierarchy.
 
+#### 2.3.1 Compose stability rules
+- All domain models passed to composables must be `@Stable` or `data class` with primitive fields only.
+- `@Immutable` on read-only value types: `Quantity`, `Concentration`, `Decimal`.
+- Hoist state. Pass lambdas, never callbacks-of-callbacks.
+- `derivedStateOf` for filtered/computed list slices.
+- `remember(key) { ... }` for any composable-local expensive calc.
+- Use `SnapshotStateList` instead of `MutableState<List<T>>`.
+- `snapshotFlow` only for actual snapshot reads, not general state.
+- Enable Compose Compiler metrics in CI; track `skippable` + `restartable` rates per release. Baseline set after first profile pass, regress-only.
+
+#### 2.3.2 Performance SLOs
+
+| Scenario                                   | Target                       |
+|--------------------------------------------|------------------------------|
+| Dashboard cold load (no doses today)       | <300ms after Activity ready  |
+| Dashboard cold load (10 pending doses)     | <400ms                       |
+| Save dose (Confirm tap → snackbar visible) | <100ms                       |
+| Compound list scroll                       | 60fps sustained at 200 items |
+| Body map first frame                       | <200ms                       |
+
+SLOs are targets, not gates pre-profile. Measure after first Baseline Profile pass before locking.
+
+#### 2.3.3 Baseline Profile hot paths
+Profile these flows:
+- App start → Dashboard scroll
+- Dashboard → Compound Detail
+- Dashboard → Take Dose sheet open + save
+- Dashboard → FAB menu → Log dose
+
+#### 2.3.4 App Startup initializers — eager vs deferred
+Eager init fights the <400ms cold-start SLO. Split:
+
+**Eager** (must complete before first frame):
+1. `KoinInitializer` — DI graph
+2. `ThemeInitializer` — read Settings via DataStore for theme + dynamic-color; minimal payload
+
+**Deferred** (lazy reference / first-use):
+3. `RoomDatabaseInitializer` — declare reference only; real connection on first DAO call
+4. `WorkManagerInitializer` — custom config registration; periodic workers enqueued post-first-frame on `Lifecycle.STARTED`
+5. `FontPreloadInitializer` — measure cost before deciding eager vs async. If Google Sans Flex + Material Symbols Rounded combined >40ms on mid-tier device, load async with Compose `FontFamily` fallback for first frame, swap when ready
+
+#### 2.3.5 Storage / SQLite
+- Room journal mode = `WRITE_AHEAD_LOGGING`. Enables concurrent reads during background-worker writes.
+- `PRAGMA foreign_keys=ON` (Room default).
+
+#### 2.3.6 Edge-to-edge
+- `enableEdgeToEdge()` in `Activity.onCreate`.
+- All padding derived from `WindowInsets.statusBars`, `WindowInsets.navigationBars`, `WindowInsets.ime`. No hardcoded inset dimensions anywhere.
+
+#### 2.3.7 RenderEffect blur
+Heat-map (§4.12.4) uses `RenderEffect.createBlurEffect()` via `Modifier.graphicsLayer { renderEffect = ... }`. No CPU-blur fallback needed — app is Android 16+.
+
+#### 2.3.8 Background contention
+`GenerateScheduledDosesWorker` may run while user is in the Take Dose sheet. Serialize with `ExistingWorkPolicy.KEEP` + unique work name. DB transactions already isolated per §5.8.5; this prevents duplicate enqueue.
+
 ### 2.4 Technology
 - Kotlin + Jetpack Compose + Material 3 Expressive
 - MVI architecture, Koin DI
@@ -37,6 +92,8 @@ Android 16+ application
 - **Material Symbols Rounded** for icons (load font via App Startup; render via text glyphs)
 - Room database, WorkManager (background), AlarmManager (exact reminders)
 - Navigation 3, adaptive: bottom nav (compact), side rail (medium/foldables unfolded). Libs: `androidx.compose.material3.adaptive.navigation3`, `androidx.compose.material3.adaptive.layout`.
+- Glance for home-screen widgets (§4.16): `androidx.glance:glance-appwidget`, `androidx.glance:glance-material3`.
+- Static app shortcuts via `<shortcuts>` XML (§4.17). No `androidx.sharetarget` needed at v1.
 - only support android 16 and above, to be able to use all the new features
 ---
 
@@ -46,9 +103,35 @@ Android 16+ application
 
 Dose, volume, inventory, and concentration values are never represented as bare numbers in domain code.
 
+#### 3.0.1 `Decimal` type
+
+`Decimal` is a Kotlin `@JvmInline value class` wrapping `java.math.BigDecimal`.
+
+```kotlin
+@JvmInline
+value class Decimal(val raw: BigDecimal) : Comparable<Decimal> {
+    operator fun plus(o: Decimal): Decimal = Decimal(raw.add(o.raw))
+    operator fun minus(o: Decimal): Decimal = Decimal(raw.subtract(o.raw))
+    operator fun times(o: Decimal): Decimal = Decimal(raw.multiply(o.raw))
+    operator fun div(o: Decimal): Decimal = Decimal(raw.divide(o.raw, MATH))
+    override operator fun compareTo(o: Decimal): Int = raw.compareTo(o.raw)
+    fun toPlainString(): String = raw.stripTrailingZeros().toPlainString()
+    companion object {
+        val MATH: MathContext = MathContext.DECIMAL64   // HALF_EVEN, 16 digits
+        fun parse(s: String): Decimal = Decimal(BigDecimal(s))
+    }
+}
+```
+
+- Division uses `MathContext.DECIMAL64` (HALF_EVEN, 16 digits). Avoids `ArithmeticException` on non-terminating quotients (e.g. `1 / 3`).
+- Persisted form is **canonical plain string**: `stripTrailingZeros().toPlainString()`. Ensures `"0.25"` ≠ `"0.250"` storage-equality collisions never happen.
+- Never use `Double` or `Float` for dose math.
+
+#### 3.0.2 `Quantity` and `Concentration`
+
 ```
 Quantity:
-value: Decimal                           // exact decimal, not Double
+value: Decimal
 unit: UnitCode                           // mcg | mg | g | IU | mL | capsule | tablet | scoop | drop
 ```
 
@@ -58,14 +141,38 @@ amount: Quantity                         // e.g. 2.5 mg
 per: Quantity                            // e.g. 1 mL or 1 tablet
 ```
 
-**Rules**:
-- Unit conversion is only allowed inside compatible families:
-  - Mass: mcg, mg, g
-  - Volume: mL
-  - Count: capsule, tablet, scoop, drop
-  - IU: no generic conversion unless the compound defines one
+#### 3.0.3 Unit families
+
+| Family | Units                        | Convertible within family           |
+|--------|------------------------------|-------------------------------------|
+| Mass   | mcg, mg, g                   | yes (1 g = 1000 mg = 1_000_000 mcg) |
+| Volume | mL                           | n/a (single unit)                   |
+| Count  | capsule, tablet, scoop, drop | no (each is its own atom)           |
+| IU     | IU                           | only if compound defines one        |
+
 - Insulin units are display-only, derived from mL and syringe scale.
 - Stored decimal values are not rounded for persistence. UI may round for display.
+
+#### 3.0.4 Typed arithmetic
+
+```kotlin
+// Dose / Concentration → Volume (or count, when per-unit is count form)
+operator fun Quantity.div(c: Concentration): Quantity
+  // Requires this.unit family == c.amount.unit family.
+  // Result value = this.value / c.amount.value (converted to compatible base units).
+  // Result unit  = c.per.unit.
+  // Throws IllegalArgumentException on family mismatch.
+
+// Same-unit arithmetic
+operator fun Quantity.plus(o: Quantity): Quantity   // requires same unit
+operator fun Quantity.minus(o: Quantity): Quantity  // requires same unit
+operator fun Quantity.times(scalar: Decimal): Quantity
+```
+
+Worked examples:
+- `0.25 mg / (2.5 mg / 1 mL)` → `0.10 mL`
+- `1 IU / (100 IU / 1 mL)` → `0.01 mL`
+- `1 capsule / (50 mg / 1 capsule)` → not allowed; capsules are the atomic unit. Use `actualDose = 1 capsule` directly.
 
 ### 3.1 CompoundSupply
 ```
@@ -160,7 +267,20 @@ daysOn: Int                           // ≥ 1
 daysOff: Int                          // ≥ 0; e.g. 5/2 or 56/28 cycles
 ```
 
+**In-break derivation** (computed, not stored):
+```
+daysSinceStart = today - protocol.startDate
+cyclePos       = daysSinceStart mod (daysOn + daysOff)
+inBreak        = cyclePos >= daysOn
+```
+When `inBreak == true`, protocol status reads as "In break" in UI but stored `status` remains `Active`. `ScheduledDose` generation skips off-days (see §5.2).
+
 Equivalent-dose display (`0.10 mL · 10 insulin units`) derived at display time from `compoundSupply.concentration`. Not stored.
+
+**Protocol additions for site cooldown** (see §5.3 / §5.8.5):
+```
+siteCooldownDays: Int?                // null = global default (5d SC, 7d IM)
+```
 
 ### 3.3 ScheduledDose
 ```
@@ -184,7 +304,7 @@ createdAt: Instant
 id: Long
 loggedAt: Instant                       // wall-clock when logged
 route: Subcutaneous | Intramuscular | Oral | Topical
-status: Taken | Skipped | Partial | Missed
+status: Taken | Skipped | Partial      // Missed is a ScheduledDose-only state; no event row is created when a dose is missed
 injectionSiteId: Long?                  // required when route in {SC, IM}
 notes: String?
 components: List<DoseComponent>         // ≥ 1
@@ -201,11 +321,19 @@ protocolId: Long?                       // null for manual off-protocol logs
 compoundSupplyId: Long
 plannedDose: Quantity?                  // snapshot from protocol at log time; null if manual
 actualDose: Quantity
+concentrationAtLog: Concentration?      // snapshot from compound.concentration at log time; nullable for unit-based forms or manual w/o concentration
 notes: String?
 inventoryDeducted: Quantity             // computed at save, stored for audit
 ```
 
-Inventory-deducted quantity = `actualDose / compoundSupply.concentration` for concentration-based forms; = `actualDose` for unit-based forms (capsule/tablet count).
+**Inventory-deducted quantity**:
+```
+deduction.value = actualDose.value / concentrationAtLog.amount.value
+deduction.unit  = concentrationAtLog.per.unit
+```
+- Unit-family check: `actualDose.unit` family must match `concentrationAtLog.amount.unit` family. Conversion within family applied if needed (e.g. mg → mcg).
+- For unit-based forms with no concentration (`concentrationAtLog == null`): `deduction = actualDose` directly (count form, e.g. 1 capsule).
+- `concentrationAtLog` is captured at log time so edits + reversals stay correct when the user later re-reconstitutes the compound (changing `compound.concentration`).
 
 ### 3.6 InjectionSite
 ```
@@ -231,6 +359,26 @@ reason: String?                         // user-provided note for manual
 at: Instant
 ```
 
+### 3.8 Settings
+Singleton row, `id = 1`.
+```
+Settings:
+id: Long                                 // always 1
+theme: System | Light | Dark             // default System
+dynamicColor: Boolean                    // default true
+notificationStyle: Silent | Normal | Persistent   // default Normal
+timeZoneOverride: String?                // IANA name; null = use device zone
+missedDoseWindowMinutes: Int             // 5..60, default 60
+onboardingCompleted: Boolean             // default false
+exactAlarmDegraded: Boolean              // cached result of AlarmManager.canScheduleExactAlarms(); refreshed on app start + permission-change broadcast
+defaultSiteCooldownDaysSC: Int           // default 5
+defaultSiteCooldownDaysIM: Int           // default 7
+createdAt: Instant
+updatedAt: Instant
+```
+
+Used by §4.13 Settings screen, §5.1 reminder fallback path, §5.3 site cooldown source order, §5.7 timezone resolution.
+
 ---
 
 ## 4. Features
@@ -252,6 +400,27 @@ Detail screens (`Compound Detail`, `Protocol Detail`, `Edit dose`, `Administrati
 - Leading icon: contextual (back-arrow for stacked screens, nothing or something relevant for top-level destinations, close × for full-screen forms/sheets).
 - Optional supporting text below headline (e.g. context: "Sema weekly titration").
 
+#### 4.0.1 Search overlay (reusable)
+
+Full-screen modal. Used by §4.2.1 Compounds, §4.7.1 Protocols, §4.12.1 Sites.
+
+- App bar: leading `arrow_back` (closes overlay) · M3 `SearchBar` with autofocused text field · trailing `close` clears text.
+- Result list below: same row layout as the host list (compound row / protocol row / site row), but with matched-substring highlighted via `SpanStyle(background = primaryContainer)`.
+- Empty result state: centered `search_off` icon + "No matches" + supporting text.
+- Search is case-insensitive substring on `name` field; FTS not required at v1 scale.
+
+#### 4.0.2 Picker bottom sheet (reusable)
+
+Reusable pattern for **Compound picker** (§4.9.3 Create Protocol, §4.10.3 grouped event add-component, §4.13 inventory adjust), **Route picker** (§4.10.3), **Body region picker** (§4.9.3).
+
+- Modal bottom sheet. Drag handle. Scrim.
+- Header row: title (e.g. "Pick compound") + trailing `close`.
+- M3 `SearchBar` (only when item count >5).
+- List rows: avatar/icon + name + supporting meta + `chevron_right`. Selection on tap closes sheet + returns selected item to caller.
+- Empty state: "Nothing to pick" + CTA to navigate to creation flow (e.g. "Add compound" → §4.4).
+
+Site picker (§4.12.7) is a full-screen flow, not this pattern.
+
 ### 4.1 Dashboard
 
 **Primary goal**: Interact with dose card, log next dose w/ minimum friction.
@@ -260,8 +429,12 @@ Detail screens (`Compound Detail`, `Protocol Detail`, `Edit dose`, `Administrati
 1. **Default** (`01 · Dashboard`) — has Pending doses today.
 2. **Empty** (`01d · Dashboard (empty)`) — no doses today. Big illustrated empty hero (blob composition + center `add` icon), title "No doses today", subtitle "Tap to log your first dose or create a protocol.", primary CTA "Log dose" + tonal "Protocol". FAB hidden.
 3. **All done** (`01e · Dashboard (all done)`) — has active protocols but zero Pending today (all Taken/Skipped). Hero `primary-container` card: round `primary` avatar w/ `done_all` icon + "All done today" headline-small + subtitle "N doses logged · 100% adherence". Keep Inventory + Recent activity sections below.
-4. **Grouped administration suggestion** (`01b · Dashboard (grouped administration)`) — when ≥2 injectable Pending doses share same route + same day (with `dosageTimes` empty) OR same route within 30-min window (when `dosageTimes` set). Hero card replaces individual dose cards w/ grouped suggestion card (see §4.10.3).
-5. **Overflow menu open** (`01c · Dashboard (overflow menu open)`) — anchored to tapped `more_vert` button on dose row, only on Grouped administration card. Items: Take dose · Snooze 1 hour · Skip.
+4. **Grouped administration suggestion** (`01b · Dashboard (grouped administration)`) — when ≥2 injectable Pending doses share same route within these grouping windows:
+   - All components have `dosageTimes` set → 30-min window.
+   - All components have `dosageTimes` empty → same calendar day.
+   - **Mixed** (some timed, some not) → fall back to same calendar day (the looser window wins).
+   Hero card replaces individual dose cards w/ grouped suggestion card (see §4.10.3).
+5. **Overflow menu open** (`01c · Dashboard (overflow menu open)`) — anchored to tapped `more_vert` button on dose row, only on Grouped administration card. Items: Take dose · Snooze (submenu, see §4.1.2) · Skip.
 
 #### 4.1.1 Day chip strip
 
@@ -280,6 +453,8 @@ Horizontal scrollable row at top of content. ±N days from today (default N = 3,
 - Long-press chip → open Material Date Picker for arbitrary date.
 - Swipe horizontally to navigate weeks/months.
 
+**Lazy load**: render initial ±3 days. On horizontal scroll edge, append 7 chips on the leading edge and recycle 7 chips off the trailing edge. Window stays constant at ~14 chips in memory regardless of scroll distance.
+
 #### 4.1.2 Dose cards
 
 One per Pending `ScheduledDose` matching selected date. Sorted by `scheduledAt` ascending; doses w/ `hasTimeOfDay == false` sorted last.
@@ -295,8 +470,14 @@ One per Pending `ScheduledDose` matching selected date. Sorted by `scheduledAt` 
   - Without time: `0.25 mg · 0.10 mL`
 - Action row: 3 buttons inline.
   - **Take** (filled button) → opens §4.10.1 Take Dose bottom sheet.
-  - **Snooze** (outlined button) → opens snooze submenu (chips: 1h / 3h / 1d when timed; just 1d when no time).
+  - **Snooze** (outlined button) → opens snooze submenu. **Standard submenu**: 1h / 3h / 1d when `hasTimeOfDay == true`; only 1d when `hasTimeOfDay == false`. Same submenu used by overflow menu in §4.1 state 5.
   - **Skip** (text button) → confirmation snackbar "Skip dose? [Skip] [Cancel]" — on confirm sets `ScheduledDose.status = Skipped`, no inventory deduction.
+
+**Swipe gestures** (preferred for one-handed daily use):
+- Swipe right (LTR) → equivalent to Take button: opens §4.10.1 Take Dose sheet prefilled.
+- Swipe left → equivalent to Skip: sets `Skipped` with undo snackbar (5s).
+- Drag distance threshold: 40% of card width; haptic on threshold cross.
+- Disabled when card is the grouped suggestion card (must use overflow menu for per-component actions).
 
 **First dose card** (the absolute next one due) uses `primary-container` fill instead of `surface-container` — hero visual emphasis.
 
@@ -321,11 +502,10 @@ Warning triggers (per spec §5.3 inventory math):
 
 #### 4.1.5 Recent activity
 
-Below inventory section. Last 5 `AdministrationEvent`. Each row: status dot (avatar circle, color by status), compound name, supporting text (e.g."Yesterday 8:14 PM · Taken"). Status colors:
+Below inventory section. Last 5 `AdministrationEvent` rows (Missed is a `ScheduledDose`-only state per §3.4 and never appears here). Each row: status dot (avatar circle, color by status), compound name, supporting text (e.g."Yesterday 8:14 PM · Taken"). Status colors:
 - Taken: `secondary-container` w/ `check` icon
 - Partial: `tertiary-container` w/ `schedule` icon
 - Skipped: `error-container` w/ `close` icon
-- Missed: `error-container` w/ `error` icon
 
 Tap row → §4.11 Administration Event detail.
 
@@ -335,7 +515,11 @@ Bottom right.
 
 `add` icon.
 
-**Tap behavior**: opens §4.1.7 FAB menu.
+**Tap behavior**:
+- If at least one Pending dose exists today → **direct** to §4.10.1 Take Dose sheet for the next due dose. Single tap = one of the most common flows lands instantly.
+- If no Pending dose today → opens §4.1.7 FAB menu.
+
+**Long-press**: always opens §4.1.7 FAB menu, regardless of Pending state. Lets power users get manual log / create flows even when next dose exists.
 
 #### 4.1.7 FAB menu (`24 · FAB menu (open)`)
 
@@ -354,7 +538,7 @@ Tap outside scrim or tap FAB (which morphs to `close` icon) → dismiss menu.
 **Primary goal**: find + select a compound.
 
 #### 4.2.1 App bar
-Leading `search` icon → opens full-screen Search overlay (filter list as user types). Title "Compounds".
+Leading `search` icon → opens **Search overlay** (see §4.0.1). Title "Compounds".
 
 #### 4.2.2 Filter chip row (horizontally scrollable)
 
@@ -420,8 +604,8 @@ Extended FAB "Add" bottom-right, opens §4.4 Create Compound.
 
 #### 4.3.2 Stat strip (top of content, horizontal row)
 
-1. **Doses left**: `primary-container`: emphasized number + label "Doses left". Computed = `floor((openedRemaining + unopenedTotalAmount) / dosesPerActualInjection)` aggregated over active protocols using this compound.
-2. **Days left** `secondary-container`: emphasized number + label "Days left". Computed = `dosesLeft / dosesPerDayAcrossActiveProtocols`.
+1. **Doses left**: `primary-container`: emphasized number + label "Doses left". Computed = `floor((openedRemaining + unopenedTotalAmount) / dosesPerActualInjection)`. `dosesPerActualInjection` = the `plannedDose` of the most-frequent active protocol using this compound (frequency = doses per week derived from `schedule`). Ties resolved by max `plannedDose`. If no active protocol uses this compound, tile renders `—`.
+2. **Days left** `secondary-container`: emphasized number + label "Days left". Computed = `dosesLeft / dosesPerDayAcrossActiveProtocols` where the denominator sums per-day frequencies of all active protocols using this compound.
 3. **Batch expiry** `tertiary-container`: emphasized short date "Jul 14" + label "Batch expiry" or "Container expiry" whichever has shorter date. **Hidden entirely if `batchExpiryDate` null and no opened expiry**.
 
 If only 2 tiles relevant, render 2 across full width. If only 1, render full-width.
@@ -534,9 +718,22 @@ Section labels = `primary` color. No card wrap.
 
 On tap "Save compound":
 - Validate all required fields. If any empty → focus first error field, scroll into view, show inline error.
-- Insert/update `CompoundSupply` row. Persist `numberOfContainers` as unopened count.
+- Insert/update `CompoundSupply` row. Persist `numberOfContainers` as **unopened count**.
 - If "Mark as already opened" was used: create `OpenedContainer` linked to the new compound and subtract one from the total-owned container input when storing `numberOfContainers`.
-- Returns to caller: Compounds list (default) or Onboarding step 2 progresses to step 3.
+
+**Worked example** (prevents off-by-one bugs):
+> User enters Total owned = `3` and adds an opened container with remaining = `5 mg`. Stored result:
+> - `compound_supply.numberOfContainers = 2` (unopened)
+> - `opened_container.remainingAmount = 5 mg` (the third container, opened)
+> - Total physical containers in user's possession = `numberOfContainers + (currentOpened != null ? 1 : 0)` = `3`.
+
+**Edit case — `amountPerContainer` shrunk below `OpenedContainer.remainingAmount`**:
+On Save, if user reduced `amountPerContainer` below the current opened container's remaining, show dialog:
+- Title: "Container size smaller than remaining"
+- Body: "Opened container remaining = {old remaining} {unit}, new container size = {new amount} {unit}."
+- Actions: **Keep remaining** (no clamp; remaining stays > new amount, allowed) · **Cap to new size** (clamps remaining to new amount, logs an `InventoryTransaction { type = Manual, delta = -(old - new), reason = "Compound size reduced" }`) · **Cancel** (revert form to previous value).
+
+Returns to caller: Compounds list (default) or Onboarding step 2 progresses to step 3.
 
 #### 4.4.5 Behaviors
 - Auto-save draft on backgrounding (resume restores form state).
@@ -578,6 +775,8 @@ Bottom row: `Delete` (`error-container`, leading `delete` icon) + `Save` (filled
 ### 4.6 Reconstitution Helper (`19 · Reconstitution Helper`)
 
 **Primary goal**: compute correct dose volume w/ confidence.
+
+**Progressive disclosure**: by default open with the syringe hero (§4.6.2), equivalence chips (§4.6.3), and result tiles (§4.6.6) visible. Mix (§4.6.4) and Dose ladder (§4.6.5) sections are collapsed behind a single "Show calculation" expansion row (`expand_more` → `expand_less`). Most reconstitution events use the saved concentration; advanced users get full detail on demand.
 
 #### 4.6.1 App bar
 Leading `close`, title "Reconstitute", supporting "{compound name} · {container amount}{unit} vial".
@@ -649,19 +848,19 @@ Syringe fill width transitions on dose change: Material spring `MotionScheme.exp
 **Primary goal**: review active protocols + create/edit.
 
 #### 4.7.1 App bar
-Leading `search` icon. Title "Protocols".
+Leading `search` icon → opens **Search overlay** (§4.0.1). Title "Protocols".
 
 #### 4.7.2 Filter chips
 
 Chips: Active / Paused / Completed / Archived. Single select.
 
 **Tab definitions**:
-- **Active**: `status == Active && deletedAt == null`. Includes in-break protocols.
+- **Active**: `status == Active && deletedAt == null`. Includes in-break protocols (in-break derived per §3.2; status stays Active).
 - **Paused**: `status == Paused && deletedAt == null`.
 - **Completed**: `status == Completed && deletedAt == null`.
-- **Archived**: `status == Archived && deletedAt != null`.
+- **Archived**: `deletedAt != null` (any status). `Archived` is not a `Protocol.status` enum value — it is derived from soft-delete.
 
-Archived protocols (`deletedAt != null`) never appear (visible when Archive chip activated).
+Archived protocols never appear in Active/Paused/Completed tabs (visible only when Archived chip activated).
 
 #### 4.7.3 Protocol card
 
@@ -782,7 +981,7 @@ Same as §4.3.5 (truncated 2 lines + Show more).
 #### 4.9.3 Sections
 
 **Compound** (required):
-- Card `primary-container`, rounded-square avatar + compound name + meta (`{category} · {amountPerContainer}{unit} {containerType} · {concentration}`). Trailing `expand_more` → opens compound picker bottom sheet.
+- Card `primary-container`, rounded-square avatar + compound name + meta (`{category} · {amountPerContainer}{unit} {containerType} · {concentration}`). Trailing `expand_more` → opens **Compound picker** (§4.0.2 reusable pattern).
 
 **Route** (required):
 - Kit `Segmented button` (`Segments=4`). 4 segments: SC / IM / Oral / Topical. Default = compound's typical route or protocol if different from compound.
@@ -814,7 +1013,7 @@ Same as §4.3.5 (truncated 2 lines + Show more).
 - When switch ON AND `dosageTimes` empty: reveal **Reminder bucket selector** (chips Morning 9am / Afternoon 1pm / Evening 7pm) — default Morning. Alarm scheduled at fixed daily time.
 
 **Site restriction** (Optional):
-- Card `surface-container`, leading `person_pin_circle`, value "Abdomen only" or "No restriction", trailing `expand_more` → picker.
+- Card `surface-container`, leading `person_pin_circle`, value "Abdomen only" or "No restriction", trailing `expand_more` → **Body region picker** (§4.0.2 reusable pattern).
 
 **Notes** (Optional): multi-line text.
 
@@ -928,9 +1127,9 @@ Bottom sheet, modal. Scrim. Drag handle.
 **Header**: `tertiary` rounded-square avatar w/ `vaccines` icon + title "Log grouped injection" + supporting "N compounds · same route + site + time".
 
 **Shared context pills** (row of editable pills, `tertiary-container`):
-- Route pill (e.g. "SC" + `science` icon) — tap opens route picker
-- Site pill (e.g. "Abdomen R" + `person_pin_circle`) — tap opens site picker
-- Time pill (e.g. "Now · 8:00 PM" + `schedule`) — tap opens time picker
+- Route pill (e.g. "SC" + `science` icon) — tap opens **Route picker** (§4.0.2 reusable pattern)
+- Site pill (e.g. "Abdomen R" + `person_pin_circle`) — tap opens **Site picker** (§4.12.7 full-screen)
+- Time pill (e.g. "Now · 8:00 PM" + `schedule`) — tap opens Material Time Picker
 
 **Component rows** (one per included DoseComponent):
 - `surface-container` card.
@@ -985,7 +1184,7 @@ Stripped-down form:
 Leading `arrow_back`, title "Dose detail", supporting timestamp (e.g. "Tue May 26 · 8:14 PM").
 
 #### 4.11.2 Status hero card
-Full-width, `primary-container`. `primary` round avatar w/ status icon (check / schedule / close). Title = status (Taken / Partial / Skipped / Missed). Supporting = "Logged Tue May 26 · 8:14 PM".
+Full-width, `primary-container`. `primary` round avatar w/ status icon (check / schedule / close). Title = status (Taken / Partial / Skipped). Supporting = "Logged Tue May 26 · 8:14 PM". Missed doses have no `AdministrationEvent` row and cannot reach this screen (per §3.4).
 
 #### 4.11.3 Dose components
 
@@ -1021,7 +1220,7 @@ For Skipped: "No inventory deducted" message.
 **Primary goal**: pick next injection site w/ rotation confidence.
 
 #### 4.12.1 App bar
-Leading `history` icon = decorative only (no action). Title "Sites". Trailing `search`.
+Leading `history` icon = decorative only (no action). Title "Sites". Trailing `search` → opens **Search overlay** (§4.0.1).
 
 #### 4.12.2 Route filter chips (top of content)
 Kit filter chips: All routes / SC / IM. Filters all subsequent stats + body map + carousel by route.
@@ -1189,6 +1388,105 @@ Layout: similar to Onboarding step 1 (blob illustration + headline) but:
 
 ---
 
+### 4.16 Home-screen widget
+
+**Primary goal**: log next pending dose with zero in-app navigation.
+
+Built with **Glance** (AndroidX `androidx.glance:glance-appwidget`). Renders Compose-style UI as RemoteViews.
+
+#### 4.16.1 Sizes
+
+| Size class       | Cells (w×h) | Layout                                           |
+|------------------|-------------|--------------------------------------------------|
+| `small`          | 2×2         | Compact: compound name + dose + Take button      |
+| `medium`         | 4×2         | Compact + ETA badge + Snooze button              |
+| `large`          | 4×3         | Up to 3 next pending doses (today), each w/ Take |
+
+Use `GlanceAppWidget.sizeMode = SizeMode.Responsive` so the system picks the right layout from a `setOf` of size-keyed composables.
+
+#### 4.16.2 Content states
+
+1. **Next dose pending today**:
+   - Compound name (`titleMedium`).
+   - Dose detail row (`bodyMedium`): `0.25 mg · 0.10 mL · 8:00 PM`.
+   - ETA pill (right): "in 2h 15m" / "Overdue 5m" / "Today" (no time).
+   - Primary action button: **Take** (filled `primary`, `check` icon).
+   - Secondary action (`medium` + `large` only): **Snooze 1h** (outlined).
+
+2. **All done today** (no Pending but doses logged today):
+   - Centered: `done_all` icon + "All done today" + "N doses · 100%".
+
+3. **No doses today** (empty):
+   - Centered: `event_available` icon + "No doses today" + tap-target → opens Dashboard.
+
+4. **No notification permission** OR **exact-alarm degraded** (per §5.1):
+   - Show small `warning` icon top-right corner of widget, tooltip = "Reminders may be delayed". Tap opens app to §4.15 / Settings.
+
+#### 4.16.3 Theming
+
+- Dynamic color via `GlanceTheme { ... }` — picks up Material You wallpaper colors when Android Material You is enabled, falls back to app brand colors otherwise.
+- Surface = `surfaceContainer`. Take button = `primary`.
+- Respects user dark/light theme set in §4.13.2.
+
+#### 4.16.4 Interactions
+
+- **Tap Take button** → fires `ActionRunCallback` that:
+  1. Resolves the next pending `ScheduledDose` at click time (do not trust the cached one in the widget — may be stale).
+  2. Opens an `Activity` deep-linked to §4.10.1 Take Dose sheet, prefilled.
+  3. After save, broadcast `STAX_WIDGET_REFRESH` → widget re-fetches.
+- **Tap Snooze 1h** → fires `ActionRunCallback` that updates `scheduledAt += 1h`, reschedules alarm (§5.1), refreshes widget. No activity launch.
+- **Tap anywhere else on widget body** → opens Dashboard.
+- **Tap warning icon** (state 4) → opens app at §4.15 or Settings Exact alarms row.
+
+#### 4.16.5 Refresh
+
+- Glance state is observed via `updateAppWidgetState`. Triggered by:
+  - `AdministrationEvent` insert/update/delete (post-DB-commit broadcast).
+  - `ScheduledDose` regeneration after protocol edit (§5.4).
+  - TZ change (§5.7).
+  - `GenerateScheduledDosesWorker` daily run.
+- No periodic widget poll — purely event-driven.
+
+#### 4.16.6 Accessibility
+
+- Each button has a `contentDescription`: `"Take {compound name} dose, {dose}"`, `"Snooze {compound name} dose by one hour"`.
+- Min touch target 48×48dp inside the widget, even at `small` size — drop secondary actions before shrinking primary below threshold.
+
+---
+
+### 4.17 Static app shortcuts
+
+**Primary goal**: launch common flows from launcher long-press without entering Dashboard first.
+
+Declared via `<shortcuts>` XML referenced from `AndroidManifest.xml` `<meta-data android:name="android.app.shortcuts" .../>` on the launcher Activity.
+
+#### 4.17.1 Shortcut list
+
+| ID                | Short label       | Long label                   | Icon            | Target                                                                 |
+|-------------------|-------------------|------------------------------|-----------------|------------------------------------------------------------------------|
+| `log_next_dose`   | "Log next dose"   | "Log next pending dose"      | `check`         | Deep-link to §4.10.1 Take Dose sheet for next Pending dose             |
+| `log_manual`      | "Manual log"      | "Manually log a dose"        | `edit`          | Deep-link to §4.10.2-a Log Dose (Dashboard) w/ compound picker open    |
+| `add_compound`    | "Add compound"    | "Add a new compound"         | `colorize`      | Deep-link to §4.4 Create Compound                                      |
+| `reconstitute`    | "Reconstitute"    | "Open reconstitution helper" | `calculate`     | Deep-link to §4.6 Reconstitution Helper w/ compound picker first       |
+
+#### 4.17.2 Deep-link routing
+
+- Each shortcut launches the main `Activity` with an intent action `com.stax.app.action.SHORTCUT` + extra `shortcutId`.
+- `Activity.onCreate` reads `shortcutId`, pushes the matching Nav 3 route onto the Dashboard stack (so back returns to Dashboard, not exits the app).
+- `log_next_dose` resolves the next pending `ScheduledDose` at launch time. If none, fall back to §4.10.2-a Log Dose w/ manual entry.
+
+#### 4.17.3 Dynamic shortcut (optional, v1.1)
+
+If user logs the same compound at the same time-of-day ≥4 times in 14 days, pin a dynamic shortcut "Log {compound name}" via `ShortcutManager.pushDynamicShortcut`. Cap dynamic shortcuts at 2 to avoid clutter. Deferred to v1.1.
+
+#### 4.17.4 Theming + accessibility
+
+- Icons are 24×24dp Material Symbols Rounded rendered to adaptive shortcut icon w/ `primary-container` background.
+- Each shortcut's `shortLabel` ≤ 10 chars, `longLabel` ≤ 25 chars (Android guidance).
+- `disabledMessage`: "Shortcut unavailable in this state" (used if user later disables a flow — not expected at v1).
+
+---
+
 ## 5. System Behaviors
 
 ### 5.1 Notifications and reminders
@@ -1202,10 +1500,12 @@ Layout: similar to Onboarding step 1 (blob illustration + headline) but:
 - **Notification channels**:
   - `dose_reminders` (high priority, badge, lights, vibration per user style setting)
   - `warnings` (default, no sound)
+- **Widget refresh broadcast** (`STAX_WIDGET_REFRESH`, §4.16.5): emitted after every committed `AdministrationEvent` write, ScheduledDose regeneration, TZ re-anchor, and `GenerateScheduledDosesWorker` run. Glance widgets observe and re-render.
 
 **Reminder lifecycle**:
 - ScheduledDose created → if `protocol.reminderEnabled` AND `dosageTimes` non-empty: alarm scheduled at `scheduledAt - reminderOffsetMinutes`.
 - ScheduledDose created AND `dosageTimes` empty AND `reminderBucket` set: alarm at bucket time for that day (Morning=09:00, Afternoon=13:00, Evening=19:00, device-local).
+- **Bucket alarm aggregation**: if multiple Pending doses fall on the same date + same `reminderBucket`, schedule **one** grouped notification at the bucket time (not N). Body lists all due doses, e.g. "3 doses due this morning · tap to log". Tap → Dashboard filtered to today. The grouped notification is keyed by `(date, bucket)` so re-scheduling stays idempotent.
 - Snoozing updates `scheduledAt`; reschedules alarm.
 - Logging or skipping cancels.
 
@@ -1259,14 +1559,28 @@ Generation is idempotent — uses `(protocolId, scheduledAt)` uniqueness; never 
 
 On AdministrationEvent save:
 - **Taken / Partial**: for each DoseComponent:
-  - Compute deduction in compound's container unit. For injectables: `actualDose / compoundSupply.concentration` (in mL). For unit-based: `actualDose` (count).
-  - Decrement `currentOpened.remainingAmount` by deduction.
+  - Snapshot concentration: `dose_component.concentrationAtLog = compoundSupply.concentration` (may be null for unit-based forms).
+  - Compute deduction:
+    - If `concentrationAtLog != null` (concentration-based form):
+      ```
+      deduction.value = actualDose.value / concentrationAtLog.amount.value
+      deduction.unit  = concentrationAtLog.per.unit
+      ```
+      Unit-family check applies (`actualDose.unit` family must match `concentrationAtLog.amount.unit` family; convert within family if needed).
+    - Else (unit-based form, e.g. capsule/tablet count): `deduction = actualDose` directly.
+  - Decrement `currentOpened.remainingAmount` by `deduction`.
   - Insert `InventoryTransaction { type=DoseDeduction, delta=-deduction, sourceEventId }`.
   - If `remainingAmount <= 0`:
     - Set `currentOpened = null`.
     - Insert `InventoryTransaction { type=ContainerClose, delta=0 }` (audit).
     - If `numberOfContainers > 0` → snackbar prompt: "Open new container?" → on confirm, run the container opening operation. Default action = auto-open after 5s timeout.
-- **Skipped / Missed**: no deduction.
+- **Skipped**: no deduction. (No Missed branch — Missed is a ScheduledDose-only state per §3.4.)
+
+**Site cooldown on log** (route in SC / IM):
+After deduction, update `injection_site.lastUsedAt = loggedAt` and `avoidUntil = loggedAt + cooldown.days`. Cooldown source order (first non-null wins):
+1. `Protocol.siteCooldownDays` (per-protocol override)
+2. `Settings.defaultSiteCooldownDaysSC` or `defaultSiteCooldownDaysIM` per route
+3. Hardcoded fallback: 5d SC, 7d IM.
 
 ### 5.4 Protocol editing summary
 - Edit save regenerates only `Pending` ScheduledDoses (incl. snoozed in future).
@@ -1295,9 +1609,16 @@ On AdministrationEvent save:
 ### 5.7 Time zones
 - All timestamps stored as UTC `Instant`.
 - Wall-clock values (`dosageTimes`, `startDate`, `endDate`) stored as `LocalTime` / `LocalDate`, interpreted in user's current zone at display + scheduling time.
-- Default zone = device. Settings allows override (Travel mode).
+- Default zone = device. `Settings.timeZoneOverride` allows manual override (Travel mode).
 - DST handled by `kotlinx.datetime` — 8:00 PM dose remains 8:00 PM local across DST transitions.
-- On TZ change: future Pending ScheduledDoses re-anchored, alarms re-scheduled.
+
+**Re-anchor mechanism**:
+Each `ScheduledDose` row stores both the resolved `scheduledAt: Instant` AND the original wall-clock components used to compute it:
+- `scheduled_dose.originalLocalDate: LocalDate` (always set)
+- `scheduled_dose.originalLocalTime: LocalTime?` (null when `hasTimeOfDay = false`)
+- `scheduled_dose.originalZone: String` (IANA zone name at generation time)
+
+On TZ change (device zone or Settings override): for every Pending ScheduledDose, recompute `scheduledAt = originalLocalDate.atTime(originalLocalTime ?? endOfDay).atZone(newZone).toInstant()`. Re-cancel + re-schedule alarms. Logged history is never re-anchored.
 
 ### 5.8 Database implementation (Room)
 
@@ -1308,14 +1629,24 @@ Room stores:
 - `LocalDate` as ISO-8601 text (`YYYY-MM-DD`).
 - `LocalTime` as ISO-8601 text (`HH:mm[:ss]`).
 - Enums as stable text names, never ordinals.
+- `Decimal` values as canonical plain string (§3.0.1): `Decimal.toPlainString()`, no trailing zeros.
 - `Quantity` as flattened columns:
-  - `<field>Value: String` — exact decimal text, e.g. `"0.25"`, `"100"`, `"1.5"`.
+  - `<field>Value: String` — canonical `Decimal` plain string, e.g. `"0.25"`, `"100"`, `"1.5"`.
   - `<field>Unit: String` — stable `UnitCode` name, e.g. `MG`, `MCG`, `ML`, `IU`, `CAPSULE`.
 - `Concentration` as flattened columns:
   - `<field>AmountValue`, `<field>AmountUnit`
   - `<field>PerValue`, `<field>PerUnit`
+- `Schedule`, `Escalation`, `ProtocolBreak`: flattened via `@Embedded(prefix = "schedule")` / `"escalation"` / `"break"` (see §5.8.1.1 for exact column names).
+- `protocol.dosageTimes: List<LocalTime>` → child table `protocol_dosage_time(protocolId, time)`. Allows indexing by `time` for bucket-alarm aggregation queries.
+- `protocol.selectedWeekdays: Set<DayOfWeek>` → packed `Int` bitmask column on `protocol` (bit 0 = Monday, bit 6 = Sunday). Single column; no child table needed.
 
 Room must not store object references directly. Fields like `CompoundSupply.currentOpened` and `AdministrationEvent.components` are relation projections, not columns on the parent table.
+
+#### 5.8.0 Source of truth — inventory state
+
+`opened_container.remainingAmount` and `compound_supply.numberOfContainers` are **authoritative** mutable state. `inventory_transaction` is an **append-only audit ledger** for history and debugging — not source of truth at read time.
+
+Drift protection: `InventoryReconcileWorker` runs daily, sums the ledger per `compoundSupplyId`, and compares against `(numberOfContainers, currentOpened.remainingAmount)`. On mismatch in debug builds, log + Crashlytics warning. Release builds: silent, ledger considered authoritative for the recovery path of a future "Repair inventory" Settings action.
 
 #### 5.8.1 Tables
 
@@ -1324,6 +1655,7 @@ Room must not store object references directly. Fields like `CompoundSupply.curr
 | `compound_supply`       | One compound/inventory item. Soft-deleted via `deletedAt`.             |
 | `opened_container`      | Current opened container for a compound. At most one row per compound. |
 | `protocol`              | Usage plan for one compound. Soft-deleted via `deletedAt`.             |
+| `protocol_dosage_time`  | Child rows of `protocol.dosageTimes: List<LocalTime>`.                 |
 | `scheduled_dose`        | Generated pending/history schedule rows.                               |
 | `administration_event`  | One logged administration event.                                       |
 | `dose_component`        | One compound inside an administration event.                           |
@@ -1331,30 +1663,75 @@ Room must not store object references directly. Fields like `CompoundSupply.curr
 | `inventory_transaction` | Append-only inventory audit ledger.                                    |
 | `settings`              | Singleton row with app/user settings.                                  |
 
+#### 5.8.1.1 Flattened column names (locked)
+
+Devs must use these exact names — picking different ones causes migration churn.
+
+`compound_supply`:
+- `amountPerContainerValue`, `amountPerContainerUnit`
+- `concentrationAmountValue`, `concentrationAmountUnit`, `concentrationPerValue`, `concentrationPerUnit`
+
+`opened_container`:
+- `remainingAmountValue`, `remainingAmountUnit`
+
+`protocol`:
+- `plannedDoseValue`, `plannedDoseUnit`
+- `selectedWeekdaysBitmask: Int`
+- Schedule embedded (`schedule` prefix): `scheduleType`, `scheduleInterval`, `scheduleTimesPerDay`, `scheduleTimesPerWeek`, `scheduleTimesPerMonth`
+- Escalation embedded (`escalation` prefix): `escalationStartDoseValue`, `escalationStartDoseUnit`, `escalationTargetDoseValue`, `escalationTargetDoseUnit`, `escalationIncreaseAmountValue`, `escalationIncreaseAmountUnit`, `escalationIncreaseEvery`, `escalationIncreaseEveryValue`, `escalationMaxDoseValue`, `escalationMaxDoseUnit`, `escalationStopAtTarget`
+- ProtocolBreak embedded (`break` prefix): `breakDaysOn`, `breakDaysOff`
+- `siteCooldownDays: Int?`
+
+`protocol_dosage_time`:
+- `protocolId: Long` (FK)
+- `time: String` (ISO LocalTime)
+- Unique index `(protocolId, time)`
+
+`scheduled_dose`:
+- `plannedDoseValue`, `plannedDoseUnit`
+- `originalLocalDate`, `originalLocalTime`, `originalZone` (§5.7 TZ re-anchor)
+
+`dose_component`:
+- `plannedDoseValue`, `plannedDoseUnit`
+- `actualDoseValue`, `actualDoseUnit`
+- `concentrationAmountValue`, `concentrationAmountUnit`, `concentrationPerValue`, `concentrationPerUnit` (snapshot, all nullable)
+- `inventoryDeductedValue`, `inventoryDeductedUnit`
+
+`inventory_transaction`:
+- `deltaValue`, `deltaUnit`
+
 #### 5.8.2 Relations + foreign keys
 
-| Child                                    | Parent                    | Rule                                                   |
-|------------------------------------------|---------------------------|--------------------------------------------------------|
-| `opened_container.compoundSupplyId`      | `compound_supply.id`      | `CASCADE`; unique, enforces one opened container.      |
-| `protocol.compoundSupplyId`              | `compound_supply.id`      | `NO ACTION`; compounds are archived, not hard-deleted. |
-| `scheduled_dose.protocolId`              | `protocol.id`             | `CASCADE` only for hard reset/internal cleanup.        |
-| `scheduled_dose.compoundSupplyId`        | `compound_supply.id`      | `NO ACTION`.                                           |
-| `scheduled_dose.administrationEventId`   | `administration_event.id` | nullable; `SET NULL` if event is deleted.              |
-| `administration_event.injectionSiteId`   | `injection_site.id`       | nullable; `SET NULL` if site is deleted.               |
-| `dose_component.administrationEventId`   | `administration_event.id` | `CASCADE`.                                             |
-| `dose_component.scheduledDoseId`         | `scheduled_dose.id`       | nullable; `SET NULL` if pending doses are regenerated. |
-| `dose_component.protocolId`              | `protocol.id`             | nullable; `NO ACTION`.                                 |
-| `dose_component.compoundSupplyId`        | `compound_supply.id`      | `NO ACTION`.                                           |
-| `inventory_transaction.compoundSupplyId` | `compound_supply.id`      | `NO ACTION`.                                           |
-| `inventory_transaction.sourceEventId`    | `administration_event.id` | nullable; `SET NULL` if event is deleted.              |
+| Child                                    | Parent                    | Rule                                                                                    |
+|------------------------------------------|---------------------------|-----------------------------------------------------------------------------------------|
+| `opened_container.compoundSupplyId`      | `compound_supply.id`      | `CASCADE`; unique, enforces one opened container.                                       |
+| `protocol.compoundSupplyId`              | `compound_supply.id`      | `NO ACTION`; compounds are archived, not hard-deleted.                                  |
+| `protocol_dosage_time.protocolId`        | `protocol.id`             | `CASCADE`.                                                                              |
+| `scheduled_dose.protocolId`              | `protocol.id`             | `CASCADE` only for hard reset/internal cleanup.                                         |
+| `scheduled_dose.compoundSupplyId`        | `compound_supply.id`      | `NO ACTION`.                                                                            |
+| `scheduled_dose.administrationEventId`   | `administration_event.id` | nullable; `SET NULL` if event is deleted.                                               |
+| `administration_event.injectionSiteId`   | `injection_site.id`       | nullable; `SET NULL` if site is deleted.                                                |
+| `dose_component.administrationEventId`   | `administration_event.id` | `CASCADE`.                                                                              |
+| `dose_component.scheduledDoseId`         | `scheduled_dose.id`       | nullable; `NO ACTION`. Regeneration must not touch logged doses (see scope rule below). |
+| `dose_component.protocolId`              | `protocol.id`             | nullable; `NO ACTION`.                                                                  |
+| `dose_component.compoundSupplyId`        | `compound_supply.id`      | `NO ACTION`.                                                                            |
+| `inventory_transaction.compoundSupplyId` | `compound_supply.id`      | `NO ACTION`.                                                                            |
+| `inventory_transaction.sourceEventId`    | `administration_event.id` | nullable; `SET NULL` if event is deleted.                                               |
 
 Hard-delete is only used by Reset all data or controlled cleanup. Normal user delete/archive uses `deletedAt`.
+
+**Pending-regenerate scope rule** (used by §5.4 protocol edit, §5.6 import reconciliation):
+> Regeneration deletes ONLY rows matching:
+> `scheduled_dose WHERE protocolId = :id AND status = 'Pending' AND administrationEventId IS NULL`
+>
+> Linked-event scheduled doses (those with `administrationEventId` set, or any non-Pending status) must never be touched by regeneration. This preserves the dose history shown on Compound Detail and Protocol Detail.
 
 #### 5.8.3 Unique constraints
 
 - `opened_container.compoundSupplyId` is unique.
 - `scheduled_dose(protocolId, scheduledAt)` is unique for idempotent generation.
 - `dose_component.scheduledDoseId` is unique when non-null, so one scheduled dose cannot be logged twice.
+- `protocol_dosage_time(protocolId, time)` is unique.
 - `settings.id` is always `1`.
 
 #### 5.8.4 Indexes
@@ -1370,6 +1747,8 @@ Required indexes:
 - `scheduled_dose(protocolId, scheduledAt)`
 - `scheduled_dose(status, scheduledAt)`
 - `scheduled_dose(compoundSupplyId, status, scheduledAt)`
+- `scheduled_dose(administrationEventId)` — supports regen scope query in §5.8.2
+- `protocol_dosage_time(time)` — supports bucket-alarm aggregation query in §5.1
 - `administration_event(loggedAt)`
 - `administration_event(status, loggedAt)`
 - `administration_event(injectionSiteId, loggedAt)`
@@ -1418,7 +1797,7 @@ These operations must run inside one Room transaction:
 
 Alarm scheduling happens only after the DB transaction succeeds.
 
-#### 5.8.6 Migrations
+#### 5.8.6 Migrations + first-launch seeding
 
 Database starts at version `1`.
 
@@ -1430,6 +1809,28 @@ Rules:
 - Use manual migrations for renames, deletes, unit semantics changes, enum changes, or data backfills.
 - Every migration from each previous version to latest must have a Room migration test.
 - Export file `schemaVersion` is separate from Room DB version.
+
+**First-launch seed** via `RoomDatabase.Callback.onCreate`:
+1. Insert singleton `settings` row (`id = 1`) with defaults from §3.8.
+2. Insert preset `injection_site` rows. 14 presets (each with `isAvailable = true`, no `avoidUntil`, no `notes`):
+
+```
+Abdomen Upper-Left      (bodyRegion=Abdomen,   side=Left,  sublocation=Upper)
+Abdomen Upper-Right     (bodyRegion=Abdomen,   side=Right, sublocation=Upper)
+Abdomen Lower-Left      (bodyRegion=Abdomen,   side=Left,  sublocation=Lower)
+Abdomen Lower-Right     (bodyRegion=Abdomen,   side=Right, sublocation=Lower)
+Anterior Deltoid Left   (bodyRegion=Delt,      side=Left,  sublocation=null)
+Anterior Deltoid Right  (bodyRegion=Delt,      side=Right, sublocation=null)
+Lateral Thigh Left      (bodyRegion=Quadriceps,side=Left,  sublocation=Outer)
+Lateral Thigh Right     (bodyRegion=Quadriceps,side=Right, sublocation=Outer)
+Glute Upper-Outer Left  (bodyRegion=Glute,     side=Left,  sublocation=Upper)
+Glute Upper-Outer Right (bodyRegion=Glute,     side=Right, sublocation=Upper)
+Hamstring Left          (bodyRegion=Hamstring, side=Left,  sublocation=null)
+Hamstring Right         (bodyRegion=Hamstring, side=Right, sublocation=null)
+Lower Back Left         (bodyRegion=LowerBack, side=Left,  sublocation=null)
+Lower Back Right        (bodyRegion=LowerBack, side=Right, sublocation=null)
+```
+(Posterior Deltoid + Forearm presets may be added in v1.1 — keep seed minimal to match the body-map dots referenced in §4.12.4 today.)
 
 #### 5.8.7 Import/export conflict behavior
 
@@ -1500,14 +1901,28 @@ Import:
 - Create Already Opened Container
 - Site detail
 - FAB menu
+- Compound picker / Route picker / Body region picker (§4.0.2 reusable pattern)
 - Theme picker (basic dialog, not sheet)
+
+### 6.3.1 Out-of-app surfaces
+- **Home-screen widget** (§4.16) — Glance widget, small/medium/large sizes. Deep-links into Take Dose sheet or Dashboard.
+- **App shortcuts** (§4.17) — static launcher shortcuts: Log next dose · Manual log · Add compound · Reconstitute.
 
 ### 6.4 Adaptive behavior
 **Compact** (<600dp): single-pane, bottom nav, FABs at bottom-right.
 
-**Medium** (600–839dp, foldable unfolded): switches to side rail. Compound list ↔ Compound Detail becomes list-detail two-pane. Protocols ↔ Protocol Detail same. Sites uses single-pane (body map is hero, splitting reduces impact). Dashboard stays single-pane.
+**Medium** (600–839dp, foldable unfolded): switches to side rail.
+- Compounds list ↔ Compound Detail = list-detail two-pane. List pane fixed `360dp`, detail pane fills remainder, divider `outline-variant` 1dp.
+- Protocols list ↔ Protocol Detail = same two-pane geometry.
+- Sites = single-pane (body map is hero; splitting reduces impact).
+- Dashboard = single-pane.
+
+**Expanded** (840–1199dp): same as Medium plus increased horizontal padding (`24dp` → `32dp`) on hero cards; list pane widens to `400dp`.
 
 Touch targets remain ≥ 48×48 regardless of breakpoint.
+
+#### 6.4.1 Foldable seam handling
+Use `WindowInfoTracker` to detect a vertical fold; if list pane width would land under the seam, push the divider to the seam line and widen the detail pane to the second half. No content crosses the fold.
 
 ---
 
@@ -1566,3 +1981,113 @@ Touch targets remain ≥ 48×48 regardless of breakpoint.
 **Type scale**: pure M3 styles (`display`, `headline`, `title`, `body`, `label` with `-emphasized` variants where applicable). Font family = **Google Sans Flex**.
 
 **Shape scale**: must be emphasized via M3 Expressive guidelines
+
+---
+
+## 10. Architecture conventions
+
+Locked at scaffold time. Diverging from these creates churn.
+
+### 10.1 MVI per screen
+
+Every screen has a `ViewModel` exposing one `state` flow + one `effect` channel, consuming one `intent` sealed hierarchy.
+
+```kotlin
+sealed interface DashboardIntent {
+  data object Refresh : DashboardIntent
+  data class SelectDay(val date: LocalDate) : DashboardIntent
+  data class TakeDose(val scheduledDoseId: Long) : DashboardIntent
+  // ...
+}
+
+data class DashboardState(
+  val pendingDoses: ImmutableList<DoseCardModel>,
+  val selectedDate: LocalDate,
+  val isLoading: Boolean,
+  // ...
+)
+
+sealed interface DashboardEffect {
+  data class NavigateToTakeDose(val scheduledDoseId: Long) : DashboardEffect
+  data class ShowSnackbar(val text: String) : DashboardEffect
+}
+
+class DashboardViewModel(/* injected */) : ViewModel() {
+  val state: StateFlow<DashboardState>
+  val effect: SharedFlow<DashboardEffect>
+  fun handle(intent: DashboardIntent)
+}
+```
+
+Rules:
+- `state` is `StateFlow<S>` exposed to Compose via `collectAsStateWithLifecycle()`.
+- `effect` is `SharedFlow<E>` with `replay = 0`, `extraBufferCapacity = 1`, `BufferOverflow.DROP_OLDEST`. One-shot side effects only.
+- `handle(intent)` returns `Unit`; coroutine work goes to `viewModelScope`.
+- State data classes contain only primitives + value classes + `ImmutableList` / `ImmutableSet` / `ImmutableMap` (kotlinx-collections-immutable). No raw Room entities, no mutable collections.
+
+### 10.2 Repository layer
+
+ViewModels never see Room directly. Repositories own DAO access and entity → domain mapping.
+
+- Koin scope: `single` per `Repository`. ViewModels get them via `get()` / constructor injection.
+- DAO `Flow` queries collected inside repository, mapped to domain models, exposed back as `Flow<Domain>`.
+- Mutating ops are `suspend` functions returning either `Unit`, the new ID, or a `Result<T>` for validation failures.
+- Transactions in §5.8.5 are implemented at the repository layer with `@Transaction` DAO methods.
+
+### 10.3 Navigation 3 — typed routes
+
+All routes are `@Serializable` Kotlin types. No string routes.
+
+```kotlin
+@Serializable data object DashboardRoute
+@Serializable data object CompoundsRoute
+@Serializable data class CompoundDetailRoute(val compoundId: Long)
+@Serializable data class CreateCompoundRoute(val templateForm: Form? = null)
+@Serializable data class EditCompoundRoute(val compoundId: Long)
+@Serializable data class ProtocolDetailRoute(val protocolId: Long)
+// ...
+```
+
+Rules:
+- One file `Routes.kt` per feature module exporting its routes.
+- `NavBackStack` typed; back-stack model is per top-level destination (Home / Compounds / Protocols / Sites / Settings each have their own stack).
+- Save-state behaviour: routes survive process death via `SavedStateHandle`; ViewModels receive route params through the SDK helper `toRoute<T>()`.
+- Bottom sheets and dialogs are NOT routes — they live in the parent screen's state. Sheets show via `state.showXSheet` flag; back press handled by parent.
+
+### 10.4 Module layout
+
+Single Android app module at v1 (no multi-module). Internal package layout:
+
+```
+com.stax.app/
+  core/                   // value classes, Decimal, Quantity, unit math
+  data/                   // Room entities, DAOs, repositories, mappers
+  domain/                 // domain models, business rules (escalation, in-break, dose math)
+  feature/
+    dashboard/            // screens + viewmodels + state
+    compounds/
+    protocols/
+    sites/
+    settings/
+    onboarding/
+    reconstitution/
+  ui/                     // shared composables, theme, motion, icons
+  startup/                // App Startup initializers (§2.3.4)
+  work/                   // WorkManager workers
+  notification/           // AlarmManager + channels
+  widget/                 // Glance widget (§4.16) + size-keyed composables + action callbacks
+  shortcut/               // static + dynamic shortcut registration + deep-link router (§4.17)
+```
+
+Promote to multi-module only if build time crosses 30s clean / 8s incremental.
+
+### 10.5 Testing surface
+
+| Layer     | Tool                              | What                                             |
+|-----------|-----------------------------------|--------------------------------------------------|
+| Domain    | JUnit5 + kotest assertions        | escalation math, in-break, dose math, validation |
+| Data      | Robolectric + Room in-memory      | DAO queries, transaction boundaries, FK rules    |
+| Migration | Room `MigrationTestHelper`        | every version-to-latest path                     |
+| ViewModel | Turbine                           | intent → state transitions                       |
+| UI        | Compose `createComposeRule()`     | golden-path flows per screen                     |
+| E2E       | Macrobenchmark + Baseline Profile | hot paths in §2.3.3                              |

@@ -31,8 +31,8 @@ Android 16+ application
 - `remember` for expensive calcs. Lazy layout keys. `derivedStateOf` to limit recomposition. Defer reads. Avoid backwards writes. Flatten hierarchy.
 
 #### 2.3.1 Compose stability rules
-- All domain models passed to composables must be `@Stable` or `data class` with primitive fields only.
-- `@Immutable` on read-only value types: `Quantity`, `Concentration`, `Decimal`.
+- Composables receive **UI models**, never domain models directly. Domain models live in `domain/` + repositories + ViewModels; ViewModels map domain → UI model when emitting state. UI models are `data class` with primitive fields + value classes + immutable collections only.
+- `@Immutable` on shared read-only value types reused inside UI models: `Quantity`, `Concentration`, `Decimal`.
 - Hoist state. Pass lambdas, never callbacks-of-callbacks.
 - `derivedStateOf` for filtered/computed list slices.
 - `remember(key) { ... }` for any composable-local expensive calc.
@@ -64,7 +64,7 @@ Eager init fights the <400ms cold-start SLO. Split:
 
 **Eager** (must complete before first frame):
 1. `KoinInitializer` — DI graph
-2. `ThemeInitializer` — read Settings via DataStore for theme + dynamic-color; minimal payload
+2. `ThemeInitializer` — reads a tiny **DataStore cache** of theme-critical fields (`theme`, `dynamicColor`) only. Room remains the authoritative store for the full `Settings` entity (§3.8); the DataStore cache is written through whenever those two fields change. This lets first-frame avoid touching Room.
 
 **Deferred** (lazy reference / first-use):
 3. `RoomDatabaseInitializer` — declare reference only; real connection on first DAO call
@@ -378,6 +378,8 @@ updatedAt: Instant
 ```
 
 Used by §4.13 Settings screen, §5.1 reminder fallback path, §5.3 site cooldown source order, §5.7 timezone resolution.
+
+**Storage**: Room singleton is authoritative. A small DataStore preference file mirrors only the two theme-critical fields (`theme`, `dynamicColor`) for sub-frame access during cold start (§2.3.4 ThemeInitializer). Repository write-through keeps the mirror in sync — never read or write theme from anywhere except via the Settings repository.
 
 ---
 
@@ -1644,9 +1646,12 @@ Room must not store object references directly. Fields like `CompoundSupply.curr
 
 #### 5.8.0 Source of truth — inventory state
 
-`opened_container.remainingAmount` and `compound_supply.numberOfContainers` are **authoritative** mutable state. `inventory_transaction` is an **append-only audit ledger** for history and debugging — not source of truth at read time.
+`opened_container.remainingAmount` and `compound_supply.numberOfContainers` are **authoritative** mutable state. `inventory_transaction` is an **append-only audit ledger** for history and debugging — never read as truth at runtime.
 
-Drift protection: `InventoryReconcileWorker` runs daily, sums the ledger per `compoundSupplyId`, and compares against `(numberOfContainers, currentOpened.remainingAmount)`. On mismatch in debug builds, log + Crashlytics warning. Release builds: silent, ledger considered authoritative for the recovery path of a future "Repair inventory" Settings action.
+Drift protection: `InventoryReconcileWorker` runs daily, sums the ledger per `compoundSupplyId`, and compares against `(numberOfContainers, currentOpened.remainingAmount)`. On mismatch:
+- Debug builds: log + Crashlytics warning.
+- Release builds: silent; set a `Settings`-side drift flag that surfaces a "Repair inventory" row in §4.13.
+- **Repair flow** (user-initiated only): user taps "Repair inventory" → preview dialog shows (current state, ledger-derived state, delta per compound) → explicit "Apply repair" confirm → ledger-derived state is written back as the new mutable state, with one synthesizing `InventoryTransaction { type=Manual, reason="Ledger reconciliation" }`. The worker never auto-applies.
 
 #### 5.8.1 Tables
 
@@ -2023,7 +2028,7 @@ Rules:
 - `state` is `StateFlow<S>` exposed to Compose via `collectAsStateWithLifecycle()`.
 - `effect` is `SharedFlow<E>` with `replay = 0`, `extraBufferCapacity = 1`, `BufferOverflow.DROP_OLDEST`. One-shot side effects only.
 - `handle(intent)` returns `Unit`; coroutine work goes to `viewModelScope`.
-- State data classes contain only primitives + value classes + `ImmutableList` / `ImmutableSet` / `ImmutableMap` (kotlinx-collections-immutable). No raw Room entities, no mutable collections.
+- State data classes contain only primitives + value classes + `ImmutableList` / `ImmutableSet` / `ImmutableMap` (kotlinx-collections-immutable). No Room entities, no domain models, no mutable collections — UI models only (see §2.3.1).
 
 ### 10.2 Repository layer
 
@@ -2049,7 +2054,7 @@ All routes are `@Serializable` Kotlin types. No string routes.
 ```
 
 Rules:
-- One file `Routes.kt` per feature module exporting its routes.
+- One file `Routes.kt` per feature package exporting its routes.
 - `NavBackStack` typed; back-stack model is per top-level destination (Home / Compounds / Protocols / Sites / Settings each have their own stack).
 - Save-state behaviour: routes survive process death via `SavedStateHandle`; ViewModels receive route params through the SDK helper `toRoute<T>()`.
 - Bottom sheets and dialogs are NOT routes — they live in the parent screen's state. Sheets show via `state.showXSheet` flag; back press handled by parent.
@@ -2085,7 +2090,7 @@ Promote to multi-module only if build time crosses 30s clean / 8s incremental.
 
 | Layer     | Tool                              | What                                             |
 |-----------|-----------------------------------|--------------------------------------------------|
-| Domain    | JUnit5 + kotest assertions        | escalation math, in-break, dose math, validation |
+| Domain    | JUnit5 + AssertK                  | escalation math, in-break, dose math, validation |
 | Data      | Robolectric + Room in-memory      | DAO queries, transaction boundaries, FK rules    |
 | Migration | Room `MigrationTestHelper`        | every version-to-latest path                     |
 | ViewModel | Turbine                           | intent → state transitions                       |

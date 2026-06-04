@@ -80,7 +80,7 @@ OpenedContainer:
   remainingUnit: String
   expiryAfterOpeningDays: Int?
   userDefinedExpiryDate: LocalDate?
-  predictedExpiryDate: LocalDate     // derived
+  predictedExpiryDate: LocalDate?     // derived
 ```
 
 Only one container is open at a time per compound. When `remainingAmount` hits 0, `numberOfContainers` decrements by 1 and a new `OpenedContainer` is created (if any remain).

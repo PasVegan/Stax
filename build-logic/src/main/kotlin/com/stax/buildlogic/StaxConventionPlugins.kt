@@ -2,6 +2,7 @@ package com.stax.buildlogic
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
+import io.gitlab.arturbosch.detekt.extensions.DetektExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -23,6 +24,8 @@ private const val JavaToolchain = 21
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.application")
+        pluginManager.apply("com.stax.ktlint")
+        pluginManager.apply("com.stax.detekt")
 
         extensions.configure<ApplicationExtension> {
             namespace = defaultNamespace()
@@ -49,6 +52,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 class AndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.library")
+        pluginManager.apply("com.stax.ktlint")
+        pluginManager.apply("com.stax.detekt")
 
         extensions.configure<LibraryExtension> {
             namespace = defaultNamespace()
@@ -86,6 +91,8 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
 class KotlinLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("org.jetbrains.kotlin.jvm")
+        pluginManager.apply("com.stax.ktlint")
+        pluginManager.apply("com.stax.detekt")
         configureKotlin()
     }
 }
@@ -105,6 +112,16 @@ class ComposeConventionPlugin : Plugin<Project> {
             }
         }
 
+        // Compose compiler metrics — written to build/compose_metrics/ per module (§2.3.1).
+        // Flags accepted by the bundled Kotlin compose compiler plugin in Kotlin 2.x.
+        tasks.withType<KotlinCompilationTask<*>>().configureEach {
+            val metricsDir = project.layout.buildDirectory.dir("compose_metrics").get().asFile.absolutePath
+            compilerOptions.freeCompilerArgs.addAll(
+                "-P", "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=$metricsDir",
+                "-P", "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=$metricsDir",
+            )
+        }
+
         addImplementationPlatform("androidx-compose-bom")
         addImplementation("androidx-compose-ui")
         addImplementation("androidx-compose-ui-tooling-preview")
@@ -114,6 +131,32 @@ class ComposeConventionPlugin : Plugin<Project> {
         addImplementation("androidx-compose-adaptive-navigation3")
         addImplementation("androidx-window")
         addDebugImplementation("androidx-compose-ui-tooling")
+    }
+}
+
+class KtlintConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) = with(target) {
+        pluginManager.apply("org.jlleitschuh.gradle.ktlint")
+        // Style configuration lives in the root .editorconfig
+    }
+}
+
+class DetektConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) = with(target) {
+        pluginManager.apply("io.gitlab.arturbosch.detekt")
+        extensions.configure<DetektExtension> {
+            config.from(rootProject.file("detekt.yml"))
+            buildUponDefaultConfig = true
+            // Exclude generated sources and build directories
+            source.from(
+                "src/main/kotlin",
+                "src/main/java",
+                "src/test/kotlin",
+                "src/test/java",
+                "src/androidTest/kotlin",
+                "src/androidTest/java",
+            )
+        }
     }
 }
 

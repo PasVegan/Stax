@@ -1,0 +1,64 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+# Paths to exclude from analysis
+# build/ and generated/ are excluded via source set configuration in DetektConventionPlugin
+
+comments:
+  UndocumentedPublicClass:
+    active: false
+  UndocumentedPublicFunction:
+    active: false
+  UndocumentedPublicProperty:
+    active: false
+
+complexity:
+  LongParameterList:
+    active: false
+  TooManyFunctions:
+    active: false
+  ComplexCondition:
+    active: true
+    threshold: 6
+
+naming:
+  FunctionNaming:
+    active: false   # @Composable functions use PascalCase by Compose convention
+  InvalidPackageDeclaration:
+    active: false   # _Package.kt files have unusual names by design
+  NoNameShadowing:
+    active: true
+
+style:
+  ForbiddenComment:
+    active: false   # TODO/FIXME are valid scaffold markers at this stage
+  MagicNumber:
+    active: false   # SDK version constants and similar are acceptable
+  ReturnCount:
+    active: false
+  UnusedImports:
+    active: true
+  WildcardImport:
+    active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+    excludeCommentStatements: true
+  NewLineAtEndOfFile:
+    active: true
+  TrailingWhitespace:
+    active: true
+  MultilineRawStringIndentation:
+    active: false   # Compose multiline strings have intentional formatting
+
+potential-bugs:
+  DontDowncastCollectionTypes:
+    active: true
+
+performance:
+  SpreadOperator:
+    active: false   # vararg usage in Koin modules is fine

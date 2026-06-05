@@ -107,6 +107,26 @@ class RoomConvertersTest {
     }
 
     @Test
+    fun `protocol enums round trip through stable names`() {
+        assertThat(converters.routeToString(Route.SUBCUTANEOUS)).isEqualTo("SUBCUTANEOUS")
+        assertThat(converters.stringToRoute("SUBCUTANEOUS")).isEqualTo(Route.SUBCUTANEOUS)
+        assertThat(converters.scheduleTypeToString(ScheduleType.SPECIFIC_WEEKDAYS))
+            .isEqualTo("SPECIFIC_WEEKDAYS")
+        assertThat(converters.stringToScheduleType("SPECIFIC_WEEKDAYS"))
+            .isEqualTo(ScheduleType.SPECIFIC_WEEKDAYS)
+        assertThat(converters.escalationIncreaseEveryToString(EscalationIncreaseEvery.EVERY_X_WEEKS))
+            .isEqualTo("EVERY_X_WEEKS")
+        assertThat(converters.stringToEscalationIncreaseEvery("EVERY_X_WEEKS"))
+            .isEqualTo(EscalationIncreaseEvery.EVERY_X_WEEKS)
+        assertThat(converters.reminderBucketToString(ReminderBucket.MORNING)).isEqualTo("MORNING")
+        assertThat(converters.stringToReminderBucket("MORNING")).isEqualTo(ReminderBucket.MORNING)
+        assertThat(converters.bodyRegionToString(BodyRegion.ABDOMEN)).isEqualTo("ABDOMEN")
+        assertThat(converters.stringToBodyRegion("ABDOMEN")).isEqualTo(BodyRegion.ABDOMEN)
+        assertThat(converters.protocolStatusToString(ProtocolStatus.ACTIVE)).isEqualTo("ACTIVE")
+        assertThat(converters.stringToProtocolStatus("ACTIVE")).isEqualTo(ProtocolStatus.ACTIVE)
+    }
+
+    @Test
     fun `nullable values round trip as null`() {
         assertThat(converters.instantToLong(null)).isEqualTo(null)
         assertThat(converters.longToInstant(null)).isEqualTo(null)
@@ -128,5 +148,17 @@ class RoomConvertersTest {
         assertThat(converters.stringToContainerType(null)).isEqualTo(null)
         assertThat(converters.storageLocationToString(null)).isEqualTo(null)
         assertThat(converters.stringToStorageLocation(null)).isEqualTo(null)
+        assertThat(converters.routeToString(null)).isEqualTo(null)
+        assertThat(converters.stringToRoute(null)).isEqualTo(null)
+        assertThat(converters.scheduleTypeToString(null)).isEqualTo(null)
+        assertThat(converters.stringToScheduleType(null)).isEqualTo(null)
+        assertThat(converters.escalationIncreaseEveryToString(null)).isEqualTo(null)
+        assertThat(converters.stringToEscalationIncreaseEvery(null)).isEqualTo(null)
+        assertThat(converters.reminderBucketToString(null)).isEqualTo(null)
+        assertThat(converters.stringToReminderBucket(null)).isEqualTo(null)
+        assertThat(converters.bodyRegionToString(null)).isEqualTo(null)
+        assertThat(converters.stringToBodyRegion(null)).isEqualTo(null)
+        assertThat(converters.protocolStatusToString(null)).isEqualTo(null)
+        assertThat(converters.stringToProtocolStatus(null)).isEqualTo(null)
     }
 }

@@ -1,21 +1,30 @@
 package com.stax.app.initializer
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.startup.Initializer
+import com.stax.core.database.StaxDatabase
+import org.koin.core.context.loadKoinModules
+import org.koin.dsl.module
 
 /**
- * Deferred initializer — declares a reference only; the real DB connection
- * is opened lazily on the first DAO call (§2.3.4).
+ * Builds and registers [StaxDatabase] into the Koin graph.
  *
- * Real work (WAL mode, FK pragma, building the RoomDatabase instance) is
- * deferred to `Lifecycle.STARTED` via LifecycleStartedRegistrar.
+ * Configuration (§2.3.5):
+ *  - Journal mode: WRITE_AHEAD_LOGGING — concurrent reads during worker writes.
+ *  - Foreign keys: ON — Room default, no explicit pragma needed.
+ *  - Query logging: enabled on debug builds only (logcat tag "StaxRoom").
  *
- * Stub until M2 (Room entities + DAOs).
+ * Runs after [KoinInitializer] so `loadKoinModules` has a live Koin instance.
+ * Repository bindings in `coreDataModule` resolve [StaxDatabase] lazily on
+ * first access, which is always after this initializer has run.
  */
 class RoomDatabaseInitializer : Initializer<Unit> {
 
     override fun create(context: Context) {
-        // TODO(M2): obtain StaxDatabase from Koin and warm the connection
+        val isDebug = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val db = StaxDatabase.build(context, enableQueryLog = isDebug)
+        loadKoinModules(module { single { db } })
     }
 
     override fun dependencies(): List<Class<out Initializer<*>>> =

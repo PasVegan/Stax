@@ -9,10 +9,8 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.stax.core.data.scheduler.ScheduledDoseGenerator
-import com.stax.core.database.ProtocolStatus as DbProtocolStatus
-import com.stax.core.database.Route as DbRoute
-import com.stax.core.database.ScheduledDoseStatus
 import com.stax.core.database.ScheduledDoseEntity
+import com.stax.core.database.ScheduledDoseStatus
 import com.stax.core.database.StaxDatabase
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.Protocol
@@ -36,6 +34,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Instant
+import com.stax.core.database.ProtocolStatus as DbProtocolStatus
+import com.stax.core.database.Route as DbRoute
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])

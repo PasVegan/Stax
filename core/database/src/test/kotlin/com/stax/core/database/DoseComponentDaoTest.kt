@@ -68,12 +68,26 @@ class DoseComponentDaoTest {
     fun `unique scheduledDoseId blocks double-logging the same scheduled dose`() = runTest {
         val (compoundId, protocolId, eventId1) = insertParents()
         val eventId2 = administrationEventDao.insert(administrationEvent())
-        val scheduledDoseId = scheduledDoseDao.insertOrIgnore(scheduledDose(protocolId = protocolId, compoundSupplyId = compoundId))
+        val scheduledDoseId = scheduledDoseDao.insertOrIgnore(
+            scheduledDose(protocolId = protocolId, compoundSupplyId = compoundId),
+        )
 
-        doseComponentDao.insert(doseComponent(administrationEventId = eventId1, compoundSupplyId = compoundId, scheduledDoseId = scheduledDoseId))
+        doseComponentDao.insert(
+            doseComponent(
+                administrationEventId = eventId1,
+                compoundSupplyId = compoundId,
+                scheduledDoseId = scheduledDoseId,
+            ),
+        )
 
         val error = try {
-            doseComponentDao.insert(doseComponent(administrationEventId = eventId2, compoundSupplyId = compoundId, scheduledDoseId = scheduledDoseId))
+            doseComponentDao.insert(
+                doseComponent(
+                    administrationEventId = eventId2,
+                    compoundSupplyId = compoundId,
+                    scheduledDoseId = scheduledDoseId,
+                ),
+            )
             null
         } catch (e: SQLiteConstraintException) {
             e
@@ -86,8 +100,12 @@ class DoseComponentDaoTest {
     fun `multiple null scheduledDoseId rows are allowed`() = runTest {
         val (compoundId, _, eventId) = insertParents()
 
-        doseComponentDao.insert(doseComponent(administrationEventId = eventId, compoundSupplyId = compoundId, scheduledDoseId = null))
-        doseComponentDao.insert(doseComponent(administrationEventId = eventId, compoundSupplyId = compoundId, scheduledDoseId = null))
+        doseComponentDao.insert(
+            doseComponent(administrationEventId = eventId, compoundSupplyId = compoundId, scheduledDoseId = null),
+        )
+        doseComponentDao.insert(
+            doseComponent(administrationEventId = eventId, compoundSupplyId = compoundId, scheduledDoseId = null),
+        )
 
         assertThat(doseComponentDao.observeByAdministrationEventId(eventId).first().size).isEqualTo(2)
     }
@@ -105,8 +123,15 @@ class DoseComponentDaoTest {
     @Test
     fun `findByScheduledDoseId returns matching component`() = runTest {
         val (compoundId, protocolId, eventId) = insertParents()
-        val scheduledDoseId = scheduledDoseDao.insertOrIgnore(scheduledDose(protocolId = protocolId, compoundSupplyId = compoundId))
-        val component = doseComponent(administrationEventId = eventId, compoundSupplyId = compoundId, scheduledDoseId = scheduledDoseId)
+        val scheduledDoseId = scheduledDoseDao.insertOrIgnore(
+            scheduledDose(protocolId = protocolId, compoundSupplyId = compoundId),
+        )
+        val component =
+            doseComponent(
+                administrationEventId = eventId,
+                compoundSupplyId = compoundId,
+                scheduledDoseId = scheduledDoseId,
+            )
         val id = doseComponentDao.insert(component)
 
         assertThat(doseComponentDao.findByScheduledDoseId(scheduledDoseId))
@@ -262,45 +287,39 @@ class DoseComponentDaoTest {
         createdAt = createdAt,
     )
 
-    private fun protocol(
-        id: Long = 0,
-        name: String = "Titration",
-        compoundSupplyId: Long,
-    ): ProtocolEntity = ProtocolEntity(
-        id = id,
-        name = name,
-        compoundSupplyId = compoundSupplyId,
-        plannedDoseValue = Decimal.parse("0.5"),
-        plannedDoseUnit = UnitCode.MG,
-        route = Route.SUBCUTANEOUS,
-        schedule = ScheduleEmbed(
-            type = ScheduleType.SPECIFIC_WEEKDAYS,
-            interval = null,
-            timesPerDay = null,
-            timesPerWeek = null,
-            timesPerMonth = null,
-        ),
-        selectedWeekdaysBitmask = 0b0010101,
-        escalation = null,
-        protocolBreak = null,
-        startDate = LocalDate.parse("2026-06-06"),
-        endDate = null,
-        reminderEnabled = false,
-        reminderOffsetMinutes = 0,
-        reminderBucket = null,
-        injectionSiteRestriction = null,
-        notes = null,
-        status = ProtocolStatus.ACTIVE,
-        siteCooldownDays = null,
-        deletedAt = null,
-        createdAt = Instant.parse("2026-06-06T00:00:00Z"),
-        updatedAt = Instant.parse("2026-06-06T00:00:00Z"),
-    )
+    private fun protocol(id: Long = 0, name: String = "Titration", compoundSupplyId: Long): ProtocolEntity =
+        ProtocolEntity(
+            id = id,
+            name = name,
+            compoundSupplyId = compoundSupplyId,
+            plannedDoseValue = Decimal.parse("0.5"),
+            plannedDoseUnit = UnitCode.MG,
+            route = Route.SUBCUTANEOUS,
+            schedule = ScheduleEmbed(
+                type = ScheduleType.SPECIFIC_WEEKDAYS,
+                interval = null,
+                timesPerDay = null,
+                timesPerWeek = null,
+                timesPerMonth = null,
+            ),
+            selectedWeekdaysBitmask = 0b0010101,
+            escalation = null,
+            protocolBreak = null,
+            startDate = LocalDate.parse("2026-06-06"),
+            endDate = null,
+            reminderEnabled = false,
+            reminderOffsetMinutes = 0,
+            reminderBucket = null,
+            injectionSiteRestriction = null,
+            notes = null,
+            status = ProtocolStatus.ACTIVE,
+            siteCooldownDays = null,
+            deletedAt = null,
+            createdAt = Instant.parse("2026-06-06T00:00:00Z"),
+            updatedAt = Instant.parse("2026-06-06T00:00:00Z"),
+        )
 
-    private fun compound(
-        id: Long = 0,
-        name: String = "Compound",
-    ): CompoundSupplyEntity = CompoundSupplyEntity(
+    private fun compound(id: Long = 0, name: String = "Compound"): CompoundSupplyEntity = CompoundSupplyEntity(
         id = id,
         name = name,
         category = CompoundCategory.PEPTIDE,

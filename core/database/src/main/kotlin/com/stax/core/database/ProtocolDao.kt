@@ -53,7 +53,5 @@ interface ProtocolDao {
         ORDER BY name COLLATE NOCASE ASC
         """,
     )
-    fun observeByCompoundSupplyIdWithDosageTimes(
-        compoundSupplyId: Long,
-    ): Flow<List<ProtocolWithDosageTimes>>
+    fun observeByCompoundSupplyIdWithDosageTimes(compoundSupplyId: Long): Flow<List<ProtocolWithDosageTimes>>
 }

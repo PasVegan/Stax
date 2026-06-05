@@ -87,9 +87,27 @@ class ScheduledDoseDaoTest {
     @Test
     fun `observePendingByProtocolId returns only pending doses with null administrationEventId`() = runTest {
         val (_, protocolId) = insertProtocol()
-        val pending = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-06T08:00:00Z"), status = ScheduledDoseStatus.PENDING, administrationEventId = null)
-        val taken = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-07T08:00:00Z"), status = ScheduledDoseStatus.TAKEN, administrationEventId = null)
-        val pendingLinked = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-08T08:00:00Z"), status = ScheduledDoseStatus.PENDING, administrationEventId = 99L)
+        val pending =
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-06T08:00:00Z"),
+                status = ScheduledDoseStatus.PENDING,
+                administrationEventId = null,
+            )
+        val taken =
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-07T08:00:00Z"),
+                status = ScheduledDoseStatus.TAKEN,
+                administrationEventId = null,
+            )
+        val pendingLinked =
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-08T08:00:00Z"),
+                status = ScheduledDoseStatus.PENDING,
+                administrationEventId = 99L,
+            )
 
         val pendingId = scheduledDoseDao.insertOrIgnore(pending)
         scheduledDoseDao.insertOrIgnore(taken)
@@ -102,9 +120,27 @@ class ScheduledDoseDaoTest {
     @Test
     fun `deletePendingUnloggedForProtocol removes only pending doses with null administrationEventId`() = runTest {
         val (_, protocolId) = insertProtocol()
-        val pending = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-06T08:00:00Z"), status = ScheduledDoseStatus.PENDING, administrationEventId = null)
-        val taken = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-07T08:00:00Z"), status = ScheduledDoseStatus.TAKEN, administrationEventId = null)
-        val pendingLinked = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-08T08:00:00Z"), status = ScheduledDoseStatus.PENDING, administrationEventId = 99L)
+        val pending =
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-06T08:00:00Z"),
+                status = ScheduledDoseStatus.PENDING,
+                administrationEventId = null,
+            )
+        val taken =
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-07T08:00:00Z"),
+                status = ScheduledDoseStatus.TAKEN,
+                administrationEventId = null,
+            )
+        val pendingLinked =
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-08T08:00:00Z"),
+                status = ScheduledDoseStatus.PENDING,
+                administrationEventId = 99L,
+            )
 
         scheduledDoseDao.insertOrIgnore(pending)
         val takenId = scheduledDoseDao.insertOrIgnore(taken)

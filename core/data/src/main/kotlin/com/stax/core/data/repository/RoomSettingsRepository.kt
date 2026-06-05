@@ -27,10 +27,8 @@ import kotlinx.coroutines.flow.map
  * one commit behind Room — the cold-start ThemeInitializer (§2.3.4) will always
  * see a value consistent with the previous Room commit.
  */
-class RoomSettingsRepository(
-    private val dao: SettingsDao,
-    private val dataStore: DataStore<Preferences>,
-) : SettingsRepository {
+class RoomSettingsRepository(private val dao: SettingsDao, private val dataStore: DataStore<Preferences>) :
+    SettingsRepository {
 
     override fun observe(): Flow<Settings> = dao.observe()
         .filterNotNull()

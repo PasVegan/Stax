@@ -38,17 +38,15 @@ class RoomProtocolRepository(
     // Observe
     // -----------------------------------------------------------------------
 
-    override fun observeAll(): Flow<List<Protocol>> =
-        protocolDao.observeActiveWithDosageTimes().map { rows ->
-            rows.map { row ->
-                row.protocol.toDomain(row.dosageTimeEntities.map { it.time })
-            }
+    override fun observeAll(): Flow<List<Protocol>> = protocolDao.observeActiveWithDosageTimes().map { rows ->
+        rows.map { row ->
+            row.protocol.toDomain(row.dosageTimeEntities.map { it.time })
         }
+    }
 
-    override fun observeById(id: Long): Flow<Protocol?> =
-        protocolDao.observeByIdWithDosageTimes(id).map { row ->
-            row?.protocol?.toDomain(row.dosageTimeEntities.map { it.time })
-        }
+    override fun observeById(id: Long): Flow<Protocol?> = protocolDao.observeByIdWithDosageTimes(id).map { row ->
+        row?.protocol?.toDomain(row.dosageTimeEntities.map { it.time })
+    }
 
     override fun observeByCompoundSupplyId(compoundSupplyId: Long): Flow<List<Protocol>> =
         protocolDao.observeByCompoundSupplyIdWithDosageTimes(compoundSupplyId).map { rows ->
@@ -61,89 +59,83 @@ class RoomProtocolRepository(
     // Create  (§5.8.5 transaction boundary)
     // -----------------------------------------------------------------------
 
-    override suspend fun create(protocol: Protocol): Result<Long, DataError.Local> =
-        runTx {
-            val now = Clock.System.now()
-            val entity = protocol.toEntity().copy(id = 0, createdAt = now, updatedAt = now)
-            val newId = protocolDao.insert(entity)
+    override suspend fun create(protocol: Protocol): Result<Long, DataError.Local> = runTx {
+        val now = Clock.System.now()
+        val entity = protocol.toEntity().copy(id = 0, createdAt = now, updatedAt = now)
+        val newId = protocolDao.insert(entity)
 
-            // Insert dosage times
-            val domainWithId = protocol.copy(id = newId)
-            dosageTimeDao.insertAll(domainWithId.toDosageTimeEntities())
+        // Insert dosage times
+        val domainWithId = protocol.copy(id = newId)
+        dosageTimeDao.insertAll(domainWithId.toDosageTimeEntities())
 
-            // Generate initial 7-day batch
-            generateAndInsert(domainWithId)
+        // Generate initial 7-day batch
+        generateAndInsert(domainWithId)
 
-            newId
-        }
+        newId
+    }
 
     // -----------------------------------------------------------------------
     // Update  — pending-regen scope rule (§5.4)
     // -----------------------------------------------------------------------
 
-    override suspend fun update(protocol: Protocol): EmptyResult<DataError.Local> =
-        runTx {
-            val now = Clock.System.now()
-            val rows = protocolDao.update(protocol.toEntity().copy(updatedAt = now))
-            if (rows == 0) throw NotFoundException()
+    override suspend fun update(protocol: Protocol): EmptyResult<DataError.Local> = runTx {
+        val now = Clock.System.now()
+        val rows = protocolDao.update(protocol.toEntity().copy(updatedAt = now))
+        if (rows == 0) throw NotFoundException()
 
-            // Replace dosage times (delete + re-insert)
-            dosageTimeDao.deleteByProtocolId(protocol.id)
-            dosageTimeDao.insertAll(protocol.toDosageTimeEntities())
+        // Replace dosage times (delete + re-insert)
+        dosageTimeDao.deleteByProtocolId(protocol.id)
+        dosageTimeDao.insertAll(protocol.toDosageTimeEntities())
 
-            // Pending-regen: delete unlogged pending, regenerate horizon
-            scheduledDoseDao.deletePendingUnloggedForProtocol(protocol.id)
-            generateAndInsert(protocol)
-        }
+        // Pending-regen: delete unlogged pending, regenerate horizon
+        scheduledDoseDao.deletePendingUnloggedForProtocol(protocol.id)
+        generateAndInsert(protocol)
+    }
 
     // -----------------------------------------------------------------------
     // Archive (soft-delete §5.5)
     // -----------------------------------------------------------------------
 
-    override suspend fun archive(id: Long): EmptyResult<DataError.Local> =
-        runTx {
-            val rows = protocolDao.softDelete(id, Clock.System.now())
-            if (rows == 0) throw NotFoundException()
-            scheduledDoseDao.deletePendingUnloggedForProtocol(id)
-        }
+    override suspend fun archive(id: Long): EmptyResult<DataError.Local> = runTx {
+        val rows = protocolDao.softDelete(id, Clock.System.now())
+        if (rows == 0) throw NotFoundException()
+        scheduledDoseDao.deletePendingUnloggedForProtocol(id)
+    }
 
     // -----------------------------------------------------------------------
     // Pause
     // -----------------------------------------------------------------------
 
-    override suspend fun pause(id: Long): EmptyResult<DataError.Local> =
-        runOp {
-            val rows = protocolDao.updateStatus(id, ProtocolStatus.PAUSED, Clock.System.now())
-            if (rows == 0) throw NotFoundException()
-        }
+    override suspend fun pause(id: Long): EmptyResult<DataError.Local> = runOp {
+        val rows = protocolDao.updateStatus(id, ProtocolStatus.PAUSED, Clock.System.now())
+        if (rows == 0) throw NotFoundException()
+    }
 
     // -----------------------------------------------------------------------
     // Resume — regenerate horizon after un-pausing
     // -----------------------------------------------------------------------
 
-    override suspend fun resume(id: Long): EmptyResult<DataError.Local> =
-        runTx {
-            val rows = protocolDao.updateStatus(id, ProtocolStatus.ACTIVE, Clock.System.now())
-            if (rows == 0) throw NotFoundException()
+    override suspend fun resume(id: Long): EmptyResult<DataError.Local> = runTx {
+        val rows = protocolDao.updateStatus(id, ProtocolStatus.ACTIVE, Clock.System.now())
+        if (rows == 0) throw NotFoundException()
 
-            val entity = protocolDao.getById(id) ?: throw NotFoundException()
-            val dosageTimes = dosageTimeDao.getByProtocolId(id).map { it.time }
-            val protocol = entity.toDomain(dosageTimes)
+        val entity = protocolDao.getById(id) ?: throw NotFoundException()
+        val dosageTimes = dosageTimeDao.getByProtocolId(id).map { it.time }
+        val protocol = entity.toDomain(dosageTimes)
 
-            scheduledDoseDao.deletePendingUnloggedForProtocol(id)
-            generateAndInsert(protocol)
-        }
+        scheduledDoseDao.deletePendingUnloggedForProtocol(id)
+        generateAndInsert(protocol)
+    }
 
     // -----------------------------------------------------------------------
     // Complete
     // -----------------------------------------------------------------------
 
-    override suspend fun complete(id: Long): EmptyResult<DataError.Local> =
-        runTx {
-            val rows = protocolDao.updateStatus(id, ProtocolStatus.COMPLETED, Clock.System.now())
-            if (rows == 0) throw NotFoundException()
-            scheduledDoseDao.deletePendingUnloggedForProtocol(id)
-        }
+    override suspend fun complete(id: Long): EmptyResult<DataError.Local> = runTx {
+        val rows = protocolDao.updateStatus(id, ProtocolStatus.COMPLETED, Clock.System.now())
+        if (rows == 0) throw NotFoundException()
+        scheduledDoseDao.deletePendingUnloggedForProtocol(id)
+    }
 
     // -----------------------------------------------------------------------
     // Internal helpers
@@ -162,24 +154,22 @@ class RoomProtocolRepository(
         if (entities.isNotEmpty()) scheduledDoseDao.insertManyOrIgnore(entities)
     }
 
-    private suspend fun <T> runTx(block: suspend () -> T): Result<T, DataError.Local> =
-        try {
-            Result.Success(database.withTransaction { block() })
-        } catch (e: NotFoundException) {
-            Result.Error(DataError.Local.NOT_FOUND)
-        } catch (e: Exception) {
-            Result.Error(DataError.Local.UNKNOWN)
-        }
+    private suspend fun <T> runTx(block: suspend () -> T): Result<T, DataError.Local> = try {
+        Result.Success(database.withTransaction { block() })
+    } catch (e: NotFoundException) {
+        Result.Error(DataError.Local.NOT_FOUND)
+    } catch (e: Exception) {
+        Result.Error(DataError.Local.UNKNOWN)
+    }
 
-    private suspend fun runOp(block: suspend () -> Unit): EmptyResult<DataError.Local> =
-        try {
-            block()
-            Result.Success(Unit)
-        } catch (e: NotFoundException) {
-            Result.Error(DataError.Local.NOT_FOUND)
-        } catch (e: Exception) {
-            Result.Error(DataError.Local.UNKNOWN)
-        }
+    private suspend fun runOp(block: suspend () -> Unit): EmptyResult<DataError.Local> = try {
+        block()
+        Result.Success(Unit)
+    } catch (e: NotFoundException) {
+        Result.Error(DataError.Local.NOT_FOUND)
+    } catch (e: Exception) {
+        Result.Error(DataError.Local.UNKNOWN)
+    }
 
     private class NotFoundException : Exception()
 }

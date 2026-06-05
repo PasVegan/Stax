@@ -18,14 +18,14 @@ import com.stax.core.domain.Quantity
 import com.stax.core.domain.Route
 import com.stax.core.domain.Schedule
 import com.stax.core.domain.ScheduleType
+import com.stax.core.domain.UnitCode
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
-import kotlin.time.Instant
 import org.junit.jupiter.api.Test
-import com.stax.core.domain.UnitCode
+import kotlin.time.Instant
 
 class ScheduledDoseGeneratorTest {
 

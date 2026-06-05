@@ -2,8 +2,8 @@ package com.stax.core.data.di
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import com.stax.core.data.preferences.ThemePreferences
 import com.stax.core.data.repository.RoomCompoundRepository
 import com.stax.core.data.repository.RoomProtocolRepository

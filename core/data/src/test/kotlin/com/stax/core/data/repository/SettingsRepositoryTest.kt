@@ -11,8 +11,6 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.stax.core.data.preferences.ThemePreferences
-import com.stax.core.database.AppTheme as DbAppTheme
-import com.stax.core.database.NotificationStyle as DbNotificationStyle
 import com.stax.core.database.SettingsDao
 import com.stax.core.database.SettingsEntity
 import com.stax.core.database.StaxDatabase
@@ -32,6 +30,8 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
 import kotlin.time.Instant
+import com.stax.core.database.AppTheme as DbAppTheme
+import com.stax.core.database.NotificationStyle as DbNotificationStyle
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])

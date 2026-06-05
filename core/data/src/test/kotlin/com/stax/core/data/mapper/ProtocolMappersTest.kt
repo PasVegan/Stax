@@ -4,24 +4,24 @@ import assertk.assertThat
 import assertk.assertions.containsExactlyInAnyOrder
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
-import com.stax.core.database.BodyRegion as DbBodyRegion
 import com.stax.core.database.EscalationEmbed
-import com.stax.core.database.EscalationIncreaseEvery as DbEscalationIncreaseEvery
 import com.stax.core.database.ProtocolBreakEmbed
 import com.stax.core.database.ProtocolDosageTimeEntity
 import com.stax.core.database.ProtocolEntity
-import com.stax.core.database.ProtocolStatus as DbProtocolStatus
-import com.stax.core.database.ReminderBucket as DbReminderBucket
-import com.stax.core.database.Route as DbRoute
 import com.stax.core.database.ScheduleEmbed
-import com.stax.core.database.ScheduleType as DbScheduleType
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.UnitCode
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlin.time.Instant
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
+import com.stax.core.database.BodyRegion as DbBodyRegion
+import com.stax.core.database.EscalationIncreaseEvery as DbEscalationIncreaseEvery
+import com.stax.core.database.ProtocolStatus as DbProtocolStatus
+import com.stax.core.database.ReminderBucket as DbReminderBucket
+import com.stax.core.database.Route as DbRoute
+import com.stax.core.database.ScheduleType as DbScheduleType
 
 private val NOW: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
 private val TODAY: LocalDate = LocalDate(2023, 11, 14)
@@ -144,7 +144,7 @@ class ProtocolMappersTest {
     @Test
     fun `round-trip specific weekdays bitmask Mon+Wed+Fri`() {
         // Monday=1, Wednesday=4, Friday=16 → bitmask = 0b_0_010_101 = 21
-        val monWedFriMask = (1 shl 0) or (1 shl 2) or (1 shl 4)  // 21
+        val monWedFriMask = (1 shl 0) or (1 shl 2) or (1 shl 4) // 21
         val entity = minimalEntity().copy(
             schedule = ScheduleEmbed(
                 type = DbScheduleType.SPECIFIC_WEEKDAYS,
@@ -157,7 +157,9 @@ class ProtocolMappersTest {
         )
         val domain = entity.toDomain()
         assertThat(domain.schedule.selectedWeekdays!!).containsExactlyInAnyOrder(
-            DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY,
+            DayOfWeek.MONDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.FRIDAY,
         )
         val roundTripped = domain.toEntity()
         assertThat(roundTripped).isEqualTo(entity)

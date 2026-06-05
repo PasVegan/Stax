@@ -85,7 +85,9 @@ class ScheduledDoseGenerator {
                     // XTimesPerDay may specify more times than needed — take the required count
                     protocol.dosageTimes.take(dosesOnDate).map { it }
                 }
+
                 dosesOnDate == 1 -> listOf(null)
+
                 else -> {
                     // Multiple doses per day without explicit times: evenly distribute
                     List(dosesOnDate) { i ->

@@ -46,6 +46,30 @@ class RoomConverters {
     @TypeConverter
     fun stringToUnitFamily(value: String?): UnitFamily? = value?.toEnum()
 
+    @TypeConverter
+    fun compoundCategoryToString(value: CompoundCategory?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToCompoundCategory(value: String?): CompoundCategory? = value?.toEnum()
+
+    @TypeConverter
+    fun compoundFormToString(value: CompoundForm?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToCompoundForm(value: String?): CompoundForm? = value?.toEnum()
+
+    @TypeConverter
+    fun containerTypeToString(value: ContainerType?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToContainerType(value: String?): ContainerType? = value?.toEnum()
+
+    @TypeConverter
+    fun storageLocationToString(value: StorageLocation?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToStorageLocation(value: String?): StorageLocation? = value?.toEnum()
+
     private fun Enum<*>.stableName(): String = name
 
     private inline fun <reified T : Enum<T>> String.toEnum(): T = enumValueOf(this)

@@ -7,6 +7,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import java.util.concurrent.Executors
 
 /**
@@ -24,6 +25,7 @@ import java.util.concurrent.Executors
     version = 1,
     exportSchema = false,
 )
+@TypeConverters(RoomConverters::class)
 abstract class StaxDatabase : RoomDatabase() {
 
     /** Removed when real entities replace this scaffold (M1). */

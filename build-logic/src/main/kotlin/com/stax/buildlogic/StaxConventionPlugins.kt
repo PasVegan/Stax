@@ -12,9 +12,11 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 private const val CompileSdk = 37  // adaptive-navigation3 1.3.0-beta02 requires API 37
 private const val MinSdk = 36
@@ -221,10 +223,13 @@ class TestingConventionPlugin : Plugin<Project> {
         addTestImplementation("kotlinx-coroutines-test")
 
         // Robolectric — Android modules only
+        // junit4 must be explicit: Robolectric 4.14+ no longer pulls it as a transitive dep.
         pluginManager.withPlugin("com.android.library") {
+            addTestImplementation("junit4")
             addTestImplementation("robolectric")
         }
         pluginManager.withPlugin("com.android.application") {
+            addTestImplementation("junit4")
             addTestImplementation("robolectric")
         }
 
@@ -239,6 +244,7 @@ class TestingConventionPlugin : Plugin<Project> {
         }
         // Compose UI test deps — only when compose plugin is also applied
         pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") {
+            addAndroidTestImplementationPlatform("androidx-compose-bom")
             addAndroidTestImplementation("androidx-compose-ui-test-junit4")
             addDebugImplementation("androidx-compose-ui-test-manifest")
         }
@@ -269,11 +275,14 @@ private fun Project.configureKotlin() {
         }
     }
 
-    tasks.withType<KotlinCompilationTask<*>>().configureEach {
-        compilerOptions.freeCompilerArgs.addAll(
-            "-Xjvm-default=all",
-            "-opt-in=kotlin.RequiresOptIn",
-        )
+    tasks.withType<KotlinJvmCompile>().configureEach {
+        compilerOptions {
+            // Replaces "-Xjvm-default=all"
+            jvmDefault.set(JvmDefaultMode.NO_COMPATIBILITY)
+
+            // Replaces "-opt-in=kotlin.RequiresOptIn"
+            optIn.add("kotlin.RequiresOptIn")
+        }
     }
 }
 
@@ -304,6 +313,10 @@ private fun Project.addTestRuntimeOnly(alias: String) {
 
 private fun Project.addAndroidTestImplementation(alias: String) {
     dependencies.add("androidTestImplementation", libs.library(alias))
+}
+
+private fun Project.addAndroidTestImplementationPlatform(alias: String) {
+    dependencies.add("androidTestImplementation", dependencies.platform(libs.library(alias)))
 }
 
 private fun Project.addImplementationPlatform(alias: String) {

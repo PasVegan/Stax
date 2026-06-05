@@ -21,6 +21,7 @@ import java.util.concurrent.Executors
         CompoundSupplyEntity::class,
         OpenedContainerEntity::class,
         ProtocolEntity::class,
+        ProtocolDosageTimeEntity::class,
     ],
     version = 1,
     exportSchema = false,
@@ -31,6 +32,7 @@ abstract class StaxDatabase : RoomDatabase() {
     abstract fun compoundSupplyDao(): CompoundSupplyDao
     abstract fun openedContainerDao(): OpenedContainerDao
     abstract fun protocolDao(): ProtocolDao
+    abstract fun protocolDosageTimeDao(): ProtocolDosageTimeDao
 
     companion object {
 

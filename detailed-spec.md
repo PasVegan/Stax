@@ -353,11 +353,13 @@ isAvailable: Boolean                    // user can mark unavailable (bruise, sc
 id: Long
 compoundSupplyId: Long
 delta: Quantity                         // signed quantity in compound stock unit
-type: Manual | DoseDeduction | ContainerOpen | ContainerClose
+type: InitialStock | Manual | DoseDeduction | ContainerOpen | ContainerClose
 sourceEventId: Long?                    // AdministrationEvent.id when type=DoseDeduction
 reason: String?                         // user-provided note for manual
 at: Instant
 ```
+
+**`InitialStock` semantics**: emitted **exactly once** when a compound is created, with `delta` equal to the total quantity the user entered as initial stock (i.e. `amountPerContainer × totalContainers`, plus any opened-container remaining). Required so `sum(delta)` across the ledger equals current absolute state for §5.8.0 reconciliation. If a user adds containers later via the Adjust flow (§4.3.9), each addition emits its own `Manual` transaction with the added quantity.
 
 ### 3.8 Settings
 Singleton row, `id = 1`.
@@ -1345,7 +1347,7 @@ No "Use this site" CTA here (that's on Site picker / Take Dose context). This sh
 #### 4.13.4 Section: Data
 - **Export JSON** → file picker save → produces `stax-export-YYYY-MM-DD.json`.
 - **Import JSON** → file picker open → preview dialog (row counts per entity) → confirm → ID remap import (see §5.6).
-- **Reset all data** row — `error-container` fill, `error-container` text, leading `delete` icon in `error-container` themed style. Tap → typed-confirm dialog ("Type RESET to confirm") → hard-deletes all entities.
+- **Reset all data** row — `error-container` fill, `error-container` text, leading `delete` icon in `error-container` themed style. Tap → typed-confirm dialog ("Type RESET to confirm") → executes reset operation per §5.11.
 
 #### 4.13.5 Footer
 App identity + version: "Stax" + "v 1.0.0" (both `on-surface-variant`). Centered.
@@ -1553,11 +1555,19 @@ Generation is idempotent — uses `(protocolId, scheduledAt)` uniqueness; never 
 
 ### 5.3 Inventory deduction
 
-**Container opening operation**:
+**Compound creation (initial stock)**:
+- On Create Compound (§4.4.4) save, after inserting `compound_supply` + any `opened_container`, emit exactly one `InventoryTransaction { type=InitialStock, delta=totalInitialStock }` where `totalInitialStock = (numberOfContainers × amountPerContainer) + (currentOpened?.remainingAmount ?? 0)`. Required so ledger `sum(delta)` equals current absolute state for §5.8.0 reconciliation.
+- On Import (§5.6) of an existing dataset, do NOT emit `InitialStock` — imported ledgers already contain whatever history was exported.
+
+**Container opening operation** (after first launch, when user opens a fresh closed container):
 - Requires `numberOfContainers > 0`.
 - Decrement `compound_supply.numberOfContainers` by 1.
 - Create `OpenedContainer` with `openedAt=now` and `remainingAmount=amountPerContainer`.
-- Insert `InventoryTransaction { type=ContainerOpen, delta=amountPerContainer }`.
+- Insert `InventoryTransaction { type=ContainerOpen, delta=0 }`. `ContainerOpen` is an audit marker only; the underlying stock did not change (the unit moved from "unopened" to "opened" pool). Net stock delta = 0.
+
+**Manual stock addition** (Compound Detail → Adjust, §4.3.9):
+- User-entered positive delta → insert `InventoryTransaction { type=Manual, delta=+x, reason="Added stock" }`.
+- User-entered negative delta → insert `InventoryTransaction { type=Manual, delta=-x, reason="..." }`.
 
 On AdministrationEvent save:
 - **Taken / Partial**: for each DoseComponent:
@@ -1649,8 +1659,8 @@ Room must not store object references directly. Fields like `CompoundSupply.curr
 `opened_container.remainingAmount` and `compound_supply.numberOfContainers` are **authoritative** mutable state. `inventory_transaction` is an **append-only audit ledger** for history and debugging — never read as truth at runtime.
 
 Drift protection: `InventoryReconcileWorker` runs daily, sums the ledger per `compoundSupplyId`, and compares against `(numberOfContainers, currentOpened.remainingAmount)`. On mismatch:
-- Debug builds: log + Crashlytics warning.
-- Release builds: silent; set a `Settings`-side drift flag that surfaces a "Repair inventory" row in §4.13.
+- Debug builds: log to Logcat with structured tag `StaxInventoryDrift` (no network — see §2.1).
+- Release builds: silent; set a `Settings`-side drift flag that surfaces a "Repair inventory" row in §4.13. Drift events are appended to a local rolling diagnostic file (`diagnostics.log`, ≤ 1 MB rotating) that can be exported via §4.13.4 Export JSON alongside the data export.
 - **Repair flow** (user-initiated only): user taps "Repair inventory" → preview dialog shows (current state, ledger-derived state, delta per compound) → explicit "Apply repair" confirm → ledger-derived state is written back as the new mutable state, with one synthesizing `InventoryTransaction { type=Manual, reason="Ledger reconciliation" }`. The worker never auto-applies.
 
 #### 5.8.1 Tables
@@ -1769,11 +1779,14 @@ Required indexes:
 
 These operations must run inside one Room transaction:
 
-- Create compound with already-opened container.
-- Open container:
+- Create compound (with or without already-opened container):
+  - insert `compound_supply`
+  - if already-opened: insert `opened_container`
+  - insert `InventoryTransaction(type=InitialStock, delta=totalInitialStock)` per §5.3
+- Open container (first opening after create, or subsequent re-opens):
   - decrement `compound_supply.numberOfContainers`
   - insert `opened_container`
-  - insert `InventoryTransaction(type=ContainerOpen)`
+  - insert `InventoryTransaction(type=ContainerOpen, delta=0)` per §5.3
 - Log administration event:
   - insert `administration_event`
   - insert all `dose_component` rows
@@ -1879,6 +1892,23 @@ Import:
 - Status communicated through both icon + color (never color alone).
 - Body map dots: each has content description "{site name}, {status}".
 
+### 5.11 Reset all data
+
+Hard-delete path. Triggered from §4.13.4 typed-confirm dialog only. Implemented as a single Room transaction; alarms cancelled and seed restored explicitly without relying on `RoomDatabase.Callback.onCreate` (which does not fire when rows are deleted but the DB file remains).
+
+Sequence:
+1. Cancel every scheduled alarm via `AlarmScheduler.cancelAll()`.
+2. Cancel every pending WorkManager job: `GenerateScheduledDosesWorker`, `InventoryExpiryCheckWorker`, `InventoryReconcileWorker`, `AlarmReconcileWorker`.
+3. Open one Room transaction:
+   - `DELETE FROM` each table in FK-safe order (children before parents).
+   - Re-insert the `settings` singleton row (`id = 1`) with default values per §3.8.
+   - Re-insert the 14 preset `injection_site` rows per §5.8.6.
+4. Reset the DataStore mirror to default `theme` + `dynamicColor` values (overwrite, do not merge).
+5. Emit `STAX_WIDGET_REFRESH` so widgets repaint into their empty state.
+6. Re-enqueue periodic workers as if first launch (idempotent via unique work names per §2.3.8).
+
+Reset is irreversible. No undo snackbar; the typed-confirm dialog is the only barrier.
+
 ---
 
 ## 6. Screen inventory + navigation
@@ -1914,20 +1944,207 @@ Import:
 - **App shortcuts** (§4.17) — static launcher shortcuts: Log next dose · Manual log · Add compound · Reconstitute.
 
 ### 6.4 Adaptive behavior
-**Compact** (<600dp): single-pane, bottom nav, FABs at bottom-right.
 
-**Medium** (600–839dp, foldable unfolded): switches to side rail.
-- Compounds list ↔ Compound Detail = list-detail two-pane. List pane fixed `360dp`, detail pane fills remainder, divider `outline-variant` 1dp.
-- Protocols list ↔ Protocol Detail = same two-pane geometry.
-- Sites = single-pane (body map is hero; splitting reduces impact).
-- Dashboard = single-pane.
+Goal: medium + expanded are first-class — UI rearranges meaningfully, not just wider columns. Use Material 3 adaptive APIs: `androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold`, `SupportingPaneScaffold`, `NavigationSuiteScaffold`, `WindowSizeClass`, `currentWindowAdaptiveInfo()`.
 
-**Expanded** (840–1199dp): same as Medium plus increased horizontal padding (`24dp` → `32dp`) on hero cards; list pane widens to `400dp`.
+#### 6.4.0 Breakpoints
 
-Touch targets remain ≥ 48×48 regardless of breakpoint.
+| Class    | Width dp | Physical examples                                                    | Nav chrome                                |
+|----------|----------|----------------------------------------------------------------------|-------------------------------------------|
+| Compact  | <600     | Phone portrait                                                       | Bottom nav (5 dest)                       |
+| Medium   | 600–839  | Tablet portrait · Foldable portrait unfolded · Phone large landscape | Navigation rail                           |
+| Expanded | 840–1199 | Phone landscape · Tablet landscape · Foldable landscape unfolded     | Navigation rail (expanded labels visible) |
 
-#### 6.4.1 Foldable seam handling
-Use `WindowInfoTracker` to detect a vertical fold; if list pane width would land under the seam, push the divider to the seam line and widen the detail pane to the second half. No content crosses the fold.
+No Large / X-Large support — out of scope per §2 (no desktop, no ultra-wide).
+
+Touch targets ≥ 48×48dp at every breakpoint. All measurements `dp`, never `px`.
+
+#### 6.4.1 Navigation chrome
+
+Use `NavigationSuiteScaffold` so chrome swaps automatically across breakpoints.
+
+- **Compact**: `NavigationBar` pinned bottom. 5 destinations, icon-only when selected label fits, icon+label otherwise.
+- **Medium**: `NavigationRail` pinned start edge. Width `80dp`. Icon-only with active indicator pill; FAB anchored top of rail (above destinations) when current screen has a primary FAB.
+- **Expanded**: `NavigationRail` pinned start edge. Width `96dp`. Icon + label below icon. FAB anchored top of rail. Optionally show short app-name header at rail top.
+
+Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fills remainder. Status bar + nav bar insets respected via §2.3.6 edge-to-edge.
+
+#### 6.4.2 Per-screen layouts
+
+##### Dashboard (§4.1)
+
+- **Compact**: single-column scroll. Order: day chip strip → dose cards → inventory warnings → recent activity.
+- **Medium**: `SupportingPaneScaffold` (two-pane).
+  - **Main pane** (~60% width, min `400dp`): day chip strip + dose cards (primary actions live here).
+  - **Supporting pane** (~40% width, min `320dp`): inventory warnings card + recent activity list. Sticky; does not scroll out.
+  - Day chip strip widens; 14 chips visible without scroll.
+  - FAB anchored to rail (§6.4.1), not floating over content.
+- **Expanded**: three-region grid.
+  - **Left** (`360dp`): "Up next" rail — vertical stack of next 5 pending dose cards (today + upcoming), each tappable to scroll the center pane.
+  - **Center** (`fillRemainder`, min `560dp`): hero day chip strip (full week visible, no horizontal scroll until user navigates beyond) + active day's dose cards + grouped admin suggestion (when applicable).
+  - **Right** (`360dp`): inventory warnings + recent activity (stacked, scrollable independently).
+  - Swipe gestures on dose cards (§4.1.2) still active in the center pane.
+
+##### Compounds list + Compound Detail (§4.2 / §4.3)
+
+- **Compact**: list pushes to detail on tap.
+- **Medium**: `ListDetailPaneScaffold`. List pane fixed `360dp`, detail pane fills, divider `outline-variant` 1dp. Selecting a row shows detail in the right pane without navigation push. Back press on detail returns focus to list (no pane swap on Medium).
+- **Expanded**: list pane `400dp`. Detail pane internal layout switches to two-column:
+  - Top stat strip stays full-width (§4.3.2).
+  - Below: **left column** (`fillMaxWidth(0.55)`) = Opened vial card + Active protocols + Notes. **Right column** (`fillMaxWidth(0.45)`) = History section (filter chips + paginated history list).
+  - Bottom dock (§4.3.9 Log dose / Adjust) spans only the detail pane, not the list pane.
+
+##### Protocols list + Protocol Detail (§4.7 / §4.8)
+
+- **Compact**: list pushes to detail.
+- **Medium**: `ListDetailPaneScaffold` like Compounds. List `360dp`.
+- **Expanded**: list pane `400dp`. Detail internal layout = two-column grid:
+  - Quick action chips (§4.8.2) span full width.
+  - **Left column**: Schedule card + Linked compound + Site restrictions + Notes.
+  - **Right column**: Inventory forecast + Dose history (paginated).
+  - Bottom dock (§4.8.9 Log dose / Archive) spans only detail pane.
+
+##### Sites (§4.12)
+
+- **Compact**: vertical scroll: stats strip → body map hero → suggested site → recent carousel.
+- **Medium**: two-pane.
+  - **Left** (~55%, min `420dp`): body map hero (Front/Back tabs + Dots/Heat toggle). Map scales up to the pane width; dots remain finger-friendly.
+  - **Right** (~45%, min `320dp`): stats strip (vertical instead of horizontal — three tiles stacked) + suggested site card + recent activity carousel (now a vertical list when narrower than `360dp`).
+- **Expanded**: three-region.
+  - **Left** (`fillRemainder`, min `560dp`): body map hero, larger. Both Front + Back rendered side-by-side instead of tab-switched — user sees both at once. Dots/Heat toggle still applies to both.
+  - **Right** (`400dp`): stats + suggested + recent (same as Medium right pane).
+  - Site detail bottom sheet (§4.12.8) opens as a **right-edge side sheet** instead of a bottom sheet at Expanded (Material `ModalNavigationDrawer` from end edge, width `360dp`).
+
+##### Settings (§4.13)
+
+- **Compact**: vertical scrolling list of section rows.
+- **Medium + Expanded**: `ListDetailPaneScaffold`. List pane `280dp` = section index (Appearance / Reminders / Data / About). Detail pane = chosen section's rows. Default selection on first open = Appearance. Dialogs (Theme picker etc.) keep their compact modal form — they're not section content.
+
+##### Reconstitution Helper (§4.6)
+
+- **Compact**: single-column scroll.
+- **Medium**: two-column.
+  - **Left** (`fillMaxWidth(0.5)`): syringe hero card + equivalence chips + dose ladder (sticky in left column as user scrolls right column).
+  - **Right** (`fillMaxWidth(0.5)`): Mix inputs + Result tiles + Save dock.
+  - Progressive disclosure (§4.6 lead-in) collapses by default at Compact only; at Medium+ default to expanded, since horizontal space is cheap.
+- **Expanded**: three-column.
+  - **Left** (`360dp`): syringe hero + equivalence chips, sticky.
+  - **Center** (`fillRemainder`): Mix inputs, full table layout (4 fields visible in one row instead of 2×2 grid).
+  - **Right** (`320dp`): Result tiles + Dose ladder + Save dock.
+
+##### Create / Edit Compound (§4.4)
+
+- **Compact**: single-column form.
+- **Medium**: two-column form.
+  - **Left column**: Basics + Stock + Storage & batch.
+  - **Right column**: Opened container section + Notes + Forecast preview (live).
+  - Section headers (§4.4.2) stay aligned across columns via shared grid.
+- **Expanded**: same two-column layout but inputs wider — numeric + unit picker fits inline on a single row (not wrapped). Concentration row + "Helper" button fit on one line.
+
+##### Create / Edit Protocol (§4.9)
+
+- **Compact**: single column.
+- **Medium**: two-column.
+  - **Left column**: Compound + Route + Planned dose + Schedule + Times of day + Duration.
+  - **Right column**: Reminder + Site restriction + Notes + Forecast & warnings (live-updated as user changes left column).
+- **Expanded**: same two-column, plus Forecast & warnings becomes a sticky inset card at top-right corner of the right column (visible while user scrolls left column).
+
+##### Log Dose forms (§4.10.2 variants a/b/c)
+
+- **Compact**: single-column full-screen.
+- **Medium + Expanded**: two-column.
+  - **Left** (`fillMaxWidth(0.55)`): Compound/Protocol context + Planned/Actual dose hero + adjust chips.
+  - **Right** (`fillMaxWidth(0.45)`): Route + When + Site + Inventory deduction preview + Save dock spans full width pinned bottom.
+
+##### Take Dose bottom sheet (§4.10.1)
+
+- **Compact**: full-width modal bottom sheet (default).
+- **Medium**: modal bottom sheet, width clamped to `560dp` centered horizontally. Still bottom-anchored; reachability from thumb on tablet held in portrait.
+- **Expanded**: switches to **side sheet** anchored to the end edge, width `420dp`, full screen height. Content reflows vertically (Header → Dose hero → Site card → When → Inventory → Confirm). Easier to glance + tap from a landscape orientation.
+
+##### Other modal bottom sheets
+
+Take Dose pattern applies to: Log Grouped Event (§4.10.3), Edit Opened Container (§4.5), Create Already Opened Container (§4.5), Site detail (§4.12.8), Picker sheets (§4.0.2).
+
+- Compact: bottom sheet.
+- Medium: bottom sheet clamped to `560dp` centered.
+- Expanded: side sheet, end edge, width `420dp` (`360dp` for Picker which has narrower content).
+
+FAB menu (§4.1.7) stays as anchored sheet attached to the rail FAB at Medium + Expanded — no full-width modal.
+
+##### Onboarding (§4.14)
+
+- **Compact**: full-screen stepper.
+- **Medium + Expanded**: hero illustration on left (`fillMaxWidth(0.5)`), step content + CTA on right. Step indicator at top of right column. Same skip-anywhere affordance.
+
+##### Notification permission gate (§4.15)
+
+Same adaptive treatment as Onboarding step 1.
+
+##### Reconstitution syringe, body map, dose ladder
+
+Vector renderers — scale to allocated bounds with `Modifier.aspectRatio`. Hit-test regions for body-map dots (§4.12.4) scale with the canvas; never below `48dp` diameter.
+
+#### 6.4.3 Foldable hinge handling
+
+Use `WindowInfoTracker.windowLayoutInfo` to subscribe to `FoldingFeature` updates.
+
+- **Vertical fold** (book posture):
+  - If a two-pane layout is active, align the pane divider to the fold line. Allocate pane widths from the fold position, ignoring the matrix above. List pane gets the leading half, detail pane gets the trailing half.
+  - If a single-pane layout is active, content is padded so no critical interactive element sits within `12dp` of the hinge.
+- **Horizontal fold** (tabletop posture, e.g. Galaxy Z Fold flat-half):
+  - Promote bottom-half to control surface, top-half to content. Specifically: Take Dose, Log Dose, Reconstitution Helper render the action dock + adjust chips in the bottom half, content above the fold. Treated as Medium even if width is Compact-class.
+- **HALF_OPENED state**: dim the top half via `surfaceContainer @ 92% alpha` so user perceives the lower control surface.
+
+#### 6.4.4 Orientation + window-size changes
+
+- Use `rememberSaveable` for all form state so rotation does not lose drafts.
+- Layout transitions across breakpoints animate via `AnimatedContent` w/ `MotionScheme.expressive().defaultSpatialSpec()` — no hard cut.
+- Pane focus survives rotation: if Compounds list-detail was on a detail at Compact (pushed screen), rotating to Expanded preserves that detail in the right pane; the list pane re-renders with the same row selected.
+
+#### 6.4.5 Predictive back + adaptive nav
+
+- Predictive back enabled (Android 16 default). Two-pane scaffolds use `ListDetailPaneScaffoldNavigator` so back press at Compact navigates list → detail → list; at Medium + Expanded back is consumed only if a stacked screen sits on top of the detail pane.
+- Bottom-nav re-selection at Compact clears the destination's back stack to root. Same behavior at Medium + Expanded on rail re-tap.
+
+#### 6.4.6 FAB placement
+
+| Breakpoint | FAB position                                                                                  |
+|------------|-----------------------------------------------------------------------------------------------|
+| Compact    | Floating bottom-end above bottom nav (`16dp` inset)                                           |
+| Medium     | Anchored to top of NavigationRail; rail FAB slot. Stays visible across screens that have FAB. |
+| Expanded   | Same as Medium — rail FAB slot                                                                |
+
+FAB icon and behavior unchanged across breakpoints (still §4.1.6 direct-log-or-menu).
+
+#### 6.4.7 Type + density scaling
+
+- M3 type styles unchanged; density does not multiply.
+- Body type stays at `bodyLarge` for primary read at Medium + Expanded (not bumped to display); larger surfaces get more cards, not larger text. Avoids "stretched phone" feel.
+- Hero card max-width clamped: dose card hero, suggested site hero, status hero — cap at `720dp` width. Beyond cap, center-anchor.
+
+#### 6.4.8 Testing matrix
+
+Adaptive layouts must be tested on at least these device profiles via `createComposeRule()` + `DeviceConfigurationOverride`:
+
+| Profile                                 | Width dp | Height dp | Notes                                             |
+|-----------------------------------------|----------|-----------|---------------------------------------------------|
+| Pixel 10 portrait                       | 411      | 914       | Compact                                           |
+| Pixel 10 landscape                      | 914      | 411       | Expanded                                          |
+| Pixel 10 Pro Fold cover portrait        | 412      | 891       | Compact (folded); covers outer-screen daily use   |
+| Pixel 10 Pro Fold inner portrait        | 673      | 841       | Medium, vertical hinge                            |
+| Pixel 10 Pro Fold inner landscape       | 841      | 673       | Expanded, possible horizontal hinge (tabletop)    |
+| Samsung Galaxy Z Fold 5 cover portrait  | 388      | 994       | Compact, narrower-than-typical Compact (test min) |
+| Samsung Galaxy Z Fold 5 inner portrait  | 673      | 841       | Medium, vertical hinge                            |
+| Samsung Galaxy Z Fold 5 inner landscape | 841      | 673       | Expanded, horizontal hinge (tabletop posture)     |
+| Pixel Tablet portrait                   | 800      | 1280      | Medium                                            |
+| Pixel Tablet landscape                  | 1280     | 800       | Expanded (clamped to 1199 by §6.4.0)              |
+
+Samsung Z Fold 5 cover screen (`388dp`) is the narrowest realistic Compact target — UI must not clip there. Validate every Compact layout against this profile specifically.
+
+`FoldingFeature` posture testing: parameterize hinge tests with `FoldingFeature.State.HALF_OPENED` + both `Orientation.VERTICAL` (book) and `Orientation.HORIZONTAL` (tabletop) using Jetpack `WindowLayoutInfoPublisherRule`.
+
+CI runs one Compose UI test per major screen per profile = ~10 × 12 screens = 120 fast tests. Acceptable runtime via shared `ComposeTestRule` + parallel sharding.
 
 ---
 

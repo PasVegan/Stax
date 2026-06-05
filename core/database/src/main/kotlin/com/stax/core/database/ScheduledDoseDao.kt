@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import kotlin.time.Instant
 
@@ -33,6 +34,7 @@ interface ScheduledDoseDao {
     )
     fun observePendingByProtocolId(protocolId: Long): Flow<List<ScheduledDoseEntity>>
 
+    @Transaction
     @Query(
         """
         DELETE FROM scheduled_dose
@@ -41,7 +43,7 @@ interface ScheduledDoseDao {
             AND administrationEventId IS NULL
         """,
     )
-    suspend fun deletePendingByProtocolId(protocolId: Long): Int
+    suspend fun deletePendingUnloggedForProtocol(protocolId: Long): Int
 
     @Query(
         """

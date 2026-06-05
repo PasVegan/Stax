@@ -100,7 +100,7 @@ class ScheduledDoseDaoTest {
     }
 
     @Test
-    fun `deletePendingByProtocolId removes only pending doses with null administrationEventId`() = runTest {
+    fun `deletePendingUnloggedForProtocol removes only pending doses with null administrationEventId`() = runTest {
         val (_, protocolId) = insertProtocol()
         val pending = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-06T08:00:00Z"), status = ScheduledDoseStatus.PENDING, administrationEventId = null)
         val taken = scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-07T08:00:00Z"), status = ScheduledDoseStatus.TAKEN, administrationEventId = null)
@@ -110,7 +110,7 @@ class ScheduledDoseDaoTest {
         val takenId = scheduledDoseDao.insertOrIgnore(taken)
         val linkedId = scheduledDoseDao.insertOrIgnore(pendingLinked)
 
-        val deleted = scheduledDoseDao.deletePendingByProtocolId(protocolId)
+        val deleted = scheduledDoseDao.deletePendingUnloggedForProtocol(protocolId)
 
         assertThat(deleted).isEqualTo(1)
         assertThat(scheduledDoseDao.observeByProtocolId(protocolId).first())

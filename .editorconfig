@@ -1,0 +1,19 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+ktlint_code_style = intellij_idea
+max_line_length = 120
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+# Disable rules that conflict with the project's generated/scaffold code
+ktlint_standard_filename = disabled
+# _Package.kt files are intentionally package-marker-only (no declarations)
+ktlint_standard_no-empty-file = disabled

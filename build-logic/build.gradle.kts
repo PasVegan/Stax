@@ -6,6 +6,8 @@ dependencies {
     implementation(libs.android.gradle.plugin)
     implementation(libs.kotlin.gradle.plugin)
     implementation(libs.ksp.gradle.plugin)
+    implementation(libs.ktlint.gradle.plugin)
+    implementation(libs.detekt.gradle.plugin)
 }
 
 gradlePlugin {
@@ -81,6 +83,22 @@ gradlePlugin {
         register("staxTesting") {
             id = "stax.testing"
             implementationClass = "com.stax.buildlogic.TestingConventionPlugin"
+        }
+        register("comStaxKtlint") {
+            id = "com.stax.ktlint"
+            implementationClass = "com.stax.buildlogic.KtlintConventionPlugin"
+        }
+        register("staxKtlint") {
+            id = "stax.ktlint"
+            implementationClass = "com.stax.buildlogic.KtlintConventionPlugin"
+        }
+        register("comStaxDetekt") {
+            id = "com.stax.detekt"
+            implementationClass = "com.stax.buildlogic.DetektConventionPlugin"
+        }
+        register("staxDetekt") {
+            id = "stax.detekt"
+            implementationClass = "com.stax.buildlogic.DetektConventionPlugin"
         }
     }
 }

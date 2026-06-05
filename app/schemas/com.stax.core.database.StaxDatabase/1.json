@@ -1,0 +1,1282 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "5644c5cf4ebc3479cc77394f05042fe3",
+    "entities": [
+      {
+        "tableName": "compound_supply",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `form` TEXT NOT NULL, `containerType` TEXT NOT NULL, `primaryUnit` TEXT NOT NULL, `amountPerContainerValue` TEXT NOT NULL, `amountPerContainerUnit` TEXT NOT NULL, `concentrationAmountValue` TEXT, `concentrationAmountUnit` TEXT, `concentrationPerValue` TEXT, `concentrationPerUnit` TEXT, `numberOfContainers` INTEGER NOT NULL, `batchExpiryDate` TEXT, `expiryAfterOpeningDays` INTEGER, `storageLocation` TEXT NOT NULL, `batchNumber` TEXT, `supplier` TEXT, `notes` TEXT, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "form",
+            "columnName": "form",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "containerType",
+            "columnName": "containerType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "primaryUnit",
+            "columnName": "primaryUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountPerContainerValue",
+            "columnName": "amountPerContainerValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountPerContainerUnit",
+            "columnName": "amountPerContainerUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "concentrationAmountValue",
+            "columnName": "concentrationAmountValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "concentrationAmountUnit",
+            "columnName": "concentrationAmountUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "concentrationPerValue",
+            "columnName": "concentrationPerValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "concentrationPerUnit",
+            "columnName": "concentrationPerUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "numberOfContainers",
+            "columnName": "numberOfContainers",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchExpiryDate",
+            "columnName": "batchExpiryDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "expiryAfterOpeningDays",
+            "columnName": "expiryAfterOpeningDays",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "storageLocation",
+            "columnName": "storageLocation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchNumber",
+            "columnName": "batchNumber",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "supplier",
+            "columnName": "supplier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_compound_supply_deletedAt",
+            "unique": false,
+            "columnNames": [
+              "deletedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_compound_supply_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          },
+          {
+            "name": "index_compound_supply_category_form_deletedAt",
+            "unique": false,
+            "columnNames": [
+              "category",
+              "form",
+              "deletedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_compound_supply_category_form_deletedAt` ON `${TABLE_NAME}` (`category`, `form`, `deletedAt`)"
+          },
+          {
+            "name": "index_compound_supply_name",
+            "unique": false,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_compound_supply_name` ON `${TABLE_NAME}` (`name`)"
+          },
+          {
+            "name": "index_compound_supply_batchExpiryDate",
+            "unique": false,
+            "columnNames": [
+              "batchExpiryDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_compound_supply_batchExpiryDate` ON `${TABLE_NAME}` (`batchExpiryDate`)"
+          }
+        ]
+      },
+      {
+        "tableName": "opened_container",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `compoundSupplyId` INTEGER NOT NULL, `openedAt` INTEGER NOT NULL, `remainingAmountValue` TEXT NOT NULL, `remainingAmountUnit` TEXT NOT NULL, `expiryAfterOpeningDays` INTEGER, `userDefinedExpiryDate` TEXT, `predictedExpiryDate` TEXT, FOREIGN KEY(`compoundSupplyId`) REFERENCES `compound_supply`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compoundSupplyId",
+            "columnName": "compoundSupplyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "openedAt",
+            "columnName": "openedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remainingAmountValue",
+            "columnName": "remainingAmountValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remainingAmountUnit",
+            "columnName": "remainingAmountUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryAfterOpeningDays",
+            "columnName": "expiryAfterOpeningDays",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "userDefinedExpiryDate",
+            "columnName": "userDefinedExpiryDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "predictedExpiryDate",
+            "columnName": "predictedExpiryDate",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_opened_container_compoundSupplyId",
+            "unique": true,
+            "columnNames": [
+              "compoundSupplyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_opened_container_compoundSupplyId` ON `${TABLE_NAME}` (`compoundSupplyId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "compound_supply",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "compoundSupplyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "protocol",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `compoundSupplyId` INTEGER NOT NULL, `plannedDoseValue` TEXT NOT NULL, `plannedDoseUnit` TEXT NOT NULL, `route` TEXT NOT NULL, `selectedWeekdaysBitmask` INTEGER NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT, `reminderEnabled` INTEGER NOT NULL, `reminderOffsetMinutes` INTEGER NOT NULL, `reminderBucket` TEXT, `injectionSiteRestriction` TEXT, `notes` TEXT, `status` TEXT NOT NULL, `siteCooldownDays` INTEGER, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `scheduleType` TEXT NOT NULL, `scheduleInterval` INTEGER, `scheduleTimesPerDay` INTEGER, `scheduleTimesPerWeek` INTEGER, `scheduleTimesPerMonth` INTEGER, `escalationStartDoseValue` TEXT, `escalationStartDoseUnit` TEXT, `escalationTargetDoseValue` TEXT, `escalationTargetDoseUnit` TEXT, `escalationIncreaseAmountValue` TEXT, `escalationIncreaseAmountUnit` TEXT, `escalationIncreaseEvery` TEXT, `escalationIncreaseEveryValue` INTEGER, `escalationMaxDoseValue` TEXT, `escalationMaxDoseUnit` TEXT, `escalationStopAtTarget` INTEGER, `breakDaysOn` INTEGER, `breakDaysOff` INTEGER, FOREIGN KEY(`compoundSupplyId`) REFERENCES `compound_supply`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compoundSupplyId",
+            "columnName": "compoundSupplyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedDoseValue",
+            "columnName": "plannedDoseValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedDoseUnit",
+            "columnName": "plannedDoseUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "route",
+            "columnName": "route",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectedWeekdaysBitmask",
+            "columnName": "selectedWeekdaysBitmask",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startDate",
+            "columnName": "startDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endDate",
+            "columnName": "endDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "reminderEnabled",
+            "columnName": "reminderEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reminderOffsetMinutes",
+            "columnName": "reminderOffsetMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reminderBucket",
+            "columnName": "reminderBucket",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "injectionSiteRestriction",
+            "columnName": "injectionSiteRestriction",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "siteCooldownDays",
+            "columnName": "siteCooldownDays",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schedule.type",
+            "columnName": "scheduleType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schedule.interval",
+            "columnName": "scheduleInterval",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "schedule.timesPerDay",
+            "columnName": "scheduleTimesPerDay",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "schedule.timesPerWeek",
+            "columnName": "scheduleTimesPerWeek",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "schedule.timesPerMonth",
+            "columnName": "scheduleTimesPerMonth",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "escalation.startDoseValue",
+            "columnName": "escalationStartDoseValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.startDoseUnit",
+            "columnName": "escalationStartDoseUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.targetDoseValue",
+            "columnName": "escalationTargetDoseValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.targetDoseUnit",
+            "columnName": "escalationTargetDoseUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.increaseAmountValue",
+            "columnName": "escalationIncreaseAmountValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.increaseAmountUnit",
+            "columnName": "escalationIncreaseAmountUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.increaseEvery",
+            "columnName": "escalationIncreaseEvery",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.increaseEveryValue",
+            "columnName": "escalationIncreaseEveryValue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "escalation.maxDoseValue",
+            "columnName": "escalationMaxDoseValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.maxDoseUnit",
+            "columnName": "escalationMaxDoseUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "escalation.stopAtTarget",
+            "columnName": "escalationStopAtTarget",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "protocolBreak.daysOn",
+            "columnName": "breakDaysOn",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "protocolBreak.daysOff",
+            "columnName": "breakDaysOff",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_protocol_compoundSupplyId_status_deletedAt",
+            "unique": false,
+            "columnNames": [
+              "compoundSupplyId",
+              "status",
+              "deletedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_protocol_compoundSupplyId_status_deletedAt` ON `${TABLE_NAME}` (`compoundSupplyId`, `status`, `deletedAt`)"
+          },
+          {
+            "name": "index_protocol_status_startDate_endDate",
+            "unique": false,
+            "columnNames": [
+              "status",
+              "startDate",
+              "endDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_protocol_status_startDate_endDate` ON `${TABLE_NAME}` (`status`, `startDate`, `endDate`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "compound_supply",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "compoundSupplyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "protocol_dosage_time",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`protocolId` INTEGER NOT NULL, `time` TEXT NOT NULL, PRIMARY KEY(`protocolId`, `time`), FOREIGN KEY(`protocolId`) REFERENCES `protocol`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "protocolId",
+            "columnName": "protocolId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "time",
+            "columnName": "time",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "protocolId",
+            "time"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_protocol_dosage_time_protocolId_time",
+            "unique": true,
+            "columnNames": [
+              "protocolId",
+              "time"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_protocol_dosage_time_protocolId_time` ON `${TABLE_NAME}` (`protocolId`, `time`)"
+          },
+          {
+            "name": "index_protocol_dosage_time_time",
+            "unique": false,
+            "columnNames": [
+              "time"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_protocol_dosage_time_time` ON `${TABLE_NAME}` (`time`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "protocol",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "protocolId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "scheduled_dose",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `protocolId` INTEGER NOT NULL, `compoundSupplyId` INTEGER NOT NULL, `scheduledAt` INTEGER NOT NULL, `hasTimeOfDay` INTEGER NOT NULL, `plannedDoseValue` TEXT NOT NULL, `plannedDoseUnit` TEXT NOT NULL, `route` TEXT NOT NULL, `status` TEXT NOT NULL, `administrationEventId` INTEGER, `originalLocalDate` TEXT NOT NULL, `originalLocalTime` TEXT, `originalZone` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`protocolId`) REFERENCES `protocol`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`compoundSupplyId`) REFERENCES `compound_supply`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocolId",
+            "columnName": "protocolId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compoundSupplyId",
+            "columnName": "compoundSupplyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scheduledAt",
+            "columnName": "scheduledAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasTimeOfDay",
+            "columnName": "hasTimeOfDay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedDoseValue",
+            "columnName": "plannedDoseValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedDoseUnit",
+            "columnName": "plannedDoseUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "route",
+            "columnName": "route",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "administrationEventId",
+            "columnName": "administrationEventId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "originalLocalDate",
+            "columnName": "originalLocalDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalLocalTime",
+            "columnName": "originalLocalTime",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalZone",
+            "columnName": "originalZone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_scheduled_dose_protocolId_scheduledAt",
+            "unique": true,
+            "columnNames": [
+              "protocolId",
+              "scheduledAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_scheduled_dose_protocolId_scheduledAt` ON `${TABLE_NAME}` (`protocolId`, `scheduledAt`)"
+          },
+          {
+            "name": "index_scheduled_dose_status_scheduledAt",
+            "unique": false,
+            "columnNames": [
+              "status",
+              "scheduledAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_scheduled_dose_status_scheduledAt` ON `${TABLE_NAME}` (`status`, `scheduledAt`)"
+          },
+          {
+            "name": "index_scheduled_dose_compoundSupplyId_status_scheduledAt",
+            "unique": false,
+            "columnNames": [
+              "compoundSupplyId",
+              "status",
+              "scheduledAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_scheduled_dose_compoundSupplyId_status_scheduledAt` ON `${TABLE_NAME}` (`compoundSupplyId`, `status`, `scheduledAt`)"
+          },
+          {
+            "name": "index_scheduled_dose_administrationEventId",
+            "unique": false,
+            "columnNames": [
+              "administrationEventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_scheduled_dose_administrationEventId` ON `${TABLE_NAME}` (`administrationEventId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "protocol",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "protocolId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "compound_supply",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "compoundSupplyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "injection_site",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `bodyRegion` TEXT NOT NULL, `side` TEXT NOT NULL, `sublocation` TEXT, `lastUsedAt` INTEGER, `avoidUntil` INTEGER, `notes` TEXT, `isAvailable` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bodyRegion",
+            "columnName": "bodyRegion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "side",
+            "columnName": "side",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sublocation",
+            "columnName": "sublocation",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastUsedAt",
+            "columnName": "lastUsedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "avoidUntil",
+            "columnName": "avoidUntil",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isAvailable",
+            "columnName": "isAvailable",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_injection_site_bodyRegion_side_isAvailable_avoidUntil",
+            "unique": false,
+            "columnNames": [
+              "bodyRegion",
+              "side",
+              "isAvailable",
+              "avoidUntil"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_injection_site_bodyRegion_side_isAvailable_avoidUntil` ON `${TABLE_NAME}` (`bodyRegion`, `side`, `isAvailable`, `avoidUntil`)"
+          }
+        ]
+      },
+      {
+        "tableName": "administration_event",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `loggedAt` INTEGER NOT NULL, `route` TEXT NOT NULL, `status` TEXT NOT NULL, `injectionSiteId` INTEGER, `notes` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, FOREIGN KEY(`injectionSiteId`) REFERENCES `injection_site`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "loggedAt",
+            "columnName": "loggedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "route",
+            "columnName": "route",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "injectionSiteId",
+            "columnName": "injectionSiteId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_administration_event_loggedAt",
+            "unique": false,
+            "columnNames": [
+              "loggedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_administration_event_loggedAt` ON `${TABLE_NAME}` (`loggedAt`)"
+          },
+          {
+            "name": "index_administration_event_status_loggedAt",
+            "unique": false,
+            "columnNames": [
+              "status",
+              "loggedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_administration_event_status_loggedAt` ON `${TABLE_NAME}` (`status`, `loggedAt`)"
+          },
+          {
+            "name": "index_administration_event_injectionSiteId_loggedAt",
+            "unique": false,
+            "columnNames": [
+              "injectionSiteId",
+              "loggedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_administration_event_injectionSiteId_loggedAt` ON `${TABLE_NAME}` (`injectionSiteId`, `loggedAt`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "injection_site",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "injectionSiteId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "dose_component",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `administrationEventId` INTEGER NOT NULL, `scheduledDoseId` INTEGER, `protocolId` INTEGER, `compoundSupplyId` INTEGER NOT NULL, `plannedDoseValue` TEXT, `plannedDoseUnit` TEXT, `actualDoseValue` TEXT NOT NULL, `actualDoseUnit` TEXT NOT NULL, `concentrationAmountValue` TEXT, `concentrationAmountUnit` TEXT, `concentrationPerValue` TEXT, `concentrationPerUnit` TEXT, `notes` TEXT, `inventoryDeductedValue` TEXT NOT NULL, `inventoryDeductedUnit` TEXT NOT NULL, FOREIGN KEY(`administrationEventId`) REFERENCES `administration_event`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`scheduledDoseId`) REFERENCES `scheduled_dose`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`protocolId`) REFERENCES `protocol`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`compoundSupplyId`) REFERENCES `compound_supply`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "administrationEventId",
+            "columnName": "administrationEventId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scheduledDoseId",
+            "columnName": "scheduledDoseId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "protocolId",
+            "columnName": "protocolId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "compoundSupplyId",
+            "columnName": "compoundSupplyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedDoseValue",
+            "columnName": "plannedDoseValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plannedDoseUnit",
+            "columnName": "plannedDoseUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "actualDoseValue",
+            "columnName": "actualDoseValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actualDoseUnit",
+            "columnName": "actualDoseUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "concentrationAmountValue",
+            "columnName": "concentrationAmountValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "concentrationAmountUnit",
+            "columnName": "concentrationAmountUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "concentrationPerValue",
+            "columnName": "concentrationPerValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "concentrationPerUnit",
+            "columnName": "concentrationPerUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "inventoryDeductedValue",
+            "columnName": "inventoryDeductedValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inventoryDeductedUnit",
+            "columnName": "inventoryDeductedUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_dose_component_administrationEventId",
+            "unique": false,
+            "columnNames": [
+              "administrationEventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_dose_component_administrationEventId` ON `${TABLE_NAME}` (`administrationEventId`)"
+          },
+          {
+            "name": "index_dose_component_compoundSupplyId",
+            "unique": false,
+            "columnNames": [
+              "compoundSupplyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_dose_component_compoundSupplyId` ON `${TABLE_NAME}` (`compoundSupplyId`)"
+          },
+          {
+            "name": "index_dose_component_protocolId",
+            "unique": false,
+            "columnNames": [
+              "protocolId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_dose_component_protocolId` ON `${TABLE_NAME}` (`protocolId`)"
+          },
+          {
+            "name": "index_dose_component_scheduledDoseId",
+            "unique": true,
+            "columnNames": [
+              "scheduledDoseId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_dose_component_scheduledDoseId` ON `${TABLE_NAME}` (`scheduledDoseId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "administration_event",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "administrationEventId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "scheduled_dose",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "scheduledDoseId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "protocol",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "protocolId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "compound_supply",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "compoundSupplyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "inventory_transaction",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `compoundSupplyId` INTEGER NOT NULL, `deltaValue` TEXT NOT NULL, `deltaUnit` TEXT NOT NULL, `type` TEXT NOT NULL, `sourceEventId` INTEGER, `reason` TEXT, `at` INTEGER NOT NULL, FOREIGN KEY(`compoundSupplyId`) REFERENCES `compound_supply`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`sourceEventId`) REFERENCES `administration_event`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compoundSupplyId",
+            "columnName": "compoundSupplyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deltaValue",
+            "columnName": "deltaValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deltaUnit",
+            "columnName": "deltaUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceEventId",
+            "columnName": "sourceEventId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "at",
+            "columnName": "at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_inventory_transaction_compoundSupplyId_at",
+            "unique": false,
+            "columnNames": [
+              "compoundSupplyId",
+              "at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_transaction_compoundSupplyId_at` ON `${TABLE_NAME}` (`compoundSupplyId`, `at`)"
+          },
+          {
+            "name": "index_inventory_transaction_sourceEventId",
+            "unique": false,
+            "columnNames": [
+              "sourceEventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inventory_transaction_sourceEventId` ON `${TABLE_NAME}` (`sourceEventId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "compound_supply",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "compoundSupplyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "administration_event",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceEventId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `theme` TEXT NOT NULL, `dynamicColor` INTEGER NOT NULL, `notificationStyle` TEXT NOT NULL, `timeZoneOverride` TEXT, `missedDoseWindowMinutes` INTEGER NOT NULL, `onboardingCompleted` INTEGER NOT NULL, `exactAlarmDegraded` INTEGER NOT NULL, `defaultSiteCooldownDaysSC` INTEGER NOT NULL, `defaultSiteCooldownDaysIM` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "theme",
+            "columnName": "theme",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dynamicColor",
+            "columnName": "dynamicColor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notificationStyle",
+            "columnName": "notificationStyle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeZoneOverride",
+            "columnName": "timeZoneOverride",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "missedDoseWindowMinutes",
+            "columnName": "missedDoseWindowMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "onboardingCompleted",
+            "columnName": "onboardingCompleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exactAlarmDegraded",
+            "columnName": "exactAlarmDegraded",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defaultSiteCooldownDaysSC",
+            "columnName": "defaultSiteCooldownDaysSC",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defaultSiteCooldownDaysIM",
+            "columnName": "defaultSiteCooldownDaysIM",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5644c5cf4ebc3479cc77394f05042fe3')"
+    ]
+  }
+}

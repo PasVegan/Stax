@@ -14,6 +14,9 @@ interface ScheduledDoseDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertOrIgnore(entity: ScheduledDoseEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertManyOrIgnore(entities: List<ScheduledDoseEntity>): List<Long>
+
     @Query(
         """
         SELECT * FROM scheduled_dose

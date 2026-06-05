@@ -10,19 +10,18 @@ import kotlinx.datetime.LocalTime
 // ScheduledDoseEntity ↔ ScheduledDose
 // ---------------------------------------------------------------------------
 
-fun ScheduledDoseEntity.toDomain(): ScheduledDose =
-    ScheduledDose(
-        id = id,
-        protocolId = protocolId,
-        compoundSupplyId = compoundSupplyId,
-        scheduledAt = scheduledAt,
-        hasTimeOfDay = hasTimeOfDay,
-        plannedDose = Quantity(plannedDoseValue, plannedDoseUnit),
-        route = route.toDomain(),
-        status = status.toDomain(),
-        administrationEventId = administrationEventId,
-        createdAt = createdAt,
-    )
+fun ScheduledDoseEntity.toDomain(): ScheduledDose = ScheduledDose(
+    id = id,
+    protocolId = protocolId,
+    compoundSupplyId = compoundSupplyId,
+    scheduledAt = scheduledAt,
+    hasTimeOfDay = hasTimeOfDay,
+    plannedDose = Quantity(plannedDoseValue, plannedDoseUnit),
+    route = route.toDomain(),
+    status = status.toDomain(),
+    administrationEventId = administrationEventId,
+    createdAt = createdAt,
+)
 
 /**
  * Maps [ScheduledDose] back to [ScheduledDoseEntity].
@@ -35,20 +34,19 @@ fun ScheduledDose.toEntity(
     originalLocalDate: LocalDate,
     originalLocalTime: LocalTime?,
     originalZone: String,
-): ScheduledDoseEntity =
-    ScheduledDoseEntity(
-        id = id,
-        protocolId = protocolId,
-        compoundSupplyId = compoundSupplyId,
-        scheduledAt = scheduledAt,
-        hasTimeOfDay = hasTimeOfDay,
-        plannedDoseValue = plannedDose.value,
-        plannedDoseUnit = plannedDose.unit,
-        route = route.toEntity(),
-        status = status.toEntity(),
-        administrationEventId = administrationEventId,
-        originalLocalDate = originalLocalDate,
-        originalLocalTime = originalLocalTime,
-        originalZone = originalZone,
-        createdAt = createdAt,
-    )
+): ScheduledDoseEntity = ScheduledDoseEntity(
+    id = id,
+    protocolId = protocolId,
+    compoundSupplyId = compoundSupplyId,
+    scheduledAt = scheduledAt,
+    hasTimeOfDay = hasTimeOfDay,
+    plannedDoseValue = plannedDose.value,
+    plannedDoseUnit = plannedDose.unit,
+    route = route.toEntity(),
+    status = status.toEntity(),
+    administrationEventId = administrationEventId,
+    originalLocalDate = originalLocalDate,
+    originalLocalTime = originalLocalTime,
+    originalZone = originalZone,
+    createdAt = createdAt,
+)

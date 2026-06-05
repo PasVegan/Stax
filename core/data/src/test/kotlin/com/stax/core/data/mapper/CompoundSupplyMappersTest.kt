@@ -3,17 +3,17 @@ package com.stax.core.data.mapper
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
-import com.stax.core.database.CompoundCategory as DbCompoundCategory
-import com.stax.core.database.CompoundForm as DbCompoundForm
 import com.stax.core.database.CompoundSupplyEntity
-import com.stax.core.database.ContainerType as DbContainerType
 import com.stax.core.database.OpenedContainerEntity
-import com.stax.core.database.StorageLocation as DbStorageLocation
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.UnitCode
 import kotlinx.datetime.LocalDate
-import kotlin.time.Instant
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
+import com.stax.core.database.CompoundCategory as DbCompoundCategory
+import com.stax.core.database.CompoundForm as DbCompoundForm
+import com.stax.core.database.ContainerType as DbContainerType
+import com.stax.core.database.StorageLocation as DbStorageLocation
 
 private val NOW: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
 private val TODAY: LocalDate = LocalDate(2023, 11, 14)

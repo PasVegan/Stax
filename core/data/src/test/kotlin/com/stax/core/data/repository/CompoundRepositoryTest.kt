@@ -8,12 +8,8 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
-import com.stax.core.database.CompoundCategory as DbCompoundCategory
-import com.stax.core.database.CompoundForm as DbCompoundForm
 import com.stax.core.database.CompoundSupplyEntity
-import com.stax.core.database.ContainerType as DbContainerType
 import com.stax.core.database.InventoryTransactionType
-import com.stax.core.database.StorageLocation as DbStorageLocation
 import com.stax.core.database.StaxDatabase
 import com.stax.core.domain.CompoundCategory
 import com.stax.core.domain.CompoundForm
@@ -36,6 +32,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Instant
+import com.stax.core.database.CompoundCategory as DbCompoundCategory
+import com.stax.core.database.CompoundForm as DbCompoundForm
+import com.stax.core.database.ContainerType as DbContainerType
+import com.stax.core.database.StorageLocation as DbStorageLocation
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -315,7 +315,7 @@ class CompoundRepositoryTest {
     @Test
     fun `closeContainer does not change numberOfContainers`() = runTest {
         val id = (repository.create(minimalCompound(numberOfContainers = 2)) as Result.Success).data
-        repository.openContainer(id)  // numberOfContainers: 2 → 1
+        repository.openContainer(id) // numberOfContainers: 2 → 1
         repository.closeContainer(id, null)
         val compound = repository.observeById(id).first()!!
         assertThat(compound.numberOfContainers).isEqualTo(1)

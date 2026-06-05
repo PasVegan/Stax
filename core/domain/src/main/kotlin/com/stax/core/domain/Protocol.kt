@@ -37,10 +37,7 @@ data class Escalation(
     val stopAtTarget: Boolean,
 )
 
-data class ProtocolBreak(
-    val daysOn: Int,
-    val daysOff: Int,
-)
+data class ProtocolBreak(val daysOn: Int, val daysOff: Int)
 
 enum class ReminderBucket { MORNING, AFTERNOON, EVENING }
 

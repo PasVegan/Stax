@@ -2,12 +2,12 @@ package com.stax.core.data.mapper
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import com.stax.core.database.InjectionSiteEntity
+import org.junit.jupiter.api.Test
+import kotlin.time.Instant
 import com.stax.core.database.BodyRegion as DbBodyRegion
 import com.stax.core.database.InjectionSide as DbInjectionSide
-import com.stax.core.database.InjectionSiteEntity
 import com.stax.core.database.Sublocation as DbSublocation
-import kotlin.time.Instant
-import org.junit.jupiter.api.Test
 
 private val NOW: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
 

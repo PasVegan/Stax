@@ -125,8 +125,12 @@ class AdministrationEventDaoTest {
         val siteId1 = injectionSiteDao.insert(injectionSite(name = "Site A"))
         val siteId2 = injectionSiteDao.insert(injectionSite(name = "Site B"))
 
-        val id1 = dao.insert(administrationEvent(loggedAt = Instant.parse("2026-06-06T08:00:00Z"), injectionSiteId = siteId1))
-        val id2 = dao.insert(administrationEvent(loggedAt = Instant.parse("2026-06-07T08:00:00Z"), injectionSiteId = siteId1))
+        val id1 = dao.insert(
+            administrationEvent(loggedAt = Instant.parse("2026-06-06T08:00:00Z"), injectionSiteId = siteId1),
+        )
+        val id2 = dao.insert(
+            administrationEvent(loggedAt = Instant.parse("2026-06-07T08:00:00Z"), injectionSiteId = siteId1),
+        )
         dao.insert(administrationEvent(injectionSiteId = siteId2))
         dao.insert(administrationEvent(injectionSiteId = null))
 
@@ -172,9 +176,7 @@ class AdministrationEventDaoTest {
         updatedAt = updatedAt,
     )
 
-    private fun injectionSite(
-        name: String = "Test Site",
-    ): InjectionSiteEntity = InjectionSiteEntity(
+    private fun injectionSite(name: String = "Test Site"): InjectionSiteEntity = InjectionSiteEntity(
         id = 0,
         name = name,
         bodyRegion = BodyRegion.ABDOMEN,

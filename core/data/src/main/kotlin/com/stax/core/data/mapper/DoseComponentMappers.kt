@@ -9,44 +9,42 @@ import com.stax.core.domain.Quantity
 // DoseComponentEntity ↔ DoseComponent
 // ---------------------------------------------------------------------------
 
-fun DoseComponentEntity.toDomain(): DoseComponent =
-    DoseComponent(
-        id = id,
-        administrationEventId = administrationEventId,
-        scheduledDoseId = scheduledDoseId,
-        protocolId = protocolId,
-        compoundSupplyId = compoundSupplyId,
-        plannedDose = if (plannedDoseValue != null) Quantity(plannedDoseValue!!, plannedDoseUnit!!) else null,
-        actualDose = Quantity(actualDoseValue, actualDoseUnit),
-        concentrationAtLog = buildConcentration(
-            concentrationAmountValue,
-            concentrationAmountUnit,
-            concentrationPerValue,
-            concentrationPerUnit,
-        ),
-        notes = notes,
-        inventoryDeducted = Quantity(inventoryDeductedValue, inventoryDeductedUnit),
-    )
+fun DoseComponentEntity.toDomain(): DoseComponent = DoseComponent(
+    id = id,
+    administrationEventId = administrationEventId,
+    scheduledDoseId = scheduledDoseId,
+    protocolId = protocolId,
+    compoundSupplyId = compoundSupplyId,
+    plannedDose = if (plannedDoseValue != null) Quantity(plannedDoseValue!!, plannedDoseUnit!!) else null,
+    actualDose = Quantity(actualDoseValue, actualDoseUnit),
+    concentrationAtLog = buildConcentration(
+        concentrationAmountValue,
+        concentrationAmountUnit,
+        concentrationPerValue,
+        concentrationPerUnit,
+    ),
+    notes = notes,
+    inventoryDeducted = Quantity(inventoryDeductedValue, inventoryDeductedUnit),
+)
 
-fun DoseComponent.toEntity(): DoseComponentEntity =
-    DoseComponentEntity(
-        id = id,
-        administrationEventId = administrationEventId,
-        scheduledDoseId = scheduledDoseId,
-        protocolId = protocolId,
-        compoundSupplyId = compoundSupplyId,
-        plannedDoseValue = plannedDose?.value,
-        plannedDoseUnit = plannedDose?.unit,
-        actualDoseValue = actualDose.value,
-        actualDoseUnit = actualDose.unit,
-        concentrationAmountValue = concentrationAtLog?.amount?.value,
-        concentrationAmountUnit = concentrationAtLog?.amount?.unit,
-        concentrationPerValue = concentrationAtLog?.per?.value,
-        concentrationPerUnit = concentrationAtLog?.per?.unit,
-        notes = notes,
-        inventoryDeductedValue = inventoryDeducted.value,
-        inventoryDeductedUnit = inventoryDeducted.unit,
-    )
+fun DoseComponent.toEntity(): DoseComponentEntity = DoseComponentEntity(
+    id = id,
+    administrationEventId = administrationEventId,
+    scheduledDoseId = scheduledDoseId,
+    protocolId = protocolId,
+    compoundSupplyId = compoundSupplyId,
+    plannedDoseValue = plannedDose?.value,
+    plannedDoseUnit = plannedDose?.unit,
+    actualDoseValue = actualDose.value,
+    actualDoseUnit = actualDose.unit,
+    concentrationAmountValue = concentrationAtLog?.amount?.value,
+    concentrationAmountUnit = concentrationAtLog?.amount?.unit,
+    concentrationPerValue = concentrationAtLog?.per?.value,
+    concentrationPerUnit = concentrationAtLog?.per?.unit,
+    notes = notes,
+    inventoryDeductedValue = inventoryDeducted.value,
+    inventoryDeductedUnit = inventoryDeducted.unit,
+)
 
 // ---------------------------------------------------------------------------
 // Internal helpers

@@ -29,18 +29,16 @@ fun AdministrationEventEntity.toDomain(components: List<DoseComponent> = emptyLi
     )
 
 /** Maps [AdministrationEvent] back to [AdministrationEventEntity]. Components live in a separate table — see [toComponentEntities]. */
-fun AdministrationEvent.toEntity(): AdministrationEventEntity =
-    AdministrationEventEntity(
-        id = id,
-        loggedAt = loggedAt,
-        route = route.toEntity(),
-        status = status.toEntity(),
-        injectionSiteId = injectionSiteId,
-        notes = notes,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-    )
+fun AdministrationEvent.toEntity(): AdministrationEventEntity = AdministrationEventEntity(
+    id = id,
+    loggedAt = loggedAt,
+    route = route.toEntity(),
+    status = status.toEntity(),
+    injectionSiteId = injectionSiteId,
+    notes = notes,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
 
 /** Produces the companion [DoseComponentEntity] rows for this event's components. */
-fun AdministrationEvent.toComponentEntities(): List<DoseComponentEntity> =
-    components.map { it.toEntity() }
+fun AdministrationEvent.toComponentEntities(): List<DoseComponentEntity> = components.map { it.toEntity() }

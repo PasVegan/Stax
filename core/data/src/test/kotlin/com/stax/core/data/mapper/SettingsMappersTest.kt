@@ -2,11 +2,11 @@ package com.stax.core.data.mapper
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import com.stax.core.database.SettingsEntity
+import org.junit.jupiter.api.Test
+import kotlin.time.Instant
 import com.stax.core.database.AppTheme as DbAppTheme
 import com.stax.core.database.NotificationStyle as DbNotificationStyle
-import com.stax.core.database.SettingsEntity
-import kotlin.time.Instant
-import org.junit.jupiter.api.Test
 
 private val NOW: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
 

@@ -165,10 +165,7 @@ class InventoryTransactionDaoTest {
         at = at,
     )
 
-    private fun compound(
-        id: Long = 0,
-        name: String = "Compound",
-    ): CompoundSupplyEntity = CompoundSupplyEntity(
+    private fun compound(id: Long = 0, name: String = "Compound"): CompoundSupplyEntity = CompoundSupplyEntity(
         id = id,
         name = name,
         category = CompoundCategory.PEPTIDE,

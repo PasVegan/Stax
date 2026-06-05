@@ -35,20 +35,20 @@ object DatabaseSeedCallback : RoomDatabase.Callback() {
 
     private fun seedInjectionSites(db: SupportSQLiteDatabase) {
         val presets = listOf(
-            SitePreset("Abdomen Upper-Left",      "ABDOMEN",    "LEFT",  "UPPER"),
-            SitePreset("Abdomen Upper-Right",     "ABDOMEN",    "RIGHT", "UPPER"),
-            SitePreset("Abdomen Lower-Left",      "ABDOMEN",    "LEFT",  "LOWER"),
-            SitePreset("Abdomen Lower-Right",     "ABDOMEN",    "RIGHT", "LOWER"),
-            SitePreset("Anterior Deltoid Left",   "DELT",       "LEFT",  null),
-            SitePreset("Anterior Deltoid Right",  "DELT",       "RIGHT", null),
-            SitePreset("Lateral Thigh Left",      "QUADRICEPS", "LEFT",  "OUTER"),
-            SitePreset("Lateral Thigh Right",     "QUADRICEPS", "RIGHT", "OUTER"),
-            SitePreset("Glute Upper-Outer Left",  "GLUTE",      "LEFT",  "UPPER"),
-            SitePreset("Glute Upper-Outer Right", "GLUTE",      "RIGHT", "UPPER"),
-            SitePreset("Hamstring Left",          "HAMSTRING",  "LEFT",  null),
-            SitePreset("Hamstring Right",         "HAMSTRING",  "RIGHT", null),
-            SitePreset("Lower Back Left",         "LOWER_BACK", "LEFT",  null),
-            SitePreset("Lower Back Right",        "LOWER_BACK", "RIGHT", null),
+            SitePreset("Abdomen Upper-Left", "ABDOMEN", "LEFT", "UPPER"),
+            SitePreset("Abdomen Upper-Right", "ABDOMEN", "RIGHT", "UPPER"),
+            SitePreset("Abdomen Lower-Left", "ABDOMEN", "LEFT", "LOWER"),
+            SitePreset("Abdomen Lower-Right", "ABDOMEN", "RIGHT", "LOWER"),
+            SitePreset("Anterior Deltoid Left", "DELT", "LEFT", null),
+            SitePreset("Anterior Deltoid Right", "DELT", "RIGHT", null),
+            SitePreset("Lateral Thigh Left", "QUADRICEPS", "LEFT", "OUTER"),
+            SitePreset("Lateral Thigh Right", "QUADRICEPS", "RIGHT", "OUTER"),
+            SitePreset("Glute Upper-Outer Left", "GLUTE", "LEFT", "UPPER"),
+            SitePreset("Glute Upper-Outer Right", "GLUTE", "RIGHT", "UPPER"),
+            SitePreset("Hamstring Left", "HAMSTRING", "LEFT", null),
+            SitePreset("Hamstring Right", "HAMSTRING", "RIGHT", null),
+            SitePreset("Lower Back Left", "LOWER_BACK", "LEFT", null),
+            SitePreset("Lower Back Right", "LOWER_BACK", "RIGHT", null),
         )
         presets.forEach { site ->
             db.execSQL(
@@ -61,10 +61,5 @@ object DatabaseSeedCallback : RoomDatabase.Callback() {
         }
     }
 
-    private data class SitePreset(
-        val name: String,
-        val bodyRegion: String,
-        val side: String,
-        val sublocation: String?,
-    )
+    private data class SitePreset(val name: String, val bodyRegion: String, val side: String, val sublocation: String?)
 }

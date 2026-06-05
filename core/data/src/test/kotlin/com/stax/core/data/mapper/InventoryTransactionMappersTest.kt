@@ -3,11 +3,11 @@ package com.stax.core.data.mapper
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import com.stax.core.database.InventoryTransactionEntity
-import com.stax.core.database.InventoryTransactionType as DbInventoryTransactionType
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.UnitCode
-import kotlin.time.Instant
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
+import com.stax.core.database.InventoryTransactionType as DbInventoryTransactionType
 
 private val NOW: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
 private fun dec(s: String): Decimal = Decimal.parse(s)

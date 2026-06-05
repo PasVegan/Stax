@@ -3,28 +3,27 @@ package com.stax.core.data.mapper
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import com.stax.core.database.AdministrationEventEntity
-import com.stax.core.database.AdministrationEventStatus as DbAdministrationEventStatus
 import com.stax.core.database.DoseComponentEntity
-import com.stax.core.database.Route as DbRoute
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.UnitCode
-import kotlin.time.Instant
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
+import com.stax.core.database.AdministrationEventStatus as DbAdministrationEventStatus
+import com.stax.core.database.Route as DbRoute
 
 private val NOW: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
 private fun dec(s: String): Decimal = Decimal.parse(s)
 
-private fun eventEntity(injectionSiteId: Long? = 3L, notes: String? = null) =
-    AdministrationEventEntity(
-        id = 30L,
-        loggedAt = NOW,
-        route = DbRoute.SUBCUTANEOUS,
-        status = DbAdministrationEventStatus.TAKEN,
-        injectionSiteId = injectionSiteId,
-        notes = notes,
-        createdAt = NOW,
-        updatedAt = NOW,
-    )
+private fun eventEntity(injectionSiteId: Long? = 3L, notes: String? = null) = AdministrationEventEntity(
+    id = 30L,
+    loggedAt = NOW,
+    route = DbRoute.SUBCUTANEOUS,
+    status = DbAdministrationEventStatus.TAKEN,
+    injectionSiteId = injectionSiteId,
+    notes = notes,
+    createdAt = NOW,
+    updatedAt = NOW,
+)
 
 private fun componentEntity(eventId: Long = 30L) = DoseComponentEntity(
     id = 20L,

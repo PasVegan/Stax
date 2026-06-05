@@ -23,6 +23,7 @@ import java.util.concurrent.Executors
         ProtocolEntity::class,
         ProtocolDosageTimeEntity::class,
         ScheduledDoseEntity::class,
+        AdministrationEventEntity::class,
     ],
     version = 1,
     exportSchema = false,
@@ -35,6 +36,7 @@ abstract class StaxDatabase : RoomDatabase() {
     abstract fun protocolDao(): ProtocolDao
     abstract fun protocolDosageTimeDao(): ProtocolDosageTimeDao
     abstract fun scheduledDoseDao(): ScheduledDoseDao
+    abstract fun administrationEventDao(): AdministrationEventDao
 
     companion object {
 

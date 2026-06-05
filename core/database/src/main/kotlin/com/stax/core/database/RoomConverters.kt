@@ -112,6 +112,12 @@ class RoomConverters {
     @TypeConverter
     fun stringToScheduledDoseStatus(value: String?): ScheduledDoseStatus? = value?.toEnum()
 
+    @TypeConverter
+    fun administrationEventStatusToString(value: AdministrationEventStatus?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToAdministrationEventStatus(value: String?): AdministrationEventStatus? = value?.toEnum()
+
     private fun Enum<*>.stableName(): String = name
 
     private inline fun <reified T : Enum<T>> String.toEnum(): T = enumValueOf(this)

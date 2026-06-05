@@ -221,10 +221,13 @@ class TestingConventionPlugin : Plugin<Project> {
         addTestImplementation("kotlinx-coroutines-test")
 
         // Robolectric — Android modules only
+        // junit4 must be explicit: Robolectric 4.14+ no longer pulls it as a transitive dep.
         pluginManager.withPlugin("com.android.library") {
+            addTestImplementation("junit4")
             addTestImplementation("robolectric")
         }
         pluginManager.withPlugin("com.android.application") {
+            addTestImplementation("junit4")
             addTestImplementation("robolectric")
         }
 

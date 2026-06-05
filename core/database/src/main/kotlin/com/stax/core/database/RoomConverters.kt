@@ -70,6 +70,42 @@ class RoomConverters {
     @TypeConverter
     fun stringToStorageLocation(value: String?): StorageLocation? = value?.toEnum()
 
+    @TypeConverter
+    fun routeToString(value: Route?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToRoute(value: String?): Route? = value?.toEnum()
+
+    @TypeConverter
+    fun scheduleTypeToString(value: ScheduleType?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToScheduleType(value: String?): ScheduleType? = value?.toEnum()
+
+    @TypeConverter
+    fun escalationIncreaseEveryToString(value: EscalationIncreaseEvery?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToEscalationIncreaseEvery(value: String?): EscalationIncreaseEvery? = value?.toEnum()
+
+    @TypeConverter
+    fun reminderBucketToString(value: ReminderBucket?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToReminderBucket(value: String?): ReminderBucket? = value?.toEnum()
+
+    @TypeConverter
+    fun bodyRegionToString(value: BodyRegion?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToBodyRegion(value: String?): BodyRegion? = value?.toEnum()
+
+    @TypeConverter
+    fun protocolStatusToString(value: ProtocolStatus?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToProtocolStatus(value: String?): ProtocolStatus? = value?.toEnum()
+
     private fun Enum<*>.stableName(): String = name
 
     private inline fun <reified T : Enum<T>> String.toEnum(): T = enumValueOf(this)

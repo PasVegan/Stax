@@ -4,9 +4,33 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.Stream
 
 private val Int.dec: Decimal get() = Decimal.parse(this.toString())
 private val String.dec: Decimal get() = Decimal.parse(this)
+
+data class QuantityDivisionCase(
+    val dose: Quantity,
+    val concentration: Concentration,
+    val expected: Quantity?,
+    val expectedErrorMessage: String? = null,
+)
+
+private fun q(value: String, unit: UnitCode): Quantity = Quantity(value.dec, unit)
+
+private fun c(amountValue: String, amountUnit: UnitCode, perValue: String, perUnit: UnitCode): Concentration =
+    Concentration(
+        amount = q(amountValue, amountUnit),
+        per = q(perValue, perUnit),
+    )
+
+private fun ok(dose: Quantity, concentration: Concentration, expected: Quantity): QuantityDivisionCase =
+    QuantityDivisionCase(dose, concentration, expected)
+
+private fun fail(dose: Quantity, concentration: Concentration, expectedErrorMessage: String): QuantityDivisionCase =
+    QuantityDivisionCase(dose, concentration, expected = null, expectedErrorMessage)
 
 class QuantityTest {
 
@@ -62,6 +86,26 @@ class QuantityTest {
         assertThat(result.value.compareTo(0.dec)).isEqualTo(0)
     }
 
+    // div concentration
+
+    @ParameterizedTest
+    @MethodSource("divisionCases")
+    fun `div concentration converts compatible amount units and returns per unit`(case: QuantityDivisionCase) {
+        if (case.expectedErrorMessage != null) {
+            val error = assertThrows<IllegalArgumentException> {
+                case.dose / case.concentration
+            }
+            assertThat(error.message).isEqualTo(case.expectedErrorMessage)
+            return
+        }
+
+        val result = case.dose / case.concentration
+
+        requireNotNull(case.expected)
+        assertThat(result.value.compareTo(case.expected.value)).isEqualTo(0)
+        assertThat(result.unit).isEqualTo(case.expected.unit)
+    }
+
     // toString
 
     @Test
@@ -104,5 +148,32 @@ class QuantityTest {
         val a = Quantity("1.0".dec, UnitCode.MG)
         val b = Quantity("2.0".dec, UnitCode.MG)
         assertThat(a == b).isEqualTo(false)
+    }
+
+    companion object {
+        @JvmStatic
+        fun divisionCases(): Stream<QuantityDivisionCase> = Stream.of(
+            ok(q("0.25", UnitCode.MG), c("2.5", UnitCode.MG, "1", UnitCode.ML), q("0.10", UnitCode.ML)),
+            ok(q("1", UnitCode.IU), c("100", UnitCode.IU, "1", UnitCode.ML), q("0.01", UnitCode.ML)),
+            ok(q("500", UnitCode.MCG), c("1", UnitCode.MG, "1", UnitCode.ML), q("0.5", UnitCode.ML)),
+            ok(q("1", UnitCode.G), c("250", UnitCode.MG, "1", UnitCode.ML), q("4", UnitCode.ML)),
+            ok(q("2500", UnitCode.MCG), c("2.5", UnitCode.MG, "1", UnitCode.ML), q("1", UnitCode.ML)),
+            ok(q("10", UnitCode.MG), c("5", UnitCode.MG, "2", UnitCode.ML), q("4", UnitCode.ML)),
+            ok(q("2", UnitCode.CAPSULE), c("1", UnitCode.CAPSULE, "1", UnitCode.ML), q("2", UnitCode.ML)),
+            ok(q("3", UnitCode.TABLET), c("1", UnitCode.TABLET, "1", UnitCode.ML), q("3", UnitCode.ML)),
+            ok(q("4", UnitCode.SCOOP), c("2", UnitCode.SCOOP, "1", UnitCode.ML), q("2", UnitCode.ML)),
+            fail(
+                q("1", UnitCode.MG),
+                c("1", UnitCode.IU, "1", UnitCode.ML),
+                "Cannot divide MG quantity by IU/ML concentration: " +
+                    "MASS dose family does not match IU concentration family",
+            ),
+            fail(
+                q("1", UnitCode.ML),
+                c("1", UnitCode.MG, "1", UnitCode.ML),
+                "Cannot divide ML quantity by MG/ML concentration: " +
+                    "VOLUME dose family does not match MASS concentration family",
+            ),
+        )
     }
 }

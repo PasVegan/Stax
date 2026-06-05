@@ -2,11 +2,15 @@ package com.stax.core.domain
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
+import kotlin.time.Instant
 
 private val String.dec: Decimal get() = Decimal.parse(this)
+private val String.date: LocalDate get() = LocalDate.parse(this)
+private val String.instant: Instant get() = Instant.parse(this)
 
 data class ValidationPassCase(val label: String, val validate: () -> EmptyResult<ValidationError>) {
     override fun toString(): String = label
@@ -43,8 +47,8 @@ class ValidationTest {
             pass("compound concentration") { validateCompoundSupplyConcentration(c("2.5", "1"), isRequired = true) },
             pass("protocol name") { validateProtocolName("Morning protocol") },
             pass("protocol planned dose") { validateProtocolPlannedDose(q("0.25", UnitCode.MG)) },
-            pass("protocol start date") { validateProtocolStartDate("2026-06-06") },
-            pass("protocol end date") { validateProtocolEndDate("2026-06-06", "2026-06-07") },
+            pass("protocol start date") { validateProtocolStartDate("2026-06-06".date) },
+            pass("protocol end date") { validateProtocolEndDate("2026-06-06".date, "2026-06-07".date) },
             pass("schedule interval") { validateScheduleInterval(1) },
             pass("schedule times per day") { validateScheduleTimesPerDay(1) },
             pass("schedule weekdays") { validateScheduleSelectedWeekdays(setOf("MONDAY")) },
@@ -56,7 +60,9 @@ class ValidationTest {
             pass("opened container remaining") {
                 validateOpenedContainerRemainingAmount(q("5", UnitCode.MG), q("10", UnitCode.MG))
             },
-            pass("opened container opened at") { validateOpenedContainerOpenedAt(9, 10) },
+            pass("opened container opened at") {
+                validateOpenedContainerOpenedAt("2026-06-06T09:00:00Z".instant, "2026-06-06T10:00:00Z".instant)
+            },
             pass("dose component actual dose") {
                 validateDoseComponentActualDose(q("1", UnitCode.MG), requiresActualDose = true)
             },
@@ -101,7 +107,7 @@ class ValidationTest {
             },
             fail("protocol start date", ValidationError.Code.DATE_REQUIRED) { validateProtocolStartDate(null) },
             fail("protocol end date", ValidationError.Code.END_DATE_NOT_AFTER_START_DATE) {
-                validateProtocolEndDate("2026-06-06", "2026-06-06")
+                validateProtocolEndDate("2026-06-06".date, "2026-06-06".date)
             },
         )
 
@@ -144,7 +150,7 @@ class ValidationTest {
                 validateOpenedContainerRemainingAmount(q("11", UnitCode.MG), q("10", UnitCode.MG))
             },
             fail("opened container opened at", ValidationError.Code.OPENED_AT_IN_FUTURE) {
-                validateOpenedContainerOpenedAt(11, 10)
+                validateOpenedContainerOpenedAt("2026-06-06T11:00:00Z".instant, "2026-06-06T10:00:00Z".instant)
             },
             fail("dose component actual dose", ValidationError.Code.ACTUAL_DOSE_NOT_POSITIVE) {
                 validateDoseComponentActualDose(q("0", UnitCode.MG), requiresActualDose = true)

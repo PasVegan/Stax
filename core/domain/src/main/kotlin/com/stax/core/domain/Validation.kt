@@ -2,6 +2,9 @@
 
 package com.stax.core.domain
 
+import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
+
 sealed interface ValidationError : Error {
     enum class Code : ValidationError {
         NAME_REQUIRED,
@@ -65,10 +68,10 @@ fun validateProtocolName(name: String): EmptyResult<ValidationError> = validateN
 fun validateProtocolPlannedDose(plannedDose: Quantity): EmptyResult<ValidationError> =
     validatePositiveQuantity(plannedDose)
 
-fun validateProtocolStartDate(startDate: Any?): EmptyResult<ValidationError> =
+fun validateProtocolStartDate(startDate: LocalDate?): EmptyResult<ValidationError> =
     if (startDate != null) validationSuccess() else validationError(ValidationError.Code.DATE_REQUIRED)
 
-fun <T : Comparable<T>> validateProtocolEndDate(startDate: T, endDate: T?): EmptyResult<ValidationError> =
+fun validateProtocolEndDate(startDate: LocalDate, endDate: LocalDate?): EmptyResult<ValidationError> =
     if (endDate == null || endDate > startDate) {
         validationSuccess()
     } else {
@@ -128,7 +131,7 @@ fun validateOpenedContainerRemainingAmount(
     }
 }
 
-fun <T : Comparable<T>> validateOpenedContainerOpenedAt(openedAt: T, now: T): EmptyResult<ValidationError> =
+fun validateOpenedContainerOpenedAt(openedAt: Instant, now: Instant): EmptyResult<ValidationError> =
     if (openedAt <= now) {
         validationSuccess()
     } else {

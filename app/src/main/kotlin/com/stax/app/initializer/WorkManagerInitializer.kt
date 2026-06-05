@@ -19,6 +19,5 @@ class WorkManagerInitializer : Initializer<Unit> {
         // TODO(M0-13): configure WorkManager and enqueue periodic workers on Lifecycle.STARTED
     }
 
-    override fun dependencies(): List<Class<out Initializer<*>>> =
-        listOf(KoinInitializer::class.java)
+    override fun dependencies(): List<Class<out Initializer<*>>> = listOf(KoinInitializer::class.java)
 }

@@ -42,23 +42,22 @@ abstract class StaxDatabase : RoomDatabase() {
          * @param enableQueryLog  Pass `true` on debug builds to log every SQL statement.
          *                        Foreign keys are enabled automatically by Room (§2.3.5).
          */
-        fun build(context: Context, enableQueryLog: Boolean): StaxDatabase =
-            Room.databaseBuilder(
-                context.applicationContext,
-                StaxDatabase::class.java,
-                DB_NAME,
-            )
-                .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-                .apply {
-                    if (enableQueryLog) {
-                        setQueryCallback(
-                            QueryCallback { sql, args ->
-                                Log.d(TAG, "SQL: $sql | args: $args")
-                            },
-                            Executors.newSingleThreadExecutor(),
-                        )
-                    }
+        fun build(context: Context, enableQueryLog: Boolean): StaxDatabase = Room.databaseBuilder(
+            context.applicationContext,
+            StaxDatabase::class.java,
+            DB_NAME,
+        )
+            .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
+            .apply {
+                if (enableQueryLog) {
+                    setQueryCallback(
+                        QueryCallback { sql, args ->
+                            Log.d(TAG, "SQL: $sql | args: $args")
+                        },
+                        Executors.newSingleThreadExecutor(),
+                    )
                 }
-                .build()
+            }
+            .build()
     }
 }

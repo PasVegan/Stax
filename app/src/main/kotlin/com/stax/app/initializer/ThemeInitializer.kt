@@ -17,6 +17,5 @@ class ThemeInitializer : Initializer<Unit> {
         // TODO(M4): read DataStore theme cache and populate ThemeStateHolder
     }
 
-    override fun dependencies(): List<Class<out Initializer<*>>> =
-        listOf(KoinInitializer::class.java)
+    override fun dependencies(): List<Class<out Initializer<*>>> = listOf(KoinInitializer::class.java)
 }

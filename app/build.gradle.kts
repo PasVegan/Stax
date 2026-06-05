@@ -2,6 +2,7 @@ plugins {
     id("com.stax.android.application")
     id("com.stax.compose")
     id("com.stax.koin")
+    id("com.stax.testing")
 }
 
 dependencies {

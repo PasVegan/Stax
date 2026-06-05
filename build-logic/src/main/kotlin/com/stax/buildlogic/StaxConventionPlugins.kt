@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
-private const val CompileSdk = 36
+private const val CompileSdk = 37  // adaptive-navigation3 1.3.0-beta02 requires API 37
 private const val MinSdk = 36
 private const val TargetSdk = 36
 private const val JavaToolchain = 21
@@ -169,8 +169,10 @@ class TestingConventionPlugin : Plugin<Project> {
         }
 
         // Core unit-test deps (all module types)
+        addTestImplementationPlatform("junit-bom")       // pins all JUnit components to one version
         addTestImplementation("junit-jupiter")
-        addTestRuntimeOnly("junit-vintage-engine") // runs JUnit4/Robolectric tests on JUnit Platform
+        addTestRuntimeOnly("junit-platform-launcher")    // required by Gradle to start JUnit Platform
+        addTestRuntimeOnly("junit-vintage-engine")       // runs JUnit4/Robolectric tests on JUnit Platform
         addTestImplementation("assertk")
         addTestImplementation("turbine")
         addTestImplementation("kotlinx-coroutines-test")
@@ -247,6 +249,10 @@ private fun Project.addDebugImplementation(alias: String) {
 
 private fun Project.addTestImplementation(alias: String) {
     dependencies.add("testImplementation", libs.library(alias))
+}
+
+private fun Project.addTestImplementationPlatform(alias: String) {
+    dependencies.add("testImplementation", dependencies.platform(libs.library(alias)))
 }
 
 private fun Project.addTestRuntimeOnly(alias: String) {

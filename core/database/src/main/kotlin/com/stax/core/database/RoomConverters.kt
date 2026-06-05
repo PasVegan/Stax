@@ -136,6 +136,18 @@ class RoomConverters {
     @TypeConverter
     fun stringToInventoryTransactionType(value: String?): InventoryTransactionType? = value?.toEnum()
 
+    @TypeConverter
+    fun appThemeToString(value: AppTheme?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToAppTheme(value: String?): AppTheme? = value?.toEnum()
+
+    @TypeConverter
+    fun notificationStyleToString(value: NotificationStyle?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToNotificationStyle(value: String?): NotificationStyle? = value?.toEnum()
+
     private fun Enum<*>.stableName(): String = name
 
     private inline fun <reified T : Enum<T>> String.toEnum(): T = enumValueOf(this)

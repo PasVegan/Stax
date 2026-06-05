@@ -17,7 +17,10 @@ import java.util.concurrent.Executors
  * Entities and DAOs are added incrementally.
  */
 @Database(
-    entities = [CompoundSupplyEntity::class],
+    entities = [
+        CompoundSupplyEntity::class,
+        OpenedContainerEntity::class,
+    ],
     version = 1,
     exportSchema = false,
 )
@@ -25,6 +28,7 @@ import java.util.concurrent.Executors
 abstract class StaxDatabase : RoomDatabase() {
 
     abstract fun compoundSupplyDao(): CompoundSupplyDao
+    abstract fun openedContainerDao(): OpenedContainerDao
 
     companion object {
 

@@ -10,4 +10,5 @@ dependencies {
     implementation(libs.kotlinx.datetime)
     // Room runtime needed for StaxDatabase supertype resolution (not re-exported by :core:database).
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.datastore.preferences)
 }

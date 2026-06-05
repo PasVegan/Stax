@@ -130,6 +130,12 @@ enum class ReminderBucket {
 
 enum class BodyRegion {
     ABDOMEN,
+    QUADRICEPS,
+    GLUTE,
+    DELT,
+    FOREARM,
+    HAMSTRING,
+    LOWER_BACK,
     THIGH,
     UPPER_ARM,
 }

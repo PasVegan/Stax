@@ -23,6 +23,7 @@ import java.util.concurrent.Executors
         ProtocolEntity::class,
         ProtocolDosageTimeEntity::class,
         ScheduledDoseEntity::class,
+        InjectionSiteEntity::class,
         AdministrationEventEntity::class,
         DoseComponentEntity::class,
     ],
@@ -39,6 +40,7 @@ abstract class StaxDatabase : RoomDatabase() {
     abstract fun scheduledDoseDao(): ScheduledDoseDao
     abstract fun administrationEventDao(): AdministrationEventDao
     abstract fun doseComponentDao(): DoseComponentDao
+    abstract fun injectionSiteDao(): InjectionSiteDao
 
     companion object {
 

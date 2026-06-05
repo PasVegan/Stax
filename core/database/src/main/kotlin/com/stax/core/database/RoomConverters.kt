@@ -118,6 +118,18 @@ class RoomConverters {
     @TypeConverter
     fun stringToAdministrationEventStatus(value: String?): AdministrationEventStatus? = value?.toEnum()
 
+    @TypeConverter
+    fun injectionSideToString(value: InjectionSide?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToInjectionSide(value: String?): InjectionSide? = value?.toEnum()
+
+    @TypeConverter
+    fun sublocationToString(value: Sublocation?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToSublocation(value: String?): Sublocation? = value?.toEnum()
+
     private fun Enum<*>.stableName(): String = name
 
     private inline fun <reified T : Enum<T>> String.toEnum(): T = enumValueOf(this)

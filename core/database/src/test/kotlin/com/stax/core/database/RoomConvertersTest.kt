@@ -71,6 +71,42 @@ class RoomConvertersTest {
     }
 
     @Test
+    fun `CompoundCategory round trips through stable name`() {
+        val value = CompoundCategory.PEPTIDE
+        val stored = converters.compoundCategoryToString(value)
+
+        assertThat(stored).isEqualTo("PEPTIDE")
+        assertThat(converters.stringToCompoundCategory(stored)).isEqualTo(value)
+    }
+
+    @Test
+    fun `CompoundForm round trips through stable name`() {
+        val value = CompoundForm.INJECTABLE
+        val stored = converters.compoundFormToString(value)
+
+        assertThat(stored).isEqualTo("INJECTABLE")
+        assertThat(converters.stringToCompoundForm(stored)).isEqualTo(value)
+    }
+
+    @Test
+    fun `ContainerType round trips through stable name`() {
+        val value = ContainerType.VIAL
+        val stored = converters.containerTypeToString(value)
+
+        assertThat(stored).isEqualTo("VIAL")
+        assertThat(converters.stringToContainerType(stored)).isEqualTo(value)
+    }
+
+    @Test
+    fun `StorageLocation round trips through stable name`() {
+        val value = StorageLocation.FRIDGE
+        val stored = converters.storageLocationToString(value)
+
+        assertThat(stored).isEqualTo("FRIDGE")
+        assertThat(converters.stringToStorageLocation(stored)).isEqualTo(value)
+    }
+
+    @Test
     fun `nullable values round trip as null`() {
         assertThat(converters.instantToLong(null)).isEqualTo(null)
         assertThat(converters.longToInstant(null)).isEqualTo(null)
@@ -84,5 +120,13 @@ class RoomConvertersTest {
         assertThat(converters.stringToUnitCode(null)).isEqualTo(null)
         assertThat(converters.unitFamilyToString(null)).isEqualTo(null)
         assertThat(converters.stringToUnitFamily(null)).isEqualTo(null)
+        assertThat(converters.compoundCategoryToString(null)).isEqualTo(null)
+        assertThat(converters.stringToCompoundCategory(null)).isEqualTo(null)
+        assertThat(converters.compoundFormToString(null)).isEqualTo(null)
+        assertThat(converters.stringToCompoundForm(null)).isEqualTo(null)
+        assertThat(converters.containerTypeToString(null)).isEqualTo(null)
+        assertThat(converters.stringToContainerType(null)).isEqualTo(null)
+        assertThat(converters.storageLocationToString(null)).isEqualTo(null)
+        assertThat(converters.stringToStorageLocation(null)).isEqualTo(null)
     }
 }

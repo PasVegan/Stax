@@ -130,6 +130,12 @@ class RoomConverters {
     @TypeConverter
     fun stringToSublocation(value: String?): Sublocation? = value?.toEnum()
 
+    @TypeConverter
+    fun inventoryTransactionTypeToString(value: InventoryTransactionType?): String? = value?.stableName()
+
+    @TypeConverter
+    fun stringToInventoryTransactionType(value: String?): InventoryTransactionType? = value?.toEnum()
+
     private fun Enum<*>.stableName(): String = name
 
     private inline fun <reified T : Enum<T>> String.toEnum(): T = enumValueOf(this)

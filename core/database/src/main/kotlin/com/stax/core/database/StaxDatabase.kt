@@ -26,6 +26,7 @@ import java.util.concurrent.Executors
         InjectionSiteEntity::class,
         AdministrationEventEntity::class,
         DoseComponentEntity::class,
+        InventoryTransactionEntity::class,
     ],
     version = 1,
     exportSchema = false,
@@ -41,6 +42,7 @@ abstract class StaxDatabase : RoomDatabase() {
     abstract fun administrationEventDao(): AdministrationEventDao
     abstract fun doseComponentDao(): DoseComponentDao
     abstract fun injectionSiteDao(): InjectionSiteDao
+    abstract fun inventoryTransactionDao(): InventoryTransactionDao
 
     companion object {
 

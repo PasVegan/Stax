@@ -107,6 +107,11 @@ class ComposeConventionPlugin : Plugin<Project> {
         addImplementationPlatform("androidx-compose-bom")
         addImplementation("androidx-compose-ui")
         addImplementation("androidx-compose-ui-tooling-preview")
+        addImplementation("androidx-compose-material3")
+        addImplementation("androidx-compose-material-icons-extended")
+        addImplementation("androidx-compose-adaptive-layout")
+        addImplementation("androidx-compose-adaptive-navigation3")
+        addImplementation("androidx-window")
         addDebugImplementation("androidx-compose-ui-tooling")
     }
 }

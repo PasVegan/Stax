@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+    implementation(libs.androidx.startup.runtime)
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
     implementation(project(":core:data"))

@@ -1,6 +1,48 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
     <application
         android:name=".StaxApplication"
         android:label="@string/app_name"
-        android:supportsRtl="true" />
+        android:supportsRtl="true">
+
+        <!--
+            App Startup initializer chain (§2.3.4).
+
+            Eager (complete before first frame):
+              1. KoinInitializer   — DI graph
+              2. ThemeInitializer  — DataStore theme cache read (stub until M4)
+
+            Deferred (do real work on Lifecycle.STARTED, not at startup):
+              3. RoomDatabaseInitializer  — warms DB connection (stub until M2)
+              4. WorkManagerInitializer   — WorkManager config + periodic jobs (stub until M0-13)
+              5. FontPreloadInitializer   — async font load if >40ms (stub until M4)
+
+            All deferred initializers declare KoinInitializer as a dependency so
+            the DI graph is always available before they run.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+
+            <meta-data
+                android:name="com.stax.app.initializer.KoinInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.stax.app.initializer.ThemeInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.stax.app.initializer.RoomDatabaseInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.stax.app.initializer.WorkManagerInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.stax.app.initializer.FontPreloadInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+    </application>
 </manifest>

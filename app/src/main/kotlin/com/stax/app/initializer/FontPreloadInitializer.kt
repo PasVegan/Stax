@@ -17,6 +17,5 @@ class FontPreloadInitializer : Initializer<Unit> {
         // TODO(M4): measure font load cost; preload async if >40ms
     }
 
-    override fun dependencies(): List<Class<out Initializer<*>>> =
-        listOf(KoinInitializer::class.java)
+    override fun dependencies(): List<Class<out Initializer<*>>> = listOf(KoinInitializer::class.java)
 }

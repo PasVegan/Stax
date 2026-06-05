@@ -29,9 +29,11 @@ enum class UnitCode(val family: UnitFamily) {
         }
         return when (family) {
             UnitFamily.MASS -> value * mcgFactor() / target.mcgFactor()
+
             UnitFamily.COUNT -> throw IllegalArgumentException(
                 "Count units are atomic: cannot convert $this to $target",
             )
+
             else -> value // unreachable: VOLUME and IU each have only one member
         }
     }

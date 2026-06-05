@@ -27,6 +27,5 @@ class RoomDatabaseInitializer : Initializer<Unit> {
         loadKoinModules(module { single { db } })
     }
 
-    override fun dependencies(): List<Class<out Initializer<*>>> =
-        listOf(KoinInitializer::class.java)
+    override fun dependencies(): List<Class<out Initializer<*>>> = listOf(KoinInitializer::class.java)
 }

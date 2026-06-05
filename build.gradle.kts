@@ -72,7 +72,9 @@ private val allowedProjectDependencies = mapOf(
     ":notification" to setOf(":core:domain", ":core:data"),
 )
 
-val checkForbiddenModuleDependencies = tasks.register<CheckForbiddenModuleDependenciesTask>("checkForbiddenModuleDependencies") {
+val checkForbiddenModuleDependencies = tasks.register<CheckForbiddenModuleDependenciesTask>(
+    "checkForbiddenModuleDependencies",
+) {
     group = "verification"
     description = "Fails when Stax modules depend outside the Conventions dependency table."
     violations.convention(emptyList())
@@ -99,7 +101,7 @@ gradle.projectsEvaluated {
                     .map { dependency ->
                         configuration.name to (dependency as ProjectDependency).path
                     }
-                }
+            }
             .filterNot { (_, dependencyPath) -> dependencyPath in allowed }
             .map { (configurationName, dependencyPath) ->
                 "${module.path}:$configurationName -> $dependencyPath"

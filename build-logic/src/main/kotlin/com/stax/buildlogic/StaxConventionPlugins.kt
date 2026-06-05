@@ -13,12 +13,12 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
-private const val CompileSdk = 37  // adaptive-navigation3 1.3.0-beta02 requires API 37
+private const val CompileSdk = 37 // adaptive-navigation3 1.3.0-beta02 requires API 37
 private const val MinSdk = 36
 private const val TargetSdk = 36
 private const val JavaToolchain = 21
@@ -119,8 +119,10 @@ class ComposeConventionPlugin : Plugin<Project> {
         tasks.withType<KotlinCompilationTask<*>>().configureEach {
             val metricsDir = project.layout.buildDirectory.dir("compose_metrics").get().asFile.absolutePath
             compilerOptions.freeCompilerArgs.addAll(
-                "-P", "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=$metricsDir",
-                "-P", "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=$metricsDir",
+                "-P",
+                "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=$metricsDir",
+                "-P",
+                "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=$metricsDir",
             )
         }
 
@@ -214,10 +216,10 @@ class TestingConventionPlugin : Plugin<Project> {
         }
 
         // Core unit-test deps (all module types)
-        addTestImplementationPlatform("junit-bom")       // pins all JUnit components to one version
+        addTestImplementationPlatform("junit-bom") // pins all JUnit components to one version
         addTestImplementation("junit-jupiter")
-        addTestRuntimeOnly("junit-platform-launcher")    // required by Gradle to start JUnit Platform
-        addTestRuntimeOnly("junit-vintage-engine")       // runs JUnit4/Robolectric tests on JUnit Platform
+        addTestRuntimeOnly("junit-platform-launcher") // required by Gradle to start JUnit Platform
+        addTestRuntimeOnly("junit-vintage-engine") // runs JUnit4/Robolectric tests on JUnit Platform
         addTestImplementation("assertk")
         addTestImplementation("turbine")
         addTestImplementation("kotlinx-coroutines-test")
@@ -323,8 +325,7 @@ private fun Project.addImplementationPlatform(alias: String) {
     dependencies.add("implementation", dependencies.platform(libs.library(alias)))
 }
 
-private fun Project.defaultApplicationId(): String =
-    if (path == ":app") "com.stax.app" else defaultNamespace()
+private fun Project.defaultApplicationId(): String = if (path == ":app") "com.stax.app" else defaultNamespace()
 
 private fun Project.defaultNamespace(): String {
     val suffix = path

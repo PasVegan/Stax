@@ -1,5 +1,6 @@
 plugins {
     id("com.stax.android.application")
+    id("com.stax.koin")
 }
 
 dependencies {

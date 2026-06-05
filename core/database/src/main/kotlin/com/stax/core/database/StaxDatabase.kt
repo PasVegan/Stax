@@ -64,6 +64,7 @@ abstract class StaxDatabase : RoomDatabase() {
             DB_NAME,
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
+            .addCallback(DatabaseSeedCallback)
             .apply {
                 if (enableQueryLog) {
                     setQueryCallback(

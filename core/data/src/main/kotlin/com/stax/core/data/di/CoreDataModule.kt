@@ -5,8 +5,10 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.Preferences
 import com.stax.core.data.preferences.ThemePreferences
+import com.stax.core.data.repository.RoomCompoundRepository
 import com.stax.core.data.repository.RoomSettingsRepository
 import com.stax.core.database.StaxDatabase
+import com.stax.core.domain.repository.CompoundRepository
 import com.stax.core.domain.repository.SettingsRepository
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.bind
@@ -34,4 +36,5 @@ val coreDataModule = module {
 
     // Repositories.
     single { RoomSettingsRepository(get(), get()) } bind SettingsRepository::class
+    single { RoomCompoundRepository(get(), get(), get(), get()) } bind CompoundRepository::class
 }

@@ -8,7 +8,8 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
     implementation(libs.kotlinx.datetime)
-    // Room runtime needed for StaxDatabase supertype resolution (not re-exported by :core:database).
+    // Room runtime + KTX needed for StaxDatabase and withTransaction (not re-exported by :core:database).
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.datastore.preferences)
 }

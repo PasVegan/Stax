@@ -30,7 +30,7 @@ import java.util.concurrent.Executors
         SettingsEntity::class,
     ],
     version = 1,
-    exportSchema = false,
+    exportSchema = true,
 )
 @TypeConverters(RoomConverters::class)
 abstract class StaxDatabase : RoomDatabase() {

@@ -1,10 +1,12 @@
 plugins {
     id("com.stax.android.application")
+    id("com.stax.compose")
     id("com.stax.koin")
 }
 
 dependencies {
     implementation(libs.androidx.startup.runtime)
+    implementation(libs.androidx.activity.compose)
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
     implementation(project(":core:data"))

@@ -31,8 +31,16 @@ Android 16+ application
 - `remember` for expensive calcs. Lazy layout keys. `derivedStateOf` to limit recomposition. Defer reads. Avoid backwards writes. Flatten hierarchy.
 
 #### 2.3.1 Compose stability rules
-- Composables receive **UI models**, never domain models directly. Domain models live in `domain/` + repositories + ViewModels; ViewModels map domain → UI model when emitting state. UI models are `data class` with primitive fields + value classes + immutable collections only.
-- `@Immutable` on shared read-only value types reused inside UI models: `Quantity`, `Concentration`, `Decimal`.
+
+Strong skipping mode is on by default — annotations are only required when fields are genuinely unstable.
+
+- Composables receive **UI models**, never domain models directly. Domain models live in `:core:domain` + repositories + ViewModels; ViewModels map domain → UI model when emitting state. UI model `data class` fields = primitives + value classes + immutable collections only.
+- `@Stable` on a UI-model `data class` only when it contains unstable fields (`List`, `Map`, `Set`, interfaces, abstract types). Primitive-only state classes need no annotation.
+- `@Immutable` on shared read-only value types reused inside UI models: `Quantity`, `Concentration`, `Decimal`, `UiText`.
+- No `remember` / `rememberSaveable` for app state — all app state lives in the ViewModel and is collected via `collectAsStateWithLifecycle()`. Only Compose-internal state (`LazyListState`, `ScrollState`, `PagerState`, etc.) uses `remember*`.
+- Animate via `graphicsLayer` (alpha, scale, rotation, translation) + deferred state reads (`offset { provider() }`). Avoid recompositions during animation.
+- Slot APIs (`@Composable () -> Unit` parameters) are reserved for design-system components in `:core:design-system`. Feature composables prefer typed parameters.
+- Every Screen composable ships with a meaningful `@Preview` wrapped in `StaxTheme`.
 - Hoist state. Pass lambdas, never callbacks-of-callbacks.
 - `derivedStateOf` for filtered/computed list slices.
 - `remember(key) { ... }` for any composable-local expensive calc.
@@ -2212,49 +2220,59 @@ Locked at scaffold time. Diverging from these creates churn.
 
 ### 10.1 MVI per screen
 
-Every screen has a `ViewModel` exposing one `state` flow + one `effect` channel, consuming one `intent` sealed hierarchy.
+Every screen has a `ViewModel` exposing a `state: StateFlow<S>` + an `events: Channel<E>` (consumed via `receiveAsFlow()`), and a single `onAction(action: A)` entry point.
 
 ```kotlin
-sealed interface DashboardIntent {
-  data object Refresh : DashboardIntent
-  data class SelectDay(val date: LocalDate) : DashboardIntent
-  data class TakeDose(val scheduledDoseId: Long) : DashboardIntent
+sealed interface DashboardAction {
+  data object OnRefreshClick : DashboardAction
+  data class OnSelectDay(val date: LocalDate) : DashboardAction
+  data class OnTakeDoseClick(val scheduledDoseId: Long) : DashboardAction
   // ...
 }
 
 data class DashboardState(
-  val pendingDoses: ImmutableList<DoseCardModel>,
+  val pendingDoses: ImmutableList<DoseCardUi>,
   val selectedDate: LocalDate,
   val isLoading: Boolean,
+  val error: UiText? = null,
   // ...
 )
 
-sealed interface DashboardEffect {
-  data class NavigateToTakeDose(val scheduledDoseId: Long) : DashboardEffect
-  data class ShowSnackbar(val text: String) : DashboardEffect
+sealed interface DashboardEvent {
+  data class NavigateToTakeDose(val scheduledDoseId: Long) : DashboardEvent
+  data class ShowSnackbar(val message: UiText) : DashboardEvent
 }
 
 class DashboardViewModel(/* injected */) : ViewModel() {
-  val state: StateFlow<DashboardState>
-  val effect: SharedFlow<DashboardEffect>
-  fun handle(intent: DashboardIntent)
+  private val _state = MutableStateFlow(DashboardState(...))
+  val state: StateFlow<DashboardState> = _state.asStateFlow()
+
+  private val _events = Channel<DashboardEvent>()
+  val events = _events.receiveAsFlow()
+
+  fun onAction(action: DashboardAction) { ... }
 }
 ```
 
 Rules:
-- `state` is `StateFlow<S>` exposed to Compose via `collectAsStateWithLifecycle()`.
-- `effect` is `SharedFlow<E>` with `replay = 0`, `extraBufferCapacity = 1`, `BufferOverflow.DROP_OLDEST`. One-shot side effects only.
-- `handle(intent)` returns `Unit`; coroutine work goes to `viewModelScope`.
+- `state` is `StateFlow<S>` exposed to Compose via `collectAsStateWithLifecycle()`. Mutate via `_state.update { it.copy(...) }`.
+- `events` is `Channel<E>` (capacity = `Channel.BUFFERED` by default) exposed as a `Flow` via `receiveAsFlow()`. One-shot side effects only. Channel — not SharedFlow — so an emit is never dropped while the screen is paused.
+- `onAction(action)` returns `Unit`; coroutine work goes to `viewModelScope`.
 - State data classes contain only primitives + value classes + `ImmutableList` / `ImmutableSet` / `ImmutableMap` (kotlinx-collections-immutable). No Room entities, no domain models, no mutable collections — UI models only (see §2.3.1).
+- Each screen ships a **Root** composable + **Screen** composable in the same file. Root holds the VM via `koinViewModel()` and observes `events` via `ObserveAsEvents`. Screen receives `state` + `onAction` only and is independently previewable.
+- User-facing error strings flow through `UiText` (see `android-presentation-mvi` skill).
 
 ### 10.2 Repository layer
 
-ViewModels never see Room directly. Repositories own DAO access and entity → domain mapping.
+ViewModels never see Room or DataStore directly. Repositories own DAO access and entity → domain mapping.
 
-- Koin scope: `single` per `Repository`. ViewModels get them via `get()` / constructor injection.
+- Module: every repository implementation lives in `:core:data`; its interface lives in `:core:domain`. Feature presentation modules depend on the interface only.
+- Koin scope: bind impl via `singleOf(::RoomCompoundRepository) { bind<CompoundRepository>() }` per `android-di-koin`.
 - DAO `Flow` queries collected inside repository, mapped to domain models, exposed back as `Flow<Domain>`.
-- Mutating ops are `suspend` functions returning either `Unit`, the new ID, or a `Result<T>` for validation failures.
+- Mutating ops return `Result<T, DataError.Local>` or `EmptyResult<DataError.Local>` per `android-error-handling`. Validation failures use a feature-specific `Error` enum (e.g. `CompoundValidationError`).
 - Transactions in §5.8.5 are implemented at the repository layer with `@Transaction` DAO methods.
+
+**Naming convention** (Stax): distinguishes "data source" (single source) from "repository" (multi-source). Stax has no remote source — everything is local Room — so by the skill's strict definition all our accessors are data sources. We nevertheless use `Repository` for all of them because (a) most of them aggregate across multiple Room tables (compound + opened_container + inventory_transaction) which qualifies as multi-source in practice, and (b) the spec and ISSUES reference "repository" uniformly. No DTOs exist (no network).
 
 ### 10.3 Navigation 3 — typed routes
 
@@ -2271,45 +2289,90 @@ All routes are `@Serializable` Kotlin types. No string routes.
 ```
 
 Rules:
-- One file `Routes.kt` per feature package exporting its routes.
+- One file `Routes.kt` per feature presentation module exporting its `@Serializable` routes.
+- Each feature presentation module exposes one `NavGraphBuilder.<feature>Graph(navController, onNavigateToX, onNavigateToY, ...)` extension function per `android-navigation`. Cross-feature navigation is wired as lambda callbacks in `:app`'s `NavHost`. Feature modules never import another feature's route.
 - `NavBackStack` typed; back-stack model is per top-level destination (Home / Compounds / Protocols / Sites / Settings each have their own stack).
 - Save-state behaviour: routes survive process death via `SavedStateHandle`; ViewModels receive route params through the SDK helper `toRoute<T>()`.
 - Bottom sheets and dialogs are NOT routes — they live in the parent screen's state. Sheets show via `state.showXSheet` flag; back press handled by parent.
 
 ### 10.4 Module layout
 
-Single Android app module at v1 (no multi-module). Internal package layout:
+Per the `android-module-structure` skill, with one Stax-specific shape: a single shared Room DB + heavily interlinked domain → domain + database + repository impls live in `:core:*`; only `presentation` is split per feature.
 
 ```
-com.stax.app/
-  core/                   // value classes, Decimal, Quantity, unit math
-  data/                   // Room entities, DAOs, repositories, mappers
-  domain/                 // domain models, business rules (escalation, in-break, dose math)
-  feature/
-    dashboard/            // screens + viewmodels + state
-    compounds/
-    protocols/
-    sites/
-    settings/
-    onboarding/
-    reconstitution/
-  ui/                     // shared composables, theme, motion, icons
-  startup/                // App Startup initializers (§2.3.4)
-  work/                   // WorkManager workers
-  notification/           // AlarmManager + channels
-  widget/                 // Glance widget (§4.16) + size-keyed composables + action callbacks
-  shortcut/               // static + dynamic shortcut registration + deep-link router (§4.17)
+:app                               # wires modules, NavHost, Application class
+:build-logic                       # Gradle convention plugins (stax.android.application, stax.android.feature, ...)
+
+:core:domain                       # all domain models, repository interfaces, errors (Error/DataError), Result, Decimal/Quantity/Concentration
+:core:database                     # Room @Database, all entities, all DAOs, migrations, seed callback
+:core:data                         # repository impls, mappers, Settings + DataStore wiring
+:core:presentation                 # UiText, ObserveAsEvents, shared UI utilities, error → UiText extensions
+:core:design-system                # M3 Expressive theme, motion specs, AdaptiveListDetail, AdaptiveSupportingPane, AdaptiveFab, icons, design tokens
+
+:feature:onboarding:presentation
+:feature:compounds:presentation
+:feature:protocols:presentation
+:feature:sites:presentation
+:feature:dashboard:presentation
+:feature:reconstitution:presentation
+:feature:logging:presentation
+:feature:settings:presentation
+
+:widget                            # Glance widget + actions
+:shortcut                          # static shortcut router
+:work                              # WorkManager workers
+:notification                      # AlarmManager + channels
 ```
 
-Promote to multi-module only if build time crosses 30s clean / 8s incremental.
+Dependency rules:
+
+| Layer                                            | May depend on                                               |
+|--------------------------------------------------|-------------------------------------------------------------|
+| `:core:domain`                                   | nothing                                                     |
+| `:core:database`                                 | `:core:domain`                                              |
+| `:core:data`                                     | `:core:domain`, `:core:database`                            |
+| `:core:presentation`                             | `:core:domain`                                              |
+| `:core:design-system`                            | nothing                                                     |
+| `:feature:<x>:presentation`                      | `:core:domain`, `:core:presentation`, `:core:design-system` |
+| `:widget`, `:shortcut`, `:work`, `:notification` | `:core:domain`, `:core:data`                                |
+| `:app`                                           | everything                                                  |
+
+Features never depend on each other. Cross-feature integration is the responsibility of `:app` (Navigation 3 callbacks per §10.3). Enforced by the `ForbiddenModuleDependency` detekt rule introduced in M0-13.
+
+Documentation: every module owns a `README.md` describing purpose + allowed dependencies + key types; every package within a module owns a `_Package.kt` with KDoc on its `package` declaration. Both are kept in sync with code changes per ISSUES X-05 / X-06.
 
 ### 10.5 Testing surface
 
-| Layer     | Tool                              | What                                             |
-|-----------|-----------------------------------|--------------------------------------------------|
-| Domain    | JUnit5 + AssertK                  | escalation math, in-break, dose math, validation |
-| Data      | Robolectric + Room in-memory      | DAO queries, transaction boundaries, FK rules    |
-| Migration | Room `MigrationTestHelper`        | every version-to-latest path                     |
-| ViewModel | Turbine                           | intent → state transitions                       |
-| UI        | Compose `createComposeRule()`     | golden-path flows per screen                     |
-| E2E       | Macrobenchmark + Baseline Profile | hot paths in §2.3.3                              |
+| Layer     | Tool                                                                                            | What                                             |
+|-----------|-------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| Domain    | JUnit5 + AssertK                                                                                | escalation math, in-break, dose math, validation |
+| Data      | Robolectric + Room in-memory + fakes (over mocks)                                               | DAO queries, transaction boundaries, FK rules    |
+| Migration | Room `MigrationTestHelper`                                                                      | every version-to-latest path                     |
+| ViewModel | Turbine + `UnconfinedTestDispatcher` + `Dispatchers.setMain` + fake repositories                | action → state transitions, events               |
+| UI        | Compose `createComposeRule()` + `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule` | golden-path flows per screen, breakpoint matrix  |
+| E2E       | Macrobenchmark + Baseline Profile                                                               | hot paths in §2.3.3                              |
+
+### 10.6 Codebase documentation mechanism
+
+Goal: an AI agent (or human cold-reading) can orient inside any module in under 30 seconds before touching code. Two artifacts, both mandatory, both enforced in CI.
+
+**Per-module `README.md`** (top of every Gradle module). Required sections: Purpose (one paragraph), Allowed dependencies (cite §10.4 dependency-rules table), Key types (bullet list w/ one-line roles), Owned by (feature name or "shared"), Notes (Stax divergences, perf budgets, transactional boundaries).
+
+**Per-package `_Package.kt`** (one per Kotlin package, KDoc-only file). Kotlin has no `package-info.java`; this is the idiomatic substitute. Required content (1–3 sentences): Purpose, Boundaries (what does NOT live here — e.g. "no Room imports"), Entry points (1–3 most-likely-touched public symbols).
+
+Template:
+```kotlin
+/**
+ * Domain models for compound supply and inventory state.
+ *
+ * Contains [CompoundSupply], [OpenedContainer], [InventoryTransaction], and the
+ * [CompoundRepository] interface. Implementations live in `:core:data`.
+ *
+ * Boundaries: pure Kotlin, no Android imports, no framework imports.
+ */
+@file:Suppress("MatchingDeclarationName")
+
+package com.stax.core.domain.compound
+```
+
+**Sync rule**: any PR that adds/removes a public type in a module updates that module's README. Any PR that introduces a new package adds a `_Package.kt`. Any PR that materially changes a package's public API updates the relevant `_Package.kt`. Enforced by `scripts/check_readme_drift.sh` + custom detekt rule `MissingPackageKDoc` (see ISSUES X-05 / X-06).

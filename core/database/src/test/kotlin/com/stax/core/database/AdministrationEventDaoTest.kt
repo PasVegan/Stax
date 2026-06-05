@@ -23,6 +23,7 @@ class AdministrationEventDaoTest {
 
     private lateinit var database: StaxDatabase
     private lateinit var dao: AdministrationEventDao
+    private lateinit var injectionSiteDao: InjectionSiteDao
 
     @Before
     fun setUp() {
@@ -33,6 +34,7 @@ class AdministrationEventDaoTest {
             .allowMainThreadQueries()
             .build()
         dao = database.administrationEventDao()
+        injectionSiteDao = database.injectionSiteDao()
     }
 
     @After
@@ -120,13 +122,15 @@ class AdministrationEventDaoTest {
 
     @Test
     fun `observeByInjectionSite filters by site`() = runTest {
-        val siteId = 42L
-        val id1 = dao.insert(administrationEvent(loggedAt = Instant.parse("2026-06-06T08:00:00Z"), injectionSiteId = siteId))
-        val id2 = dao.insert(administrationEvent(loggedAt = Instant.parse("2026-06-07T08:00:00Z"), injectionSiteId = siteId))
-        dao.insert(administrationEvent(injectionSiteId = 99L))
+        val siteId1 = injectionSiteDao.insert(injectionSite(name = "Site A"))
+        val siteId2 = injectionSiteDao.insert(injectionSite(name = "Site B"))
+
+        val id1 = dao.insert(administrationEvent(loggedAt = Instant.parse("2026-06-06T08:00:00Z"), injectionSiteId = siteId1))
+        val id2 = dao.insert(administrationEvent(loggedAt = Instant.parse("2026-06-07T08:00:00Z"), injectionSiteId = siteId1))
+        dao.insert(administrationEvent(injectionSiteId = siteId2))
         dao.insert(administrationEvent(injectionSiteId = null))
 
-        val result = dao.observeByInjectionSite(siteId).first()
+        val result = dao.observeByInjectionSite(siteId1).first()
 
         assertThat(result.map { it.id }).containsExactly(id2, id1)
     }
@@ -153,7 +157,7 @@ class AdministrationEventDaoTest {
         loggedAt: Instant = Instant.parse("2026-06-06T08:00:00Z"),
         route: Route = Route.SUBCUTANEOUS,
         status: AdministrationEventStatus = AdministrationEventStatus.TAKEN,
-        injectionSiteId: Long? = 1L,
+        injectionSiteId: Long? = null,
         notes: String? = null,
         createdAt: Instant = Instant.parse("2026-06-06T00:00:00Z"),
         updatedAt: Instant = createdAt,
@@ -166,5 +170,19 @@ class AdministrationEventDaoTest {
         notes = notes,
         createdAt = createdAt,
         updatedAt = updatedAt,
+    )
+
+    private fun injectionSite(
+        name: String = "Test Site",
+    ): InjectionSiteEntity = InjectionSiteEntity(
+        id = 0,
+        name = name,
+        bodyRegion = BodyRegion.ABDOMEN,
+        side = InjectionSide.LEFT,
+        sublocation = null,
+        lastUsedAt = null,
+        avoidUntil = null,
+        notes = null,
+        isAvailable = true,
     )
 }

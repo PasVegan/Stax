@@ -74,5 +74,13 @@ gradlePlugin {
             id = "stax.kotlinx.serialization"
             implementationClass = "com.stax.buildlogic.KotlinxSerializationConventionPlugin"
         }
+        register("comStaxTesting") {
+            id = "com.stax.testing"
+            implementationClass = "com.stax.buildlogic.TestingConventionPlugin"
+        }
+        register("staxTesting") {
+            id = "stax.testing"
+            implementationClass = "com.stax.buildlogic.TestingConventionPlugin"
+        }
     }
 }

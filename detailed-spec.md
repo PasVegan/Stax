@@ -84,8 +84,12 @@ Eager init fights the <400ms cold-start SLO. Split:
 - `PRAGMA foreign_keys=ON` (Room default).
 
 #### 2.3.6 Edge-to-edge
-- `enableEdgeToEdge()` in `Activity.onCreate`.
-- All padding derived from `WindowInsets.statusBars`, `WindowInsets.navigationBars`, `WindowInsets.ime`. No hardcoded inset dimensions anywhere.
+Follow the `edge-to-edge` skill.
+- `enableEdgeToEdge()` before `setContent` in every `Activity.onCreate`.
+- `android:windowSoftInputMode="adjustResize"` in the manifest for every Activity that shows a soft keyboard (text fields).
+- All padding derived from `WindowInsets.statusBars`, `WindowInsets.navigationBars`, `WindowInsets.ime` (via `Modifier.imePadding()` / `windowInsetsPadding`). No hardcoded inset dimensions anywhere.
+- Apply insets with exactly **one** method per surface (inset-padding OR ruler-alignment) — never both, to avoid double padding. Lists + FAB must not be obscured by the nav bar; text fields must stay visible above the IME.
+- System-bar legibility: rely on the framework's adaptive bar-icon contrast; do not hardcode bar colors.
 
 #### 2.3.7 RenderEffect blur
 Heat-map (§4.12.4) uses `RenderEffect.createBlurEffect()` via `Modifier.graphicsLayer { renderEffect = ... }`. No CPU-blur fallback needed — app is Android 16+.
@@ -93,16 +97,23 @@ Heat-map (§4.12.4) uses `RenderEffect.createBlurEffect()` via `Modifier.graphic
 #### 2.3.8 Background contention
 `GenerateScheduledDosesWorker` may run while user is in the Take Dose sheet. Serialize with `ExistingWorkPolicy.KEEP` + unique work name. DB transactions already isolated per §5.8.5; this prevents duplicate enqueue.
 
+#### 2.3.9 R8 / app optimization
+Release build optimization follows the `r8-analyzer` skill (see M20-01).
+- AGP `9.0`+ (build-time + optimization improvements); R8 **full mode** ON (do **not** set `android.enableR8.fullMode=false`).
+- Audit keep rules with the R8 configuration analyzer: remove redundant + overly broad package-wide `-keep` rules; do not subsume library consumer keep rules. Keep only the minimum reflection-touched surfaces (Room/Glance/Koin/kotlinx-serialization).
+
 ### 2.4 Technology
 - Kotlin + Jetpack Compose + Material 3 Expressive
 - MVI architecture, Koin DI
 - **Google Sans Flex** font family (Regular, Medium, SemiBold, Bold, Light)
 - **Material Symbols Rounded** for icons (load font via App Startup; render via text glyphs)
 - Room database, WorkManager (background), AlarmManager (exact reminders)
-- Navigation 3, adaptive: bottom nav (compact), side rail (medium/foldables unfolded). Libs: `androidx.compose.material3.adaptive.navigation3`, `androidx.compose.material3.adaptive.layout`.
+- Navigation 3 (`NavDisplay` + `entryProvider` + `NavBackStack`), adaptive: bottom nav (compact), side rail (medium/foldables unfolded). Nav chrome via `NavigationSuiteScaffold`; multi-pane via Nav3 Scene strategies (`ListDetailSceneStrategy`, `SupportingPaneSceneStrategy`) — NOT `*PaneScaffold`. Lib: `androidx.compose.material3.adaptive:adaptive-navigation3`. Per-feature navigation follows the `navigation-3` skill; adaptive layout follows the `adaptive` skill.
+- **Material 3 components** for the whole design system (stable). Adaptive multi-column lists use the stable `GridCells.Adaptive`; the experimental `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+, opt-in) are optional and adopted only where a stable API can't express the layout.
 - Glance for home-screen widgets (§4.16): `androidx.glance:glance-appwidget`, `androidx.glance:glance-material3`.
 - Static app shortcuts via `<shortcuts>` XML (§4.17). No `androidx.sharetarget` needed at v1.
-- only support android 16 and above, to be able to use all the new features
+- Tooling: use the `android` CLI (project creation, run/deploy, SDK management, device screenshots, env diagnostics) per `android-cli` skill.
+- only support android 16 and above, to be able to use all the new features. `compileSdk = 37` (required by `androidx.compose.material3.adaptive:adaptive-navigation3` ≥`1.3.0-beta02`); `minSdk = targetSdk = 36` (Android 16).
 ---
 
 ## 3. Domain Model
@@ -795,12 +806,12 @@ Leading `close`, title "Reconstitute", supporting "{compound name} · {container
 
 #### 4.6.2 Syringe hero card
 
-Top row: left column shows label "Draw to" + value row numeric + "units" (`primary` color). Right: size badge pill (`secondary-container`, leading `straighten` icon + "U-100 · 1 mL"). when tapping on size badge pill change syringe kind (insulin: U30, U50, U100; regular: 2mL, 3mL, 5mL) 
+Top row: left column shows label "Draw to" + value row numeric + "units" (`primary` color). Right: size badge pill (`secondary-container`, leading `straighten` icon + "U-100 · 1 mL"). when tapping on size badge pill change syringe kind (insulin: U30, U50, U100; regular: 2mL, 3mL, 5mL)
 
 **Syringe visualization**:
 - Syringe with right graduation depending on size
 - visual change if insulin or regular
-- preview filled with the dose 
+- preview filled with the dose
 
 #### 4.6.3 Equivalence chips row
 
@@ -1953,7 +1964,7 @@ Reset is irreversible. No undo snackbar; the typed-confirm dialog is the only ba
 
 ### 6.4 Adaptive behavior
 
-Goal: medium + expanded are first-class — UI rearranges meaningfully, not just wider columns. Use Material 3 adaptive APIs: `androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold`, `SupportingPaneScaffold`, `NavigationSuiteScaffold`, `WindowSizeClass`, `currentWindowAdaptiveInfo()`.
+Goal: medium + expanded are first-class — UI rearranges meaningfully, not just wider columns. Follow the `adaptive` skill. Nav chrome via `NavigationSuiteScaffold`; **multi-pane via Nav3 Scene strategies** `androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy` + `SupportingPaneSceneStrategy` (passed to `NavDisplay.sceneStrategies`) — do **NOT** use `ListDetailPaneScaffold` / `SupportingPaneScaffold`. Capability queries via `WindowSizeClass`, `currentWindowAdaptiveInfo()`, and the Compose `MediaQuery` API.
 
 #### 6.4.0 Breakpoints
 
@@ -1969,7 +1980,7 @@ Touch targets ≥ 48×48dp at every breakpoint. All measurements `dp`, never `px
 
 #### 6.4.1 Navigation chrome
 
-Use `NavigationSuiteScaffold` so chrome swaps automatically across breakpoints.
+Use `NavigationSuiteScaffold` (items supplied as `NavigationSuiteItem`s) so chrome swaps automatically across breakpoints. Drive show/hide via `rememberNavigationSuiteScaffoldState()` + `NavigationSuiteScaffoldState` (hide chrome on scroll-down / full-screen detail, restore on scroll-up) per §6.4.9.
 
 - **Compact**: `NavigationBar` pinned bottom. 5 destinations, icon-only when selected label fits, icon+label otherwise.
 - **Medium**: `NavigationRail` pinned start edge. Width `80dp`. Icon-only with active indicator pill; FAB anchored top of rail (above destinations) when current screen has a primary FAB.
@@ -1982,7 +1993,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 ##### Dashboard (§4.1)
 
 - **Compact**: single-column scroll. Order: day chip strip → dose cards → inventory warnings → recent activity.
-- **Medium**: `SupportingPaneScaffold` (two-pane).
+- **Medium**: supporting-pane Scene (`SupportingPaneSceneStrategy`) (two-pane).
   - **Main pane** (~60% width, min `400dp`): day chip strip + dose cards (primary actions live here).
   - **Supporting pane** (~40% width, min `320dp`): inventory warnings card + recent activity list. Sticky; does not scroll out.
   - Day chip strip widens; 14 chips visible without scroll.
@@ -1996,7 +2007,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 ##### Compounds list + Compound Detail (§4.2 / §4.3)
 
 - **Compact**: list pushes to detail on tap.
-- **Medium**: `ListDetailPaneScaffold`. List pane fixed `360dp`, detail pane fills, divider `outline-variant` 1dp. Selecting a row shows detail in the right pane without navigation push. Back press on detail returns focus to list (no pane swap on Medium).
+- **Medium**: list-detail Scene (`ListDetailSceneStrategy`). List pane fixed `360dp`, detail pane fills, divider `outline-variant` 1dp. Selecting a row shows detail in the right pane without navigation push; empty selection shows the `detailPlaceholder`. Back press on detail returns focus to list (no pane swap on Medium).
 - **Expanded**: list pane `400dp`. Detail pane internal layout switches to two-column:
   - Top stat strip stays full-width (§4.3.2).
   - Below: **left column** (`fillMaxWidth(0.55)`) = Opened vial card + Active protocols + Notes. **Right column** (`fillMaxWidth(0.45)`) = History section (filter chips + paginated history list).
@@ -2005,7 +2016,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 ##### Protocols list + Protocol Detail (§4.7 / §4.8)
 
 - **Compact**: list pushes to detail.
-- **Medium**: `ListDetailPaneScaffold` like Compounds. List `360dp`.
+- **Medium**: list-detail Scene (`ListDetailSceneStrategy`) like Compounds. List `360dp`.
 - **Expanded**: list pane `400dp`. Detail internal layout = two-column grid:
   - Quick action chips (§4.8.2) span full width.
   - **Left column**: Schedule card + Linked compound + Site restrictions + Notes.
@@ -2026,7 +2037,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 ##### Settings (§4.13)
 
 - **Compact**: vertical scrolling list of section rows.
-- **Medium + Expanded**: `ListDetailPaneScaffold`. List pane `280dp` = section index (Appearance / Reminders / Data / About). Detail pane = chosen section's rows. Default selection on first open = Appearance. Dialogs (Theme picker etc.) keep their compact modal form — they're not section content.
+- **Medium + Expanded**: list-detail Scene (`ListDetailSceneStrategy`). List pane `280dp` = section index (Appearance / Reminders / Data / About). Detail pane = chosen section's rows. Default selection on first open = Appearance. Dialogs (Theme picker etc.) keep their compact modal form — they're not section content.
 
 ##### Reconstitution Helper (§4.6)
 
@@ -2108,11 +2119,11 @@ Use `WindowInfoTracker.windowLayoutInfo` to subscribe to `FoldingFeature` update
 
 - Use `rememberSaveable` for all form state so rotation does not lose drafts.
 - Layout transitions across breakpoints animate via `AnimatedContent` w/ `MotionScheme.expressive().defaultSpatialSpec()` — no hard cut.
-- Pane focus survives rotation: if Compounds list-detail was on a detail at Compact (pushed screen), rotating to Expanded preserves that detail in the right pane; the list pane re-renders with the same row selected.
+- Pane focus survives rotation: if Compounds list-detail was on a detail at Compact (pushed screen), rotating to Expanded preserves that detail in the right pane; the list pane re-renders with the same row selected. The `ListDetailSceneStrategy` resolves the same `NavBackStack` to one-pane vs two-pane across the size change — no manual pane bookkeeping.
 
 #### 6.4.5 Predictive back + adaptive nav
 
-- Predictive back enabled (Android 16 default). Two-pane scaffolds use `ListDetailPaneScaffoldNavigator` so back press at Compact navigates list → detail → list; at Medium + Expanded back is consumed only if a stacked screen sits on top of the detail pane.
+- Predictive back enabled (Android 16 default). Back is driven by Nav3 `NavDisplay` popping the `NavBackStack`; the active Scene strategy decides pane behavior — at Compact back navigates list → detail → list, at Medium + Expanded back is consumed only if a stacked entry sits on top of the detail pane.
 - Bottom-nav re-selection at Compact clears the destination's back stack to root. Same behavior at Medium + Expanded on rail re-tap.
 
 #### 6.4.6 FAB placement
@@ -2153,6 +2164,16 @@ Samsung Z Fold 5 cover screen (`388dp`) is the narrowest realistic Compact targe
 `FoldingFeature` posture testing: parameterize hinge tests with `FoldingFeature.State.HALF_OPENED` + both `Orientation.VERTICAL` (book) and `Orientation.HORIZONTAL` (tabletop) using Jetpack `WindowLayoutInfoPublisherRule`.
 
 CI runs one Compose UI test per major screen per profile = ~10 × 12 screens = 120 fast tests. Acceptable runtime via shared `ComposeTestRule` + parallel sharding.
+
+Per the `adaptive` + `testing-setup` skills, each major screen also ships a `@PreviewTest` `@FormFactorPreviews` composable (Phone / Foldable / Tablet / Desktop) for the Compose Preview Screenshot Testing tool, so layout regressions across form factors are caught as golden-image diffs (see §10.5, M19-04). Reference images are regenerated only on intentional UI change.
+
+#### 6.4.9 Adaptive lists + app bars
+
+Per the `adaptive` skill:
+- **Lazy lists** (`LazyColumn` / `LazyVerticalGrid`): use `GridCells.Adaptive(<minWidth>.dp)` so column count grows with width at Medium + Expanded instead of stretching rows. Choose a min width that keeps each item legible.
+- **Non-lazy** fixed-count rows of the same item type: use the experimental `Grid` (`@OptIn(ExperimentalGridApi::class)`), reconfiguring rows/columns from `constraints` — not a lazy layout, not nested in a `Column`.
+- **App bars** hide on scroll independently per top-level destination: `exitUntilCollapsedScrollBehavior` (stays hidden until offset 0) or `enterAlwaysScrollBehavior` (reappears immediately on scroll-up). Nav chrome visibility is coordinated via `NavigationSuiteScaffoldState` (§6.4.1).
+- `Grid`, `FlexBox`, and `MediaQuery` are experimental (Compose `1.11.0-beta01`+) and require explicit opt-in.
 
 ---
 
@@ -2211,6 +2232,8 @@ CI runs one Compose UI test per major screen per profile = ~10 × 12 screens = 1
 **Type scale**: pure M3 styles (`display`, `headline`, `title`, `body`, `label` with `-emphasized` variants where applicable). Font family = **Google Sans Flex**.
 
 **Shape scale**: must be emphasized via M3 Expressive guidelines
+
+**Components**: Material 3 components throughout, themed via `MaterialTheme` (color / type / shape). Custom design-system components (syringe visualization §4.6, body-map renderer §4.12, dose card §4.1) are built on Compose primitives + the same `MaterialTheme` tokens — no separate styling system.
 
 ---
 
@@ -2276,38 +2299,38 @@ ViewModels never see Room or DataStore directly. Repositories own DAO access and
 
 ### 10.3 Navigation 3 — typed routes
 
-All routes are `@Serializable` Kotlin types. No string routes.
+Follow the `navigation-3` skill. All routes are `@Serializable` Kotlin types implementing `NavKey`. No string routes, no `NavController` / `NavHost` / `NavGraphBuilder` (those are Navigation 2).
 
 ```kotlin
-@Serializable data object DashboardRoute
-@Serializable data object CompoundsRoute
-@Serializable data class CompoundDetailRoute(val compoundId: Long)
-@Serializable data class CreateCompoundRoute(val templateForm: Form? = null)
-@Serializable data class EditCompoundRoute(val compoundId: Long)
-@Serializable data class ProtocolDetailRoute(val protocolId: Long)
+@Serializable data object DashboardRoute : NavKey
+@Serializable data object CompoundsRoute : NavKey
+@Serializable data class CompoundDetailRoute(val compoundId: Long) : NavKey
+@Serializable data class CreateCompoundRoute(val templateForm: Form? = null) : NavKey
+@Serializable data class EditCompoundRoute(val compoundId: Long) : NavKey
+@Serializable data class ProtocolDetailRoute(val protocolId: Long) : NavKey
 // ...
 ```
 
 Rules:
-- One file `Routes.kt` per feature presentation module exporting its `@Serializable` routes.
-- Each feature presentation module exposes one `NavGraphBuilder.<feature>Graph(navController, onNavigateToX, onNavigateToY, ...)` extension function per `android-navigation`. Cross-feature navigation is wired as lambda callbacks in `:app`'s `NavHost`. Feature modules never import another feature's route.
-- `NavBackStack` typed; back-stack model is per top-level destination (Home / Compounds / Protocols / Sites / Settings each have their own stack).
-- Save-state behaviour: routes survive process death via `SavedStateHandle`; ViewModels receive route params through the SDK helper `toRoute<T>()`.
-- Bottom sheets and dialogs are NOT routes — they live in the parent screen's state. Sheets show via `state.showXSheet` flag; back press handled by parent.
+- One file `Routes.kt` per feature presentation module exporting its `@Serializable` `NavKey` routes.
+- `:app` hosts a single `NavDisplay` whose `entryProvider` is assembled from one `EntryProviderScope.<feature>Entries(onNavigateToX, onNavigateToY, ...)` extension per feature presentation module (the Nav3 equivalent of the old per-feature graph). Cross-feature navigation is wired as lambda callbacks in `:app`; feature modules never import another feature's route. Decouple per the `navigation-3` **modular (Koin)** recipe.
+- Back stack is a `NavBackStack` (`rememberNavBackStack()`, a `SnapshotStateList<NavKey>`); the model is per top-level destination (Home / Compounds / Protocols / Sites / Settings each own a stack — Nav3 **multiple back stacks** recipe). `NavDisplay` is supplied the active stack + the Scene strategies (§6.4) + `NavigationSuiteScaffold` chrome.
+- Save-state behaviour: the `NavBackStack` is saveable and survives process death; route params reach the ViewModel through the `NavKey` passed to its entry (Nav3 "passing arguments" recipe) — no `toRoute<T>()`.
+- Bottom sheets and dialogs are NOT modeled as routes by default — they live in the parent screen's state (`state.showXSheet` flag; back press handled by parent). Nav3 offers built-in `Dialog` + custom `BottomSheet` Scenes; adopt those only where a sheet/dialog needs its own deep-linkable back-stack entry.
 
 ### 10.4 Module layout
 
 Per the `android-module-structure` skill, with one Stax-specific shape: a single shared Room DB + heavily interlinked domain → domain + database + repository impls live in `:core:*`; only `presentation` is split per feature.
 
 ```
-:app                               # wires modules, NavHost, Application class
+:app                               # wires modules, NavDisplay + entryProvider, Application class
 :build-logic                       # Gradle convention plugins (stax.android.application, stax.android.feature, ...)
 
 :core:domain                       # all domain models, repository interfaces, errors (Error/DataError), Result, Decimal/Quantity/Concentration
 :core:database                     # Room @Database, all entities, all DAOs, migrations, seed callback
 :core:data                         # repository impls, mappers, Settings + DataStore wiring
 :core:presentation                 # UiText, ObserveAsEvents, shared UI utilities, error → UiText extensions
-:core:design-system                # M3 Expressive theme, motion specs, AdaptiveListDetail, AdaptiveSupportingPane, AdaptiveFab, icons, design tokens
+:core:design-system                # M3 Expressive theme, motion specs, Nav3 Scene-strategy wrappers (list-detail / supporting-pane), AdaptiveFab, NavigationSuiteScaffold chrome, icons, design tokens
 
 :feature:onboarding:presentation
 :feature:compounds:presentation
@@ -2339,24 +2362,29 @@ Dependency rules:
 
 Features never depend on each other. Cross-feature integration is the responsibility of `:app` (Navigation 3 callbacks per §10.3). Enforced by the `ForbiddenModuleDependency` detekt rule introduced in M0-13.
 
-Documentation: every module owns a `README.md` describing purpose + allowed dependencies + key types; every package within a module owns a `_Package.kt` with KDoc on its `package` declaration. Both are kept in sync with code changes per ISSUES X-05 / X-06.
+Documentation: every module owns a top-level `CLAUDE.md` (with an `AGENT.md` symlink → `CLAUDE.md`) describing purpose + allowed dependencies + key types + applicable skills; every package within a module owns a `_Package.kt` with KDoc on its `package` declaration. Both are kept in sync with code changes per ISSUES X-05 / X-06. The repo root also owns a `CLAUDE.md` (+ `AGENT.md` symlink) — the entry point for any AI agent (§10.6).
 
 ### 10.5 Testing surface
 
-| Layer     | Tool                                                                                            | What                                             |
-|-----------|-------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| Domain    | JUnit5 + AssertK                                                                                | escalation math, in-break, dose math, validation |
-| Data      | Robolectric + Room in-memory + fakes (over mocks)                                               | DAO queries, transaction boundaries, FK rules    |
-| Migration | Room `MigrationTestHelper`                                                                      | every version-to-latest path                     |
-| ViewModel | Turbine + `UnconfinedTestDispatcher` + `Dispatchers.setMain` + fake repositories                | action → state transitions, events               |
-| UI        | Compose `createComposeRule()` + `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule` | golden-path flows per screen, breakpoint matrix  |
-| E2E       | Macrobenchmark + Baseline Profile                                                               | hot paths in §2.3.3                              |
+Harness setup follows the `testing-setup` skill; ViewModel/UI patterns follow `android-testing`.
+
+| Layer      | Tool                                                                                            | What                                                         |
+|------------|-------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| Domain     | JUnit5 + AssertK                                                                                | escalation math, in-break, dose math, validation             |
+| Data       | Robolectric + Room in-memory + fakes (over mocks)                                               | DAO queries, transaction boundaries, FK rules                |
+| Migration  | Room `MigrationTestHelper`                                                                      | every version-to-latest path                                 |
+| ViewModel  | Turbine + `UnconfinedTestDispatcher` + `Dispatchers.setMain` + fake repositories                | action → state transitions, events                           |
+| UI         | Compose `createComposeRule()` + `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule` | golden-path flows per screen, Nav3 scene + breakpoint matrix |
+| Screenshot | Compose Preview Screenshot Testing (`@PreviewTest` + `@FormFactorPreviews`) / Roborazzi         | per-form-factor layout golden diffs (§6.4.9)                 |
+| E2E        | Macrobenchmark + Baseline Profile                                                               | hot paths in §2.3.3                                          |
 
 ### 10.6 Codebase documentation mechanism
 
-Goal: an AI agent (or human cold-reading) can orient inside any module in under 30 seconds before touching code. Two artifacts, both mandatory, both enforced in CI.
+Goal: an AI agent (or human cold-reading) can orient inside any module in under 30 seconds before touching code. Three artifacts, all mandatory, all enforced in CI.
 
-**Per-module `README.md`** (top of every Gradle module). Required sections: Purpose (one paragraph), Allowed dependencies (cite §10.4 dependency-rules table), Key types (bullet list w/ one-line roles), Owned by (feature name or "shared"), Notes (Stax divergences, perf budgets, transactional boundaries).
+**Root `CLAUDE.md`** (repo root, with an `AGENT.md` symlink → `CLAUDE.md`). The single entry point for any AI agent: project overview, tech stack, architecture (§10.1–§10.5), module map + dependency rules, the normative skill set (ISSUES "Skill alignment" table) and which skill governs which work, build/test commands, the spec/issue workflow (`ISSUES.md` = source of truth, `scripts/sync-issues.py`, `start-oldest-feature.sh`), and project-wide gotchas. `CLAUDE.md` is auto-loaded by Claude Code when working anywhere in the tree; `AGENT.md` is the cross-tool alias for other agents.
+
+**Per-module `CLAUDE.md`** (top of every Gradle module, each with an `AGENT.md` symlink → `CLAUDE.md`). Required sections: Purpose (one paragraph), Module coordinates (Gradle path + package namespace + convention plugins applied), Allowed dependencies (cite §10.4 dependency-rules table), Key types (bullet list w/ one-line roles), Applicable skills (which reference skills govern this module), Owned by (feature name or "shared"), Notes (Stax divergences, perf budgets, transactional boundaries).
 
 **Per-package `_Package.kt`** (one per Kotlin package, KDoc-only file). Kotlin has no `package-info.java`; this is the idiomatic substitute. Required content (1–3 sentences): Purpose, Boundaries (what does NOT live here — e.g. "no Room imports"), Entry points (1–3 most-likely-touched public symbols).
 
@@ -2375,4 +2403,4 @@ Template:
 package com.stax.core.domain.compound
 ```
 
-**Sync rule**: any PR that adds/removes a public type in a module updates that module's README. Any PR that introduces a new package adds a `_Package.kt`. Any PR that materially changes a package's public API updates the relevant `_Package.kt`. Enforced by `scripts/check_readme_drift.sh` + custom detekt rule `MissingPackageKDoc` (see ISSUES X-05 / X-06).
+**Sync rule**: any PR that adds/removes a public type in a module updates that module's `CLAUDE.md`. Any PR that introduces a new package adds a `_Package.kt`. Any PR that materially changes a package's public API updates the relevant `_Package.kt`. The `AGENT.md` symlink is created once per module and never edited directly (it resolves to `CLAUDE.md`). Enforced by `scripts/check_docs_drift.sh` (CLAUDE.md drift + presence of the `AGENT.md` symlink) + custom detekt rule `MissingPackageKDoc` (see ISSUES X-05 / X-06).

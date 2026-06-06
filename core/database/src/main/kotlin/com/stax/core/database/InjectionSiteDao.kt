@@ -49,6 +49,15 @@ interface InjectionSiteDao {
     @Query(
         """
         SELECT * FROM injection_site
+        WHERE isAvailable = 1
+            AND (avoidUntil IS NULL OR avoidUntil <= :now)
+        """,
+    )
+    suspend fun getReadySites(now: Instant): List<InjectionSiteEntity>
+
+    @Query(
+        """
+        SELECT * FROM injection_site
         WHERE avoidUntil > :now
         ORDER BY avoidUntil ASC
         """,

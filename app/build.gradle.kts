@@ -8,6 +8,7 @@ plugins {
 dependencies {
     implementation(libs.androidx.startup.runtime)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
     implementation(project(":core:data"))

@@ -115,4 +115,15 @@ interface ScheduledDoseDao {
         status: ScheduledDoseStatus,
         administrationEventId: Long?,
     ): Int
+
+    @Query(
+        """
+        UPDATE scheduled_dose
+        SET status = 'PENDING',
+            administrationEventId = NULL
+        WHERE id = :id
+            AND administrationEventId = :administrationEventId
+        """,
+    )
+    suspend fun resetLinkedEvent(id: Long, administrationEventId: Long): Int
 }

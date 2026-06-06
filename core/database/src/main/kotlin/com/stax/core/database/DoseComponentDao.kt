@@ -25,6 +25,22 @@ interface DoseComponentDao {
     @Query(
         """
         SELECT * FROM dose_component
+        WHERE administrationEventId = :administrationEventId
+        """,
+    )
+    suspend fun getByAdministrationEventId(administrationEventId: Long): List<DoseComponentEntity>
+
+    @Query(
+        """
+        DELETE FROM dose_component
+        WHERE administrationEventId = :administrationEventId
+        """,
+    )
+    suspend fun deleteByAdministrationEventId(administrationEventId: Long): Int
+
+    @Query(
+        """
+        SELECT * FROM dose_component
         WHERE scheduledDoseId = :scheduledDoseId
         LIMIT 1
         """,

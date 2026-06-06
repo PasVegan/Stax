@@ -1,0 +1,36 @@
+# `:app` — application shell
+
+## Purpose
+The application module: `Application` subclass, single `Activity`, App Startup initializers, and the
+root **Navigation 3** host (`NavDisplay` + `entryProvider` assembled from every feature's
+`<feature>Entries` extension). This is the only module that may depend on everything and the only
+place cross-feature navigation is wired (via lambda callbacks).
+
+## Module coordinates
+- Gradle: `:app` · plugin `com.stax.android.application` (+ compose, koin, room consumers).
+- Package: `com.stax.app` (`.initializer`).
+- `applicationId` + version live in the application convention plugin.
+
+## Allowed dependencies
+Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`, `:work`,
+`:notification`).
+
+## Key types
+- `StaxApplication` — Application subclass; **does not** call `startKoin` (App Startup does).
+- `MainActivity` — `enableEdgeToEdge()` before `setContent`; hosts `NavigationSuiteScaffold` + `NavDisplay`.
+- `initializer/` — `KoinInitializer` (starts Koin, eager), `ThemeInitializer` (eager, DataStore theme cache),
+  `RoomDatabaseInitializer`, `WorkManagerInitializer`, `FontPreloadInitializer` (deferred, `Lifecycle.STARTED`).
+
+## Applicable skills
+`navigation-3` (NavDisplay/entryProvider wiring), `adaptive` (NavigationSuiteScaffold chrome),
+`edge-to-edge`, `android-di-koin` (module assembly).
+
+## Owned by
+Shared.
+
+## Notes
+- App Startup eager/deferred split is performance-critical (§2.3.4) — keep `KoinInitializer` +
+  `ThemeInitializer` eager; everything else deferred. Cold-start SLO < 400ms (§2.3.2).
+- Cross-feature nav callbacks live here; feature modules never import each other.
+- R8/ProGuard config lands here at M20-01 (skill `r8-analyzer`, §2.3.9).
+- See spec §4.0, §10.3, §2.3.4; ISSUES M0-09, M5-02.

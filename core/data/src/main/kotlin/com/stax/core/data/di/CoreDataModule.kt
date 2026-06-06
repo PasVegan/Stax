@@ -22,7 +22,8 @@ import com.stax.core.domain.repository.ProtocolRepository
 import com.stax.core.domain.repository.ScheduledDoseRepository
 import com.stax.core.domain.repository.SettingsRepository
 import org.koin.android.ext.koin.androidContext
-import org.koin.dsl.bind
+import org.koin.core.module.dsl.bind
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val coreDataModule = module {
@@ -46,15 +47,15 @@ val coreDataModule = module {
     }
 
     // Scheduler.
-    single { ScheduledDoseGenerator() }
+    singleOf(::ScheduledDoseGenerator)
 
     // Repositories.
-    single { RoomSettingsRepository(get(), get()) } bind SettingsRepository::class
-    single { RoomCompoundRepository(get(), get(), get(), get()) } bind CompoundRepository::class
-    single { RoomProtocolRepository(get(), get(), get(), get(), get()) } bind ProtocolRepository::class
-    single { RoomScheduledDoseRepository(get()) } bind ScheduledDoseRepository::class
-    single { RoomAdministrationEventRepository(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) } bind
-        AdministrationEventRepository::class
-    single { RoomInjectionSiteRepository(get()) } bind InjectionSiteRepository::class
-    single { RoomInventoryRepository(get(), get()) } bind InventoryRepository::class
+    singleOf(::RoomSettingsRepository) { bind<SettingsRepository>() }
+    singleOf(::RoomCompoundRepository) { bind<CompoundRepository>() }
+    singleOf(::RoomProtocolRepository) { bind<ProtocolRepository>() }
+    singleOf(::RoomScheduledDoseRepository) { bind<ScheduledDoseRepository>() }
+    singleOf(::RoomAdministrationEventRepository) { bind<AdministrationEventRepository>() }
+    // These repositories keep their production clock/date defaults instead of resolving test-only providers.
+    single<InjectionSiteRepository> { RoomInjectionSiteRepository(get()) }
+    single<InventoryRepository> { RoomInventoryRepository(get(), get()) }
 }

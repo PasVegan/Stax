@@ -1,20 +1,27 @@
 package com.stax.app.initializer
 
 import android.content.Context
+import android.util.Log
 import androidx.startup.Initializer
+import com.stax.core.design.system.StaxTypography
+
+private const val TAG = "FontPreloadInitializer"
+private const val ASYNC_FONT_LOAD_THRESHOLD_MILLIS = 40L
 
 /**
- * Deferred initializer — measures the combined load cost of Google Sans Flex
- * and Material Symbols Rounded. If cost >40ms on the current device, fonts
- * are loaded asynchronously with a Compose `FontFamily` fallback for the
- * first frame (§2.3.4).
- *
- * Stub until M4 (font + theme wiring).
+ * Deferred initializer — measures Google Sans Flex load cost for §2.3.4.
+ * Material Symbols Rounded joins this path in M4-03.
  */
 class FontPreloadInitializer : Initializer<Unit> {
 
     override fun create(context: Context) {
-        // TODO(M4): measure font load cost; preload async if >40ms
+        val elapsedMillis = StaxTypography.measureGoogleSansFlexLoadCostMillis(context)
+        val mode = if (elapsedMillis > ASYNC_FONT_LOAD_THRESHOLD_MILLIS) {
+            "async fallback recommended"
+        } else {
+            "eager load acceptable"
+        }
+        Log.d(TAG, "Google Sans Flex load cost: ${elapsedMillis}ms ($mode)")
     }
 
     override fun dependencies(): List<Class<out Initializer<*>>> = listOf(KoinInitializer::class.java)

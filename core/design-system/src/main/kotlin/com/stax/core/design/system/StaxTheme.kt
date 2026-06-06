@@ -44,6 +44,7 @@ fun StaxTheme(
     ) { animatedColorScheme ->
         MaterialTheme(
             colorScheme = animatedColorScheme,
+            typography = StaxTypography.material,
             content = content,
         )
     }

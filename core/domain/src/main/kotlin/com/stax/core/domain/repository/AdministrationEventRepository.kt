@@ -21,10 +21,7 @@ data class AdministrationEventEdit(
 /** Coordinates administration logs, component snapshots, inventory, and site cooldowns (§3.4, §5.3). */
 interface AdministrationEventRepository {
 
-    suspend fun log(
-        event: AdministrationEvent,
-        components: List<DoseComponent>,
-    ): Result<Long, DataError.Local>
+    suspend fun log(event: AdministrationEvent, components: List<DoseComponent>): Result<Long, DataError.Local>
 
     suspend fun edit(id: Long, edits: AdministrationEventEdit): EmptyResult<DataError.Local>
 

@@ -100,7 +100,12 @@ class InjectionSiteRepositoryTest {
     @Test
     fun `suggestNext picks oldest ready site respecting restriction`() = runTest {
         insertSite(name = "Cooling abdomen", bodyRegion = DbBodyRegion.ABDOMEN, lastUsedAt = OLD, avoidUntil = FUTURE)
-        insertSite(name = "Unavailable abdomen", bodyRegion = DbBodyRegion.ABDOMEN, lastUsedAt = VERY_OLD, isAvailable = false)
+        insertSite(
+            name = "Unavailable abdomen",
+            bodyRegion = DbBodyRegion.ABDOMEN,
+            lastUsedAt = VERY_OLD,
+            isAvailable = false,
+        )
         insertSite(name = "Oldest quad", bodyRegion = DbBodyRegion.QUADRICEPS, lastUsedAt = VERY_OLD)
         val expectedId = insertSite(name = "Oldest abdomen", bodyRegion = DbBodyRegion.ABDOMEN, lastUsedAt = OLD)
         insertSite(name = "Recent abdomen", bodyRegion = DbBodyRegion.ABDOMEN, lastUsedAt = RECENT)

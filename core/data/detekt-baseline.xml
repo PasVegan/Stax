@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:RoomInventoryRepository.kt$RoomInventoryRepository$override fun observeWarnings(): Flow&lt;List&lt;InventoryWarning&gt;&gt;</ID>
+    <ID>CyclomaticComplexMethod:ScheduledDoseGenerator.kt$ScheduledDoseGenerator$fun generate( protocol: Protocol, from: LocalDate, until: LocalDate, zone: TimeZone, existingLoggedDoseCount: Int = 0, createdAt: Instant = Clock.System.now(), ): List&lt;ScheduledDoseEntity&gt;</ID>
+    <ID>CyclomaticComplexMethod:ScheduledDoseGenerator.kt$ScheduledDoseGenerator$internal fun dosesForDate(protocol: Protocol, date: LocalDate): Int</ID>
+    <ID>LongMethod:RoomInventoryRepository.kt$RoomInventoryRepository$override fun observeWarnings(): Flow&lt;List&lt;InventoryWarning&gt;&gt;</ID>
+    <ID>LongMethod:ScheduledDoseGenerator.kt$ScheduledDoseGenerator$fun generate( protocol: Protocol, from: LocalDate, until: LocalDate, zone: TimeZone, existingLoggedDoseCount: Int = 0, createdAt: Instant = Clock.System.now(), ): List&lt;ScheduledDoseEntity&gt;</ID>
+    <ID>LoopWithTooManyJumpStatements:ScheduledDoseGenerator.kt$ScheduledDoseGenerator$while</ID>
+    <ID>SwallowedException:RoomAdministrationEventRepository.kt$RoomAdministrationEventRepository$e: ConstraintException</ID>
+    <ID>SwallowedException:RoomAdministrationEventRepository.kt$RoomAdministrationEventRepository$e: Exception</ID>
+    <ID>SwallowedException:RoomAdministrationEventRepository.kt$RoomAdministrationEventRepository$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:RoomAdministrationEventRepository.kt$RoomAdministrationEventRepository$e: NotFoundException</ID>
+    <ID>SwallowedException:RoomCompoundRepository.kt$RoomCompoundRepository$e: ConstraintException</ID>
+    <ID>SwallowedException:RoomCompoundRepository.kt$RoomCompoundRepository$e: Exception</ID>
+    <ID>SwallowedException:RoomCompoundRepository.kt$RoomCompoundRepository$e: NotFoundException</ID>
+    <ID>SwallowedException:RoomInjectionSiteRepository.kt$RoomInjectionSiteRepository$e: Exception</ID>
+    <ID>SwallowedException:RoomInventoryRepository.kt$RoomInventoryRepository$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:RoomProtocolRepository.kt$RoomProtocolRepository$e: Exception</ID>
+    <ID>SwallowedException:RoomProtocolRepository.kt$RoomProtocolRepository$e: NotFoundException</ID>
+    <ID>SwallowedException:RoomScheduledDoseRepository.kt$RoomScheduledDoseRepository$e: Exception</ID>
+    <ID>SwallowedException:RoomScheduledDoseRepository.kt$RoomScheduledDoseRepository$e: NotFoundException</ID>
+    <ID>SwallowedException:RoomSettingsRepository.kt$RoomSettingsRepository$e: Exception</ID>
+    <ID>ThrowsCount:RoomAdministrationEventRepository.kt$RoomAdministrationEventRepository$private suspend fun updateSiteCooldownForEvent(event: AdministrationEventEntity, components: List&lt;DoseComponent&gt;)</ID>
+    <ID>TooGenericExceptionCaught:RoomAdministrationEventRepository.kt$RoomAdministrationEventRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RoomCompoundRepository.kt$RoomCompoundRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RoomInjectionSiteRepository.kt$RoomInjectionSiteRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RoomProtocolRepository.kt$RoomProtocolRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RoomScheduledDoseRepository.kt$RoomScheduledDoseRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RoomSettingsRepository.kt$RoomSettingsRepository$e: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>

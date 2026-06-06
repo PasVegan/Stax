@@ -9,7 +9,6 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.stax.core.data.scheduler.ScheduledDoseGenerator
-import com.stax.core.database.ScheduledDoseEntity
 import com.stax.core.database.ScheduledDoseStatus
 import com.stax.core.database.StaxDatabase
 import com.stax.core.domain.Decimal
@@ -23,9 +22,7 @@ import com.stax.core.domain.ScheduleType
 import com.stax.core.domain.UnitCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.plus
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -35,7 +32,6 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Instant
 import com.stax.core.database.ProtocolStatus as DbProtocolStatus
-import com.stax.core.database.Route as DbRoute
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -48,7 +44,7 @@ class ProtocolRepositoryTest {
     private var compoundId: Long = 0L
 
     @Before
-    fun setUp() = kotlinx.coroutines.test.runTest {
+    fun setUp() = runTest {
         database = Room.inMemoryDatabaseBuilder(
             RuntimeEnvironment.getApplication(),
             StaxDatabase::class.java,
@@ -276,8 +272,8 @@ class ProtocolRepositoryTest {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private val NOW = Instant.parse("2026-01-01T00:00:00Z")
-    private val TODAY = LocalDate(2026, 1, 1)
+    private val now = Instant.parse("2026-01-01T00:00:00Z")
+    private val today = LocalDate(2026, 1, 1)
 
     private fun dailyProtocol(): Protocol = Protocol(
         id = 0L,
@@ -296,7 +292,7 @@ class ProtocolRepositoryTest {
         dosageTimes = emptyList(),
         escalation = null,
         protocolBreak = null,
-        startDate = TODAY,
+        startDate = today,
         endDate = null,
         reminderEnabled = false,
         reminderOffsetMinutes = 0,
@@ -306,11 +302,11 @@ class ProtocolRepositoryTest {
         notes = null,
         status = ProtocolStatus.ACTIVE,
         deletedAt = null,
-        createdAt = NOW,
-        updatedAt = NOW,
+        createdAt = now,
+        updatedAt = now,
     )
 
-    private suspend fun markAsTaken(doseId: Long) {
+    private fun markAsTaken(doseId: Long) {
         database.compileStatement(
             "UPDATE scheduled_dose SET status = 'TAKEN' WHERE id = $doseId",
         ).executeUpdateDelete()
@@ -337,7 +333,7 @@ class ProtocolRepositoryTest {
         supplier = null,
         notes = null,
         deletedAt = null,
-        createdAt = NOW,
-        updatedAt = NOW,
+        createdAt = now,
+        updatedAt = now,
     )
 }

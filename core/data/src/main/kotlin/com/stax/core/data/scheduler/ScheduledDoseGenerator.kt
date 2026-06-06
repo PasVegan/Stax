@@ -15,7 +15,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.atTime
 import kotlinx.datetime.daysUntil
-import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlin.time.Clock
@@ -23,7 +22,7 @@ import kotlin.time.Instant
 
 /**
  * Pure generation logic — no I/O. Produces [ScheduledDoseEntity] rows for a protocol
- * within a half-open date range [[from], [until]).
+ * within a half-open date range (from), (until)).
  *
  * Rules implemented (§5.2):
  * - All six [ScheduleType]s.

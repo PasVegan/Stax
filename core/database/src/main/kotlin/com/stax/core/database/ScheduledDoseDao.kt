@@ -110,11 +110,7 @@ interface ScheduledDoseDao {
             AND administrationEventId IS NULL
         """,
     )
-    suspend fun updatePendingStatus(
-        id: Long,
-        status: ScheduledDoseStatus,
-        administrationEventId: Long?,
-    ): Int
+    suspend fun updatePendingStatus(id: Long, status: ScheduledDoseStatus, administrationEventId: Long?): Int
 
     @Query(
         """

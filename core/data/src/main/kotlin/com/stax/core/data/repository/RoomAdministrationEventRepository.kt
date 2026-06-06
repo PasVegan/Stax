@@ -256,10 +256,7 @@ class RoomAdministrationEventRepository(
         }
     }
 
-    private suspend fun updateSiteCooldownForEvent(
-        event: AdministrationEventEntity,
-        components: List<DoseComponent>,
-    ) {
+    private suspend fun updateSiteCooldownForEvent(event: AdministrationEventEntity, components: List<DoseComponent>) {
         if (!event.route.requiresInjectionSite()) return
         val siteId = event.injectionSiteId ?: throw ConstraintException()
         val site = injectionSiteDao.getById(siteId) ?: throw NotFoundException()
@@ -301,13 +298,13 @@ class RoomAdministrationEventRepository(
 
     private suspend fun <T> runTx(block: suspend () -> T): Result<T, DataError.Local> = try {
         Result.Success(database.withTransaction { block() })
-    } catch (e: NotFoundException) {
+    } catch (_: NotFoundException) {
         Result.Error(DataError.Local.NOT_FOUND)
-    } catch (e: ConstraintException) {
+    } catch (_: ConstraintException) {
         Result.Error(DataError.Local.CONSTRAINT_VIOLATION)
-    } catch (e: IllegalArgumentException) {
+    } catch (_: IllegalArgumentException) {
         Result.Error(DataError.Local.CONSTRAINT_VIOLATION)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         Result.Error(DataError.Local.UNKNOWN)
     }
 

@@ -22,11 +22,9 @@ class RoomInjectionSiteRepository(
     private val now: () -> Instant = { Clock.System.now() },
 ) : InjectionSiteRepository {
 
-    override fun observeAll(): Flow<List<InjectionSite>> =
-        dao.observeAll().map { rows -> rows.map { it.toDomain() } }
+    override fun observeAll(): Flow<List<InjectionSite>> = dao.observeAll().map { rows -> rows.map { it.toDomain() } }
 
-    override fun observeById(id: Long): Flow<InjectionSite?> =
-        dao.observeById(id).map { row -> row?.toDomain() }
+    override fun observeById(id: Long): Flow<InjectionSite?> = dao.observeById(id).map { row -> row?.toDomain() }
 
     override fun observeReady(): Flow<List<InjectionSite>> =
         dao.observeReadySites(now()).map { rows -> rows.map { it.toDomain() } }
@@ -36,28 +34,25 @@ class RoomInjectionSiteRepository(
 
     override suspend fun create(site: InjectionSite): Result<Long, DataError.Local> = try {
         Result.Success(dao.insert(site.toEntity().copy(id = 0)))
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         Result.Error(DataError.Local.UNKNOWN)
     }
 
     override suspend fun update(site: InjectionSite): EmptyResult<DataError.Local> = try {
         val rows = dao.update(site.toEntity())
         if (rows == 0) Result.Error(DataError.Local.NOT_FOUND) else Result.Success(Unit)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         Result.Error(DataError.Local.UNKNOWN)
     }
 
     override suspend fun delete(id: Long): EmptyResult<DataError.Local> = try {
         val rows = dao.deleteById(id)
         if (rows == 0) Result.Error(DataError.Local.NOT_FOUND) else Result.Success(Unit)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         Result.Error(DataError.Local.UNKNOWN)
     }
 
-    override suspend fun suggestNext(
-        protocol: Protocol,
-        route: Route,
-    ): Result<InjectionSite?, DataError.Local> = try {
+    override suspend fun suggestNext(protocol: Protocol, route: Route): Result<InjectionSite?, DataError.Local> = try {
         if (!route.requiresInjectionSite()) return Result.Success(null)
 
         val restriction = protocol.injectionSiteRestriction

@@ -196,10 +196,7 @@ class ScheduledDoseRepositoryTest {
         ),
     )
 
-    private fun protocol(
-        compoundSupplyId: Long,
-        name: String = "Titration",
-    ): ProtocolEntity = ProtocolEntity(
+    private fun protocol(compoundSupplyId: Long, name: String = "Titration"): ProtocolEntity = ProtocolEntity(
         id = 0,
         name = name,
         compoundSupplyId = compoundSupplyId,

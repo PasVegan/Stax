@@ -195,8 +195,8 @@ class ScheduledDoseDaoTest {
             originalLocalTime = null,
         )
 
-        val id1 = scheduledDoseDao.insertOrIgnore(withTime)
-        val id2 = scheduledDoseDao.insertOrIgnore(withoutTime)
+        scheduledDoseDao.insertOrIgnore(withTime)
+        scheduledDoseDao.insertOrIgnore(withoutTime)
 
         val rows = scheduledDoseDao.observeByProtocolId(protocolId).first()
         assertThat(rows[0].originalLocalTime).isEqualTo(LocalTime.parse("08:00"))

@@ -16,7 +16,7 @@
             Deferred (do real work on Lifecycle.STARTED, not at startup):
               3. RoomDatabaseInitializer  — warms DB connection (stub until M2)
               4. WorkManagerInitializer   — WorkManager config + periodic jobs (stub until M0-13)
-              5. FontPreloadInitializer   — async font load if >40ms (stub until M4)
+              5. FontPreloadInitializer   — measures bundled font load cost
 
             All deferred initializers declare KoinInitializer as a dependency so
             the DI graph is always available before they run.

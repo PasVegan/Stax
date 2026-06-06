@@ -151,6 +151,10 @@ class DetektConventionPlugin : Plugin<Project> {
         extensions.configure<DetektExtension> {
             config.from(rootProject.file("detekt.yml"))
             buildUponDefaultConfig = true
+            // Per-module baseline grandfathers accepted findings (e.g. the centralized
+            // exception-translation pattern in :core:data repos). Missing file = no baseline
+            // applied. Regenerate with `./gradlew <module>:detektBaseline`.
+            baseline = target.file("detekt-baseline.xml")
             // Exclude generated sources and build directories
             source.from(
                 "src/main/kotlin",

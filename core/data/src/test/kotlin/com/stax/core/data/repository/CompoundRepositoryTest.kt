@@ -8,7 +8,6 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
-import com.stax.core.database.CompoundSupplyEntity
 import com.stax.core.database.InventoryTransactionType
 import com.stax.core.database.StaxDatabase
 import com.stax.core.domain.CompoundCategory
@@ -32,10 +31,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Instant
-import com.stax.core.database.CompoundCategory as DbCompoundCategory
-import com.stax.core.database.CompoundForm as DbCompoundForm
-import com.stax.core.database.ContainerType as DbContainerType
-import com.stax.core.database.StorageLocation as DbStorageLocation
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -137,7 +132,7 @@ class CompoundRepositoryTest {
     fun `create with already-opened container inserts opened_container row`() = runTest {
         val compound = minimalCompound(numberOfContainers = 1).copy(
             currentOpened = OpenedContainer(
-                openedAt = NOW,
+                openedAt = now,
                 remainingAmount = Quantity(Decimal.parse("3.5"), UnitCode.MG),
                 expiryAfterOpeningDays = 30,
                 userDefinedExpiryDate = null,
@@ -155,7 +150,7 @@ class CompoundRepositoryTest {
         // 1 closed × 5 mg + 3.5 mg opened = 8.5 mg
         val compound = minimalCompound(numberOfContainers = 1).copy(
             currentOpened = OpenedContainer(
-                openedAt = NOW,
+                openedAt = now,
                 remainingAmount = Quantity(Decimal.parse("3.5"), UnitCode.MG),
                 expiryAfterOpeningDays = null,
                 userDefinedExpiryDate = null,
@@ -395,7 +390,7 @@ class CompoundRepositoryTest {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private val NOW = Instant.parse("2026-06-06T00:00:00Z")
+    private val now = Instant.parse("2026-06-06T00:00:00Z")
 
     private fun minimalCompound(numberOfContainers: Int = 1): CompoundSupply = CompoundSupply(
         id = 0L,
@@ -415,7 +410,7 @@ class CompoundRepositoryTest {
         supplier = null,
         notes = null,
         deletedAt = null,
-        createdAt = NOW,
-        updatedAt = NOW,
+        createdAt = now,
+        updatedAt = now,
     )
 }

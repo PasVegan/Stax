@@ -16,21 +16,25 @@ Conventions:
 - Every new repository method has a Robolectric DAO test exercising one happy path + one failure path.
 - No `Double`/`Float` for dose math anywhere (§3.0.1).
 - No `LocalDateTime` ambiguous types — use `Instant` + `LocalDate` + `LocalTime` from `kotlinx-datetime` (§5.7).
-- Every module owns a `README.md` and every package owns a `_Package.kt` with KDoc on the `package` declaration. See **X-05 / X-06** for the policy.
+- Every module owns a `CLAUDE.md` (with an `AGENT.md` symlink → `CLAUDE.md`) and every package owns a `_Package.kt` with KDoc on the `package` declaration. The repo root owns a `CLAUDE.md` (+ `AGENT.md` symlink) too — read it first. See **X-05 / X-06** for the policy and spec §10.6.
 
 ### Skill alignment (normative)
 
 Every milestone follows these reference skills. AI agents must read the referenced skill before coding the corresponding work.
 
-| Concern          | Skill                      | Stax-specific notes                                                                                                                                                                                                                                                          |
-|------------------|----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| MVI presentation | `android-presentation-mvi` | Use `Action` + `Event` names (not `Intent` / `Effect`). VM exposes `state: StateFlow<S>` + `events: Channel<E>` via `receiveAsFlow()`. Function = `onAction(action)`. Root + Screen composables in the same file. Map errors via `UiText`.                                   |
-| Compose UI       | `android-compose-ui`       | `@Stable` only when state class contains unstable fields (List/Map/interface) — strong skipping handles primitive-only. No `remember*` for app state. Animate via `graphicsLayer` + deferred state reads (lambda offsets). Slot APIs only in design system.                  |
-| Koin DI          | `android-di-koin`          | Prefer constructor-reference (`viewModelOf(::Foo)`, `singleOf(::Bar)`). Modules named `<feature><Layer>Module`. **Stax divergence**: `startKoin` runs from `KoinInitializer` (App Startup) per §2.3.4 — not from `Application.onCreate`. Reason: cold-start parallelization. |
-| Navigation       | `android-navigation`       | Per-feature `NavGraphBuilder.<feature>Graph(navController, onNavigateToX)` extension exposed from `:feature:<name>:presentation`. Cross-feature nav = lambda callback. Routes are `@Serializable`.                                                                           |
-| Data layer       | `android-data-layer`       | **Stax divergence**: no remote data sources (offline-only). We use the "Repository" name for all data accessors (matches spec §10.2). DTOs are not used; mappers are `Entity ↔ Domain` only. Single shared Room DB lives in `:core:database`.                                |
-| Error handling   | `android-error-handling`   | Use the custom `Result<D, E : Error>` + `DataError.Local` + `EmptyResult<E>` + chain helpers from `core:domain`. Map user-facing errors via `.toUiText()` in `core:presentation` or feature `presentation`. Never throw on expected failures.                                |
-| Testing          | `android-testing`          | JUnit5 + AssertK + Turbine + `UnconfinedTestDispatcher`. Fakes over mocks. Compose UI tests via `createComposeRule()` + `DeviceConfigurationOverride`.                                                                                                                       |
+| Concern          | Skill                               | Stax-specific notes                                                                                                                                                                                                                                                                                                                                                                            |
+|------------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| MVI presentation | `android-presentation-mvi`          | Use `Action` + `Event` names (not `Intent` / `Effect`). VM exposes `state: StateFlow<S>` + `events: Channel<E>` via `receiveAsFlow()`. Function = `onAction(action)`. Root + Screen composables in the same file. Map errors via `UiText`.                                                                                                                                                     |
+| Compose UI       | `android-compose-ui`                | `@Stable` only when state class contains unstable fields (List/Map/interface) — strong skipping handles primitive-only. No `remember*` for app state. Animate via `graphicsLayer` + deferred state reads (lambda offsets). Slot APIs only in design system.                                                                                                                                    |
+| Koin DI          | `android-di-koin`                   | Prefer constructor-reference (`viewModelOf(::Foo)`, `singleOf(::Bar)`). Modules named `<feature><Layer>Module`. **Stax divergence**: `startKoin` runs from `KoinInitializer` (App Startup) per §2.3.4 — not from `Application.onCreate`. Reason: cold-start parallelization.                                                                                                                   |
+| Navigation       | `navigation-3`                      | Nav3: routes are `@Serializable` `NavKey`s. `:app` hosts one `NavDisplay` + `entryProvider`; each feature exposes an `EntryProviderScope.<feature>Entries(onNavigateToX)` extension (replaces the old `NavGraphBuilder.<feature>Graph`). `NavBackStack` per top-level destination (multiple-backstacks recipe). Modularize via the **Koin** recipe. No `NavController` / `NavHost`. See §10.3. |
+| Adaptive UI      | `adaptive`                          | Nav chrome via `NavigationSuiteScaffold` (+ `NavigationSuiteScaffoldState` for hide-on-scroll). **Multi-pane via Nav3 Scene strategies** `ListDetailSceneStrategy` / `SupportingPaneSceneStrategy` — NOT `*PaneScaffold`. Adaptive lists via `GridCells.Adaptive`; experimental `Grid` / `FlexBox` / `MediaQuery` (Compose `1.11.0-beta01`+, opt-in). See §6.4.                                |
+| Edge-to-edge     | `edge-to-edge`                      | `enableEdgeToEdge()` before `setContent`; manifest `adjustResize` for keyboard Activities; insets from `WindowInsets.{statusBars,navigationBars,ime}` (one method per surface, no double padding); lists/FAB not under nav bar; text fields above IME. See §2.3.6.                                                                                                                             |
+| Data layer       | `android-data-layer`                | **Stax divergence**: no remote data sources (offline-only). We use the "Repository" name for all data accessors (matches spec §10.2). DTOs are not used; mappers are `Entity ↔ Domain` only. Single shared Room DB lives in `:core:database`.                                                                                                                                                  |
+| Error handling   | `android-error-handling`            | Use the custom `Result<D, E : Error>` + `DataError.Local` + `EmptyResult<E>` + chain helpers from `core:domain`. Map user-facing errors via `.toUiText()` in `core:presentation` or feature `presentation`. Never throw on expected failures.                                                                                                                                                  |
+| Testing          | `android-testing` + `testing-setup` | JUnit5 + AssertK + Turbine + `UnconfinedTestDispatcher`. Fakes over mocks. Compose UI tests via `createComposeRule()` + `DeviceConfigurationOverride`. `testing-setup` drives harness install + the **screenshot-test** layer (`@PreviewTest` + `@FormFactorPreviews` / Roborazzi). See §10.5.                                                                                                 |
+| R8 / app size    | `r8-analyzer`                       | Release optimization: AGP `9.0`+, R8 **full mode** ON (no `enableR8.fullMode=false`), keep-rule audit via the R8 configuration analyzer. See §2.3.9, M20-01.                                                                                                                                                                                                                                   |
+| Tooling          | `android-cli`                       | Use the `android` CLI for project creation, run/deploy, SDK management, device screenshots, and env diagnostics.                                                                                                                                                                                                                                                                               |
 
 ### Module layout (multi-module mandate)
 
@@ -43,7 +47,7 @@ Stax follows the skill's feature-layered modularization with one Stax-specific s
 :core:database                     # Room DB, entities, DAOs, migrations
 :core:data                         # repository impls (transactional logic, mappers)
 :core:presentation                 # ObserveAsEvents, UiText, shared UI utilities
-:core:design-system                # M3 Expressive theme, motion, icons, design tokens, AdaptiveListDetail / AdaptiveSupportingPane
+:core:design-system                # M3 Expressive theme, motion, icons, design tokens, Nav3 Scene-strategy wrappers (list-detail / supporting-pane), NavigationSuiteScaffold chrome, AdaptiveFab
 
 :feature:onboarding:presentation
 :feature:compounds:presentation
@@ -86,7 +90,7 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 ### M0-01 · Initialize Gradle project with version catalog + build-logic
 - **Depends on**: none.
 - **Spec refs**: §2.4, Conventions / Module layout.
-- **Description**: Create Android Gradle project. Add `:build-logic` included build (per `android-module-structure`). Version catalog `gradle/libs.versions.toml` covering Kotlin 2.x, AGP latest stable, Compose BOM, Koin, Room, Glance, kotlinx-datetime, kotlinx-collections-immutable, kotlinx-serialization, Coroutines, AndroidX Lifecycle / Navigation 3 / Window / Compose-Adaptive. `minSdk = 36`, `targetSdk = 36`, `compileSdk = 36` (Android 16).
+- **Description**: Create Android Gradle project (scaffold via the `android` CLI per `android-cli`). Add `:build-logic` included build (per `android-module-structure`). Version catalog `gradle/libs.versions.toml` covering Kotlin 2.x, AGP latest stable, Compose BOM, Koin, Room, Glance, kotlinx-datetime, kotlinx-collections-immutable, kotlinx-serialization, Coroutines, AndroidX Lifecycle / Navigation 3 / Window / Compose-Adaptive. `minSdk = 36`, `targetSdk = 36`, `compileSdk = 37` (`adaptive-navigation3` ≥`1.3.0-beta02` requires API 37; runtime min stays Android 16).
 - **Acceptance**:
   - `./gradlew assembleDebug` succeeds on an empty `:app`.
   - `gradle/libs.versions.toml` committed.
@@ -110,13 +114,13 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 ### M0-03 · Module skeleton (multi-module bootstrap)
 - **Depends on**: M0-02.
 - **Spec refs**: Conventions / Module layout.
-- **Description**: Create all module directories per the Conventions layout: `:app`, `:core:domain`, `:core:database`, `:core:data`, `:core:presentation`, `:core:design-system`, `:feature:onboarding:presentation`, `:feature:compounds:presentation`, `:feature:protocols:presentation`, `:feature:sites:presentation`, `:feature:dashboard:presentation`, `:feature:reconstitution:presentation`, `:feature:logging:presentation`, `:feature:settings:presentation`, `:widget`, `:shortcut`, `:work`, `:notification`. Apply convention plugins per dependency-rules table. Each module starts empty with a placeholder `README.md` (X-05) + `_Package.kt` (X-06).
-- **Acceptance**: `./gradlew :app:assembleDebug` builds the full graph. Dependency rules enforced via Gradle module-isolation tests (`forbidden-dependency` detekt rule).
+- **Description**: Create all module directories per the Conventions layout: `:app`, `:core:domain`, `:core:database`, `:core:data`, `:core:presentation`, `:core:design-system`, `:feature:onboarding:presentation`, `:feature:compounds:presentation`, `:feature:protocols:presentation`, `:feature:sites:presentation`, `:feature:dashboard:presentation`, `:feature:reconstitution:presentation`, `:feature:logging:presentation`, `:feature:settings:presentation`, `:widget`, `:shortcut`, `:work`, `:notification`. Apply convention plugins per dependency-rules table. Each module starts empty with a placeholder `CLAUDE.md` + `AGENT.md` symlink (X-05) + `_Package.kt` (X-06).
+- **Acceptance**: `./gradlew :app:assembleDebug` builds the full graph. Dependency rules enforced via the `checkForbiddenModuleDependencies` Gradle task (root `build.gradle.kts`, wired into `check`).
 
 ### M0-04 · Compose + Material 3 Expressive + Adaptive libs
 - **Depends on**: M0-03.
-- **Spec refs**: §2.4, §6.4.1.
-- **Description**: Add Compose BOM, `androidx.compose.material3`, `androidx.compose.material3.adaptive:adaptive-navigation3`, `androidx.compose.material3.adaptive:adaptive-layout`, `androidx.window`, `androidx.compose.material.icons-extended` to the `stax.compose` convention plugin. `:core:design-system` + every `:feature:*:presentation` consumes it.
+- **Spec refs**: §2.4, §6.4, §6.4.1.
+- **Description**: Add Compose BOM (stable), `androidx.compose.material3`, `androidx.compose.material3.adaptive:adaptive-layout` + `:adaptive-navigation3` (the latter provides the Nav3 Scene strategies — list-detail / supporting-pane; the former backs them + supplies `WindowSizeClass` / `currentWindowAdaptiveInfo`), `androidx.window`, `androidx.compose.material.icons-extended` to the `stax.compose` convention plugin. Do **not** *use* the `ListDetailPaneScaffold` / `SupportingPaneScaffold` composables — multi-pane is Scene-strategy based per §6.4 (the `adaptive-layout` **artifact** stays, since the Scene strategies depend on it). The experimental adaptive `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+) are optional — add the dependency + opt-in only if/when a screen adopts them. `:core:design-system` + every `:feature:*:presentation` consumes it.
 - **Acceptance**: `:core:design-system` compiles with a single placeholder composable.
 
 ### M0-05 · Add Koin DI (libraries only)
@@ -151,9 +155,9 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 
 ### M0-10 · Configure edge-to-edge + insets
 - **Depends on**: M0-04.
-- **Spec refs**: §2.3.6.
-- **Description**: Call `enableEdgeToEdge()` in `MainActivity.onCreate`. Apply `WindowInsets.systemBars` to root Compose via `Modifier.windowInsetsPadding`.
-- **Acceptance**: Status bar + nav bar are transparent. Content draws edge-to-edge. No hardcoded inset dimensions anywhere in the codebase (grep check in CI).
+- **Spec refs**: §2.3.6, `edge-to-edge`.
+- **Description**: Per the `edge-to-edge` skill: call `enableEdgeToEdge()` **before** `setContent` in `MainActivity.onCreate`; set `android:windowSoftInputMode="adjustResize"` in the manifest for keyboard Activities. Apply `WindowInsets.systemBars` (+ `Modifier.imePadding()` where text fields exist) via a single inset method per surface — no double padding. Rely on framework adaptive bar-icon contrast.
+- **Acceptance**: Status bar + nav bar are transparent. Content draws edge-to-edge; lists/FAB never under the nav bar; text fields stay visible above the IME. No hardcoded inset dimensions anywhere in the codebase (grep check in CI).
 
 ### M0-11 · Configure SQLite WAL + foreign keys
 - **Depends on**: M0-06.
@@ -163,15 +167,15 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 
 ### M0-12 · Add testing toolchain
 - **Depends on**: M0-01.
-- **Spec refs**: §10.5, `android-testing`.
-- **Description**: Add JUnit 5 (`org.junit.jupiter:junit-jupiter`), AssertK, Robolectric, Compose UI test, Turbine, `kotlinx-coroutines-test` (`UnconfinedTestDispatcher`), Room `MigrationTestHelper`, Macrobenchmark module. Tests use `Dispatchers.setMain(UnconfinedTestDispatcher())` in setup.
-- **Acceptance**: `./gradlew test` runs an empty JUnit5 test. `./gradlew connectedCheck` runs an empty instrumentation test.
+- **Spec refs**: §10.5, `android-testing`, `testing-setup`.
+- **Description**: Per the `testing-setup` skill, add JUnit 5 (`org.junit.jupiter:junit-jupiter`), AssertK, Robolectric, Compose UI test, Turbine, `kotlinx-coroutines-test` (`UnconfinedTestDispatcher`), Room `MigrationTestHelper`, Macrobenchmark module, **and the screenshot-test layer** (Compose Preview Screenshot Testing tool — `screenshotTest` source set + `@PreviewTest` — and/or Roborazzi). Provide a shared `@FormFactorPreviews` annotation (Phone / Foldable / Tablet / Desktop) in test infra. Tests use `Dispatchers.setMain(UnconfinedTestDispatcher())` in setup.
+- **Acceptance**: `./gradlew test` runs an empty JUnit5 test. `./gradlew connectedCheck` runs an empty instrumentation test. `./gradlew validateDebugScreenshotTest` (or Roborazzi `verifyRoborazziDebug`) runs against an empty reference set.
 
 ### M0-13 · Configure ktlint + detekt + Compose Compiler metrics + forbidden-dependencies
 - **Depends on**: M0-03.
 - **Spec refs**: §2.3.1, Conventions / Module layout.
-- **Description**: Add `ktlint-gradle` + `detekt-gradle-plugin`. Enable Compose compiler metrics output (`-P plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=...`). Add custom detekt rule `ForbiddenModuleDependency` enforcing the dependency-rules table (e.g. `:feature:*:presentation` must not depend on `:core:database` or `:core:data` directly).
-- **Acceptance**: `./gradlew ktlintCheck detekt` succeeds clean. Compose metrics emitted to `build/compose_metrics/`. Dependency rule violation in a synthetic test fails the build.
+- **Description**: Add `ktlint-gradle` + `detekt-gradle-plugin`. Enable Compose compiler metrics output (`-P plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=...`). Add the `checkForbiddenModuleDependencies` Gradle verification task (root `build.gradle.kts`) enforcing the dependency-rules table via a per-module allow-list (e.g. `:feature:*:presentation` must not depend on `:core:database` or `:core:data` directly); wire it into `check`.
+- **Acceptance**: `./gradlew ktlintCheck detekt` succeeds clean. Compose metrics emitted to `build/compose_metrics/`. A dependency-rule violation fails `./gradlew check` via `checkForbiddenModuleDependencies`.
 
 ---
 
@@ -454,37 +458,37 @@ Goal: app paints in M3 Expressive theme with Google Sans Flex + Material Symbols
 
 Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bottom nav / rail / expanded rail at breakpoints. Each destination shows a placeholder.
 
-### M5-01 · Define Nav 3 typed routes + per-feature NavGraphBuilder
+### M5-01 · Define Nav 3 typed routes + per-feature entry provider
 - **Depends on**: M0-04.
-- **Spec refs**: §10.3, `android-navigation`.
-- **Description**: For each feature presentation module, create `Routes.kt` (one `@Serializable` route per screen) + a `NavGraphBuilder.<feature>Graph(navController, onNavigateToX, ...)` extension exposing that feature's screens. Cross-feature navigation is expressed as lambda callbacks passed in from `:app`; feature modules must never import another feature's route.
+- **Spec refs**: §10.3, `navigation-3`.
+- **Description**: Per the `navigation-3` skill, for each feature presentation module create `Routes.kt` (one `@Serializable` `NavKey` route per screen) + an `EntryProviderScope.<feature>Entries(onNavigateToX, ...)` extension contributing that feature's `NavEntry`s to the `:app` `NavDisplay` `entryProvider`. No `NavController` / `NavHost` / `NavGraphBuilder`. Cross-feature navigation is expressed as lambda callbacks passed in from `:app`; feature modules must never import another feature's route. Decouple via the Nav3 **modular (Koin)** recipe.
 - **Acceptance**:
-  - Routes survive process death via `SavedStateHandle.toRoute<T>()`.
-  - Each feature presentation module exports exactly one `<feature>Graph` extension.
+  - `NavBackStack` is saveable and survives process death; route params reach each ViewModel via the `NavKey` passed to its entry (no `toRoute<T>()`).
+  - Each feature presentation module exports exactly one `<feature>Entries` extension.
   - Detekt rule confirms no cross-feature route imports.
 
 ### M5-02 · Top-level NavigationSuiteScaffold
 - **Depends on**: M5-01, M4-01.
 - **Spec refs**: §4.0, §6.1, §6.4.1.
-- **Description**: `MainScaffold` composable using `NavigationSuiteScaffold` with 5 destinations: Home / Compounds / Protocols / Sites / Settings. Each destination's icon = Material Symbols Rounded glyph per §4.0.
+- **Description**: `MainScaffold` composable using `NavigationSuiteScaffold` (items as `NavigationSuiteItem`) with 5 destinations: Home / Compounds / Protocols / Sites / Settings, wrapping the `NavDisplay`. Each destination's icon = Material Symbols Rounded glyph per §4.0. Hold a `rememberNavigationSuiteScaffoldState()` for hide-on-scroll chrome (§6.4.9).
 - **Acceptance**: Bottom nav at <600dp; rail at 600+; rail expands at 840+.
 
 ### M5-03 · Per-destination back stacks
 - **Depends on**: M5-02.
 - **Spec refs**: §6.2, §6.4.5.
-- **Description**: Each destination owns its own `NavBackStack`. Re-tapping a nav item pops to root (§6.4.5).
-- **Acceptance**: Compounds → Compound Detail → tap Compounds again → back at list. Re-tap → no-op (already at root).
+- **Description**: Each destination owns its own `NavBackStack` (Nav3 multiple-backstacks recipe). Re-tapping a nav item pops to root (§6.4.5).
+- **Acceptance**: Compounds → Compound Detail → tap Compounds again → back at list. Re-tap → no-op (already at root). State retained per stack across config changes + process death.
 
-### M5-04 · ListDetailPaneScaffold wrapper
+### M5-04 · List-detail Scene strategy
 - **Depends on**: M5-02.
-- **Spec refs**: §6.4.2 Compounds + Protocols + Settings.
-- **Description**: Reusable `AdaptiveListDetail<T>` composable wrapping `ListDetailPaneScaffold`. Auto-applies list-pane widths (`360dp` Medium, `400dp` Expanded) and divider per §6.4.2.
-- **Acceptance**: Selecting an item in Compact pushes detail; Medium+ swaps detail pane without push.
+- **Spec refs**: §6.4.2 Compounds + Protocols + Settings, `adaptive`.
+- **Description**: Per the `adaptive` skill, wire a `ListDetailSceneStrategy` (`rememberListDetailSceneStrategy`) into `NavDisplay.sceneStrategies` and tag entries with `listPane(detailPlaceholder = { … })` / `detailPane()` metadata. Reusable helper applies list-pane widths (`360dp` Medium, `400dp` Expanded) + divider per §6.4.2. Do **not** use `ListDetailPaneScaffold`. Detail entries show no back arrow in two-pane mode.
+- **Acceptance**: Selecting an item in Compact pushes detail; Medium+ swaps detail pane without push; empty selection shows the placeholder.
 
-### M5-05 · SupportingPaneScaffold wrapper for Dashboard
+### M5-05 · Supporting-pane Scene strategy for Dashboard
 - **Depends on**: M5-02.
-- **Spec refs**: §6.4.2 Dashboard.
-- **Description**: Reusable `AdaptiveSupportingPane` composable wrapping `SupportingPaneScaffold`. Used by Dashboard Medium layout.
+- **Spec refs**: §6.4.2 Dashboard, `adaptive`.
+- **Description**: Per the `adaptive` skill, wire a `SupportingPaneSceneStrategy` (`rememberSupportingPaneSceneStrategy`) into `NavDisplay.sceneStrategies` with `mainPane()` / `supportingPane()` entry metadata. Used by Dashboard Medium layout. Do **not** use `SupportingPaneScaffold`.
 - **Acceptance**: Renders main + supporting at correct width ratios.
 
 ### M5-06 · FAB placement helper
@@ -496,19 +500,19 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 ### M5-07 · Foldable hinge detection
 - **Depends on**: M5-04, M5-05.
 - **Spec refs**: §6.4.3.
-- **Description**: Wrap navigation roots in `WindowInfoTracker.windowLayoutInfo` collector. Expose `FoldingFeature?` via CompositionLocal. Pane scaffolds consume it to align divider to fold.
+- **Description**: Wrap navigation roots in `WindowInfoTracker.windowLayoutInfo` collector. Expose `FoldingFeature?` via CompositionLocal. The Scene strategies consume it to align the pane divider to the fold.
 - **Acceptance**: On Fold inner with vertical hinge, divider snaps to hinge x-coordinate.
 
 ### M5-08 · Predictive back
 - **Depends on**: M5-04.
 - **Spec refs**: §6.4.5.
-- **Description**: Wire `PredictiveBackHandler` to `ListDetailPaneScaffoldNavigator`. Animate detail → list transition on back.
+- **Description**: Predictive back via Nav3 `NavDisplay` popping the `NavBackStack`; the active Scene strategy resolves the detail → list transition. Animate the predictive peek.
 - **Acceptance**: System back gesture shows predictive peek animation on Pixel 10 Android 16.
 
 ### M5-09 · Edge-to-edge insets per pane
 - **Depends on**: M5-04, M0-08.
-- **Spec refs**: §2.3.6.
-- **Description**: Each pane scaffold consumes correct `WindowInsets` slices (e.g. nav bar inset only on bottom-most pane).
+- **Spec refs**: §2.3.6, `edge-to-edge`.
+- **Description**: Each Scene pane consumes the correct `WindowInsets` slice (e.g. nav bar inset only on the bottom-most pane), one inset method per pane per the `edge-to-edge` skill.
 - **Acceptance**: No double padding; no content under system bars.
 
 ---
@@ -818,7 +822,7 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 ### M12-09 · Adaptive Dashboard layout
 - **Depends on**: M12-02..M12-08, M5-05.
 - **Spec refs**: §6.4.2 Dashboard.
-- **Description**: Compact = single column; Medium = SupportingPaneScaffold; Expanded = three-region grid with "Up next" rail.
+- **Description**: Compact = single column; Medium = supporting-pane Scene (`SupportingPaneSceneStrategy`, M5-05); Expanded = three-region grid with "Up next" rail.
 - **Acceptance**: All three layouts pass Compose tests on profiles in §6.4.8.
 
 ---
@@ -1065,11 +1069,11 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 - **Description**: Turbine-driven tests per ViewModel verifying that each `Action` produces the expected `State` mutation + emitted `Event` stream. Use fakes (over mocks). `Dispatchers.setMain(UnconfinedTestDispatcher())` in test setup.
 - **Acceptance**: Every sealed `Action` case has at least one happy-path test. Every emitted `Event` is verified via `events.test { ... }`.
 
-### M19-04 · Compose UI tests per breakpoint
+### M19-04 · Compose UI + screenshot tests per breakpoint
 - **Depends on**: M5-04..M5-07.
-- **Spec refs**: §6.4.8, §10.5.
-- **Description**: For every top-level screen, one test per profile from §6.4.8 (10 profiles × ~12 screens = ~120 tests). Use `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule`.
-- **Acceptance**: CI shards complete in <10 min.
+- **Spec refs**: §6.4.8, §6.4.9, §10.5, `testing-setup`, `adaptive`.
+- **Description**: For every top-level screen, one behavior test per profile from §6.4.8 (10 profiles × ~12 screens = ~120 tests) using `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule`. **Plus** a `@PreviewTest` `@FormFactorPreviews` screenshot test per major screen (Phone / Foldable / Tablet / Desktop) via the Compose Preview Screenshot Testing tool / Roborazzi, so Nav3 Scene-strategy layout regressions are caught as golden diffs. Reference images regenerated only on intentional UI change.
+- **Acceptance**: CI shards complete in <10 min. Screenshot diffs gate the PR; reference set committed.
 
 ### M19-05 · Hinge posture tests
 - **Depends on**: M19-04.
@@ -1089,9 +1093,9 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 
 ### M20-01 · R8 + ProGuard rules
 - **Depends on**: M19-04.
-- **Spec refs**: §2.3.
-- **Description**: Enable R8 for release. Keep rules for Room/Glance/Koin/kotlinx-serialization + reflection-touched Compose surfaces. Verify shrunk APK runs all hot paths (smoke run of §2.3.3 hot paths on release build). Measure APK size + record in `apk_size.txt` committed to repo; track release-over-release as a measurement, not a hard gate.
-- **Acceptance**: Release APK launches and exercises hot paths without R8-induced runtime failures. `apk_size.txt` updated. Cold start SLO from §2.3.2 still hit on Pixel 10 reference device. No hard size cap (Compose + M3 + fonts + Glance realistically lands 15–25 MB; treat regressions >10% as review-worthy, not auto-blockers).
+- **Spec refs**: §2.3, §2.3.9, `r8-analyzer`.
+- **Description**: Enable R8 for release per the `r8-analyzer` skill: AGP `9.0`+, R8 **full mode** ON (no `android.enableR8.fullMode=false`). Minimal keep rules for Room/Glance/Koin/kotlinx-serialization + reflection-touched Compose surfaces; run the **R8 configuration analyzer** to drop redundant / overly broad package-wide rules and avoid subsuming library consumer keep rules. Verify shrunk APK runs all hot paths (smoke run of §2.3.3 hot paths on release build). Measure APK size + record in `apk_size.txt` committed to repo; track release-over-release as a measurement, not a hard gate.
+- **Acceptance**: Release APK launches and exercises hot paths without R8-induced runtime failures. Keep-rule audit report attached; no redundant/over-broad rules remain. `apk_size.txt` updated. Cold start SLO from §2.3.2 still hit on Pixel 10 reference device. No hard size cap (Compose + M3 + fonts + Glance realistically lands 15–25 MB; treat regressions >10% as review-worthy, not auto-blockers).
 
 ### M20-02 · Signing config + Play Console upload
 - **Depends on**: M20-01.
@@ -1137,17 +1141,19 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 - **Description**: Whenever an issue is closed, update `detailed-spec.md` if implementation revealed a gap. Spec is canonical.
 - **Acceptance**: Spec PR linked from every issue closure that changes behavior.
 
-### X-05 · Per-module `README.md`
-- **Description**: Every Gradle module owns a top-level `README.md`. Purpose: orient an AI agent (or human reading cold) in under 30 seconds before they touch code. Required sections:
+### X-05 · Per-module `CLAUDE.md` + `AGENT.md` symlink
+- **Description**: Every Gradle module owns a top-level `CLAUDE.md` plus an `AGENT.md` symlink → `CLAUDE.md`, and the repo root owns one too. Purpose: orient an AI agent (or human reading cold) in under 30 seconds before they touch code. `CLAUDE.md` is auto-loaded by Claude Code when working in that subtree; `AGENT.md` is the cross-tool alias for other agents. Required sections (per spec §10.6):
   1. **Purpose** — one paragraph: what this module does and why it exists.
-  2. **Allowed dependencies** — list of modules this one may depend on, citing the dependency-rules table in Conventions.
-  3. **Key types** — bullet list of the most important public symbols + one-line role.
-  4. **Owned by** — for `:feature:*` modules, the feature name; for `:core:*`, "shared".
-  5. **Notes** — Stax-specific divergences from any skill, gotchas, perf budgets, transactional boundaries.
-- **Rule**: any PR that adds or removes a public type in a module MUST update its README. CI runs `scripts/check_readme_drift.sh` which fails if a module's public API changed without a README diff in the same PR.
+  2. **Module coordinates** — Gradle path, package namespace, convention plugins applied.
+  3. **Allowed dependencies** — list of modules this one may depend on, citing the dependency-rules table in Conventions.
+  4. **Key types** — bullet list of the most important public symbols + one-line role.
+  5. **Applicable skills** — which reference skills (Skill alignment table) govern work in this module.
+  6. **Owned by** — for `:feature:*` modules, the feature name; for `:core:*`, "shared".
+  7. **Notes** — Stax-specific divergences from any skill, gotchas, perf budgets, transactional boundaries.
+- **Rule**: any PR that adds or removes a public type in a module MUST update its `CLAUDE.md`. The `AGENT.md` symlink is created once and never hand-edited. CI runs `scripts/check_docs_drift.sh` which fails if a module's public API changed without a `CLAUDE.md` diff in the same PR, or if an `AGENT.md` symlink is missing / not pointing at `CLAUDE.md`.
 - **Acceptance**:
-  - Every module has a `README.md` after M0-03.
-  - `scripts/check_readme_drift.sh` exists and blocks drift in CI.
+  - Root + every module has a `CLAUDE.md` with an `AGENT.md` symlink → `CLAUDE.md`.
+  - `scripts/check_docs_drift.sh` exists and blocks drift + missing symlinks in CI.
 
 ### X-06 · Per-package KDoc via `_Package.kt`
 - **Description**: Every package within a module owns a single `_Package.kt` file containing only KDoc on the `package` declaration. Kotlin has no `package-info.java`; this is the idiomatic substitute. Required content (1–3 sentences):

@@ -3,12 +3,10 @@ package com.stax.core.data.repository
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.room.Room
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
-import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.stax.core.data.preferences.ThemePreferences
 import com.stax.core.database.SettingsDao
@@ -29,6 +27,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import com.stax.core.database.AppTheme as DbAppTheme
 import com.stax.core.database.NotificationStyle as DbNotificationStyle
@@ -85,7 +84,7 @@ class SettingsRepositoryTest {
         val flow = repository.observe()
         // Collect with a very short timeout — expect no emission.
         val emitted = try {
-            kotlinx.coroutines.withTimeout(100) { flow.first() }
+            kotlinx.coroutines.withTimeout(100.milliseconds) { flow.first() }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
             null
         }

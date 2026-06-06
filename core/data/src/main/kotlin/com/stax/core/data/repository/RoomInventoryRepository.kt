@@ -33,10 +33,10 @@ class RoomInventoryRepository(
     },
 ) : InventoryRepository {
 
-    override fun observeWarnings(): Flow<List<InventoryWarning>> =
-        inventorySnapshot().map { snapshot ->
-            buildList {
-                addAll(snapshot.dosesLeft.mapNotNull {
+    override fun observeWarnings(): Flow<List<InventoryWarning>> = inventorySnapshot().map { snapshot ->
+        buildList {
+            addAll(
+                snapshot.dosesLeft.mapNotNull {
                     val dosesLeft = it.dosesLeft ?: return@mapNotNull null
                     if (dosesLeft >= LOW_STOCK_THRESHOLD) return@mapNotNull null
                     InventoryWarning.LowStock(
@@ -45,78 +45,77 @@ class RoomInventoryRepository(
                         dosesLeft = dosesLeft,
                         reorderBefore = snapshot.runOutByCompound[it.compoundSupplyId],
                     )
-                })
+                },
+            )
 
-                snapshot.compounds.forEach { compound ->
-                    val openedExpiry = compound.currentOpened?.userDefinedExpiryDate
-                        ?: compound.currentOpened?.predictedExpiryDate
-                    if (openedExpiry != null) {
-                        val daysUntilExpiry = today().daysUntil(openedExpiry)
-                        if (daysUntilExpiry in 0..OPENED_EXPIRY_WARNING_DAYS) {
-                            add(
-                                InventoryWarning.OpenedContainerExpiring(
-                                    compoundSupplyId = compound.id,
-                                    compoundName = compound.name,
-                                    expiryDate = openedExpiry,
-                                    daysUntilExpiry = daysUntilExpiry,
-                                ),
-                            )
-                        }
-                    }
-
-                    val runOut = snapshot.runOutByCompound[compound.id]
-                    val batchExpiryDate = compound.batchExpiryDate
-                    if (batchExpiryDate != null && runOut != null && batchExpiryDate < runOut) {
+            snapshot.compounds.forEach { compound ->
+                val openedExpiry = compound.currentOpened?.userDefinedExpiryDate
+                    ?: compound.currentOpened?.predictedExpiryDate
+                if (openedExpiry != null) {
+                    val daysUntilExpiry = today().daysUntil(openedExpiry)
+                    if (daysUntilExpiry in 0..OPENED_EXPIRY_WARNING_DAYS) {
                         add(
-                            InventoryWarning.BatchExpiresBeforeRunOut(
+                            InventoryWarning.OpenedContainerExpiring(
                                 compoundSupplyId = compound.id,
                                 compoundName = compound.name,
-                                batchExpiryDate = batchExpiryDate,
-                                runOutDate = runOut,
+                                expiryDate = openedExpiry,
+                                daysUntilExpiry = daysUntilExpiry,
                             ),
                         )
                     }
                 }
 
-                snapshot.activeProtocols.forEach { protocol ->
-                    val compound = snapshot.compoundsById[protocol.compoundSupplyId] ?: return@forEach
-                    val endDate = protocol.endDate ?: return@forEach
-                    val doseStock = protocol.stockPerDose(compound) ?: return@forEach
-                    val required = doseStock * Decimal.parse(
-                        doseCountBetween(protocol, today(), endDate).toString(),
+                val runOut = snapshot.runOutByCompound[compound.id]
+                val batchExpiryDate = compound.batchExpiryDate
+                if (batchExpiryDate != null && runOut != null && batchExpiryDate < runOut) {
+                    add(
+                        InventoryWarning.BatchExpiresBeforeRunOut(
+                            compoundSupplyId = compound.id,
+                            compoundName = compound.name,
+                            batchExpiryDate = batchExpiryDate,
+                            runOutDate = runOut,
+                        ),
                     )
-                    val available = compound.totalStock() ?: return@forEach
-                    if (required.value > available.value) {
-                        add(
-                            InventoryWarning.ProtocolNeedsMore(
-                                compoundSupplyId = compound.id,
-                                compoundName = compound.name,
-                                protocolId = protocol.id,
-                                required = required,
-                                available = available,
-                            ),
-                        )
-                    }
                 }
-            }.sortedWith(warningComparator)
-        }
+            }
 
-    override fun observeDosesLeftPerCompound(): Flow<List<CompoundDosesLeft>> =
-        inventorySnapshot().map { it.dosesLeft }
+            snapshot.activeProtocols.forEach { protocol ->
+                val compound = snapshot.compoundsById[protocol.compoundSupplyId] ?: return@forEach
+                val endDate = protocol.endDate ?: return@forEach
+                val doseStock = protocol.stockPerDose(compound) ?: return@forEach
+                val required = doseStock * Decimal.parse(
+                    doseCountBetween(protocol, today(), endDate).toString(),
+                )
+                val available = compound.totalStock() ?: return@forEach
+                if (required.value > available.value) {
+                    add(
+                        InventoryWarning.ProtocolNeedsMore(
+                            compoundSupplyId = compound.id,
+                            compoundName = compound.name,
+                            protocolId = protocol.id,
+                            required = required,
+                            available = available,
+                        ),
+                    )
+                }
+            }
+        }.sortedWith(warningComparator)
+    }
 
-    override fun observeRunOutDate(protocolId: Long): Flow<LocalDate?> =
-        combine(
-            protocolDao.observeByIdWithDosageTimes(protocolId),
-            compoundDao.observeActiveWithOpened(),
-        ) { protocolRow, compoundRows ->
-            val protocol = protocolRow?.protocol?.toDomain(protocolRow.dosageTimeEntities.map { it.time })
-                ?.takeIf { it.status == ProtocolStatus.ACTIVE }
-                ?: return@combine null
-            val compound = compoundRows.firstOrNull { it.compound.id == protocol.compoundSupplyId }
-                ?.let { it.compound.toDomain(it.opened) }
-                ?: return@combine null
-            calculateRunOutDate(protocol, compound)
-        }
+    override fun observeDosesLeftPerCompound(): Flow<List<CompoundDosesLeft>> = inventorySnapshot().map { it.dosesLeft }
+
+    override fun observeRunOutDate(protocolId: Long): Flow<LocalDate?> = combine(
+        protocolDao.observeByIdWithDosageTimes(protocolId),
+        compoundDao.observeActiveWithOpened(),
+    ) { protocolRow, compoundRows ->
+        val protocol = protocolRow?.protocol?.toDomain(protocolRow.dosageTimeEntities.map { it.time })
+            ?.takeIf { it.status == ProtocolStatus.ACTIVE }
+            ?: return@combine null
+        val compound = compoundRows.firstOrNull { it.compound.id == protocol.compoundSupplyId }
+            ?.let { it.compound.toDomain(it.opened) }
+            ?: return@combine null
+        calculateRunOutDate(protocol, compound)
+    }
 
     private fun inventorySnapshot(): Flow<InventorySnapshot> = combine(
         compoundDao.observeActiveWithOpened(),
@@ -160,9 +159,9 @@ class RoomInventoryRepository(
         } else {
             null
         }
-        val perDay = protocols.sumOfDouble { it.weeklyFrequency() / DAYS_PER_WEEK }
-        val daysLeft = if (dosesLeft != null && perDay > 0.0) {
-            kotlin.math.floor(dosesLeft / perDay).toInt()
+        val perDay = protocols.sumOfDecimal { it.weeklyFrequency() / DAYS_PER_WEEK.toDecimal() }
+        val daysLeft = if (dosesLeft != null && perDay > ZERO) {
+            (dosesLeft.toDecimal() / perDay).floorToInt()
         } else {
             null
         }
@@ -215,19 +214,21 @@ class RoomInventoryRepository(
 
     private fun Quantity.convertToOrNull(unit: UnitCode): Quantity? = try {
         Quantity(this.unit.convertTo(unit, value), unit)
-    } catch (e: IllegalArgumentException) {
+    } catch (_: IllegalArgumentException) {
         null
     }
 
-    private fun Protocol.weeklyFrequency(): Double {
-        val dosageCount = dosageTimes.size.coerceAtLeast(1)
+    private fun Protocol.weeklyFrequency(): Decimal {
+        val dosageCount = dosageTimes.size.coerceAtLeast(1).toDecimal()
+        val week = DAYS_PER_WEEK.toDecimal()
         return when (schedule.type) {
-            ScheduleType.DAILY -> DAYS_PER_WEEK * dosageCount
-            ScheduleType.EVERY_X_DAYS -> DAYS_PER_WEEK / schedule.interval.orOne() * dosageCount
-            ScheduleType.X_TIMES_PER_DAY -> DAYS_PER_WEEK * schedule.timesPerDay.orOne()
-            ScheduleType.SPECIFIC_WEEKDAYS -> (schedule.selectedWeekdays?.size ?: 0) * dosageCount.toDouble()
-            ScheduleType.X_TIMES_PER_WEEK -> schedule.timesPerWeek.orZero().toDouble()
-            ScheduleType.X_TIMES_PER_MONTH -> schedule.timesPerMonth.orZero() * DAYS_PER_WEEK / DAYS_PER_MONTH
+            ScheduleType.DAILY -> week * dosageCount
+            ScheduleType.EVERY_X_DAYS -> week / schedule.interval.orOne().toDecimal() * dosageCount
+            ScheduleType.X_TIMES_PER_DAY -> week * schedule.timesPerDay.orOne().toDecimal()
+            ScheduleType.SPECIFIC_WEEKDAYS -> (schedule.selectedWeekdays?.size ?: 0).toDecimal() * dosageCount
+            ScheduleType.X_TIMES_PER_WEEK -> schedule.timesPerWeek.orZero().toDecimal()
+            ScheduleType.X_TIMES_PER_MONTH ->
+                schedule.timesPerMonth.orZero().toDecimal() * week / DAYS_PER_MONTH.toDecimal()
         }
     }
 
@@ -247,8 +248,10 @@ class RoomInventoryRepository(
                 if (date.dayOfWeek in days) dosageCount else 0
             }
             ScheduleType.X_TIMES_PER_DAY -> schedule.timesPerDay.orOne()
-            ScheduleType.X_TIMES_PER_WEEK -> distributedCountOn(date, schedule.timesPerWeek.orZero(), DAYS_PER_WEEK.toInt())
-            ScheduleType.X_TIMES_PER_MONTH -> distributedCountOn(date, schedule.timesPerMonth.orZero(), DAYS_PER_MONTH.toInt())
+            ScheduleType.X_TIMES_PER_WEEK ->
+                distributedCountOn(date, schedule.timesPerWeek.orZero(), DAYS_PER_WEEK)
+            ScheduleType.X_TIMES_PER_MONTH ->
+                distributedCountOn(date, schedule.timesPerMonth.orZero(), DAYS_PER_MONTH)
         }
     }
 
@@ -266,13 +269,12 @@ class RoomInventoryRepository(
 
     private fun Decimal.floorToInt(): Int = raw.setScale(0, RoundingMode.FLOOR).toInt()
 
-    private fun Iterable<Protocol>.sumOfDouble(selector: (Protocol) -> Double): Double =
-        fold(0.0) { total, item -> total + selector(item) }
+    private fun Int.toDecimal(): Decimal = Decimal.parse(toString())
 
-    private data class ProtocolDose(
-        val protocol: Protocol,
-        val stockDose: Quantity,
-    )
+    private fun Iterable<Protocol>.sumOfDecimal(selector: (Protocol) -> Decimal): Decimal =
+        fold(ZERO) { total, item -> total + selector(item) }
+
+    private data class ProtocolDose(val protocol: Protocol, val stockDose: Quantity)
 
     private data class InventorySnapshot(
         val compounds: List<CompoundSupply>,
@@ -288,8 +290,8 @@ class RoomInventoryRepository(
         const val LOW_STOCK_THRESHOLD = 7
         const val OPENED_EXPIRY_WARNING_DAYS = 14
         const val MAX_RUN_OUT_SCAN_DAYS = 3650
-        const val DAYS_PER_WEEK = 7.0
-        const val DAYS_PER_MONTH = 30.0
+        const val DAYS_PER_WEEK = 7
+        const val DAYS_PER_MONTH = 30
 
         val warningComparator: Comparator<InventoryWarning> =
             compareBy<InventoryWarning> { it.compoundName.lowercase() }

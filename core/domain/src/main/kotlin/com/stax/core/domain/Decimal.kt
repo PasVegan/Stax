@@ -9,7 +9,8 @@ value class Decimal(val raw: BigDecimal) : Comparable<Decimal> {
     operator fun minus(o: Decimal): Decimal = Decimal(raw.subtract(o.raw))
     operator fun times(o: Decimal): Decimal = Decimal(raw.multiply(o.raw))
     operator fun div(o: Decimal): Decimal = Decimal(raw.divide(o.raw, MATH))
-    override operator fun compareTo(o: Decimal): Int = raw.compareTo(o.raw)
+    operator fun unaryMinus(): Decimal = Decimal(raw.negate())
+    override operator fun compareTo(other: Decimal): Int = raw.compareTo(other.raw)
     fun toPlainString(): String = raw.stripTrailingZeros().toPlainString()
 
     companion object {

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import com.stax.core.data.preferences.ThemePreferences
 import com.stax.core.data.repository.RoomAdministrationEventRepository
 import com.stax.core.data.repository.RoomCompoundRepository
+import com.stax.core.data.repository.RoomInjectionSiteRepository
 import com.stax.core.data.repository.RoomProtocolRepository
 import com.stax.core.data.repository.RoomScheduledDoseRepository
 import com.stax.core.data.repository.RoomSettingsRepository
@@ -14,6 +15,7 @@ import com.stax.core.data.scheduler.ScheduledDoseGenerator
 import com.stax.core.database.StaxDatabase
 import com.stax.core.domain.repository.AdministrationEventRepository
 import com.stax.core.domain.repository.CompoundRepository
+import com.stax.core.domain.repository.InjectionSiteRepository
 import com.stax.core.domain.repository.ProtocolRepository
 import com.stax.core.domain.repository.ScheduledDoseRepository
 import com.stax.core.domain.repository.SettingsRepository
@@ -51,4 +53,5 @@ val coreDataModule = module {
     single { RoomScheduledDoseRepository(get()) } bind ScheduledDoseRepository::class
     single { RoomAdministrationEventRepository(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) } bind
         AdministrationEventRepository::class
+    single { RoomInjectionSiteRepository(get()) } bind InjectionSiteRepository::class
 }

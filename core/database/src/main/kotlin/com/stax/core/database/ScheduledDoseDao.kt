@@ -37,6 +37,20 @@ interface ScheduledDoseDao {
     )
     fun observePendingByProtocolId(protocolId: Long): Flow<List<ScheduledDoseEntity>>
 
+    @Query(
+        """
+        SELECT * FROM scheduled_dose
+        WHERE status = 'PENDING'
+            AND administrationEventId IS NULL
+            AND scheduledAt >= :from
+            AND scheduledAt < :until
+        ORDER BY
+            CASE WHEN hasTimeOfDay THEN 0 ELSE 1 END ASC,
+            scheduledAt ASC
+        """,
+    )
+    fun observePendingForDate(from: Instant, until: Instant): Flow<List<ScheduledDoseEntity>>
+
     @Transaction
     @Query(
         """
@@ -66,4 +80,39 @@ interface ScheduledDoseDao {
         """,
     )
     suspend fun updateScheduledAt(id: Long, newScheduledAt: Instant): Int
+
+    @Query(
+        """
+        SELECT * FROM scheduled_dose
+        WHERE id = :id
+        """,
+    )
+    suspend fun getById(id: Long): ScheduledDoseEntity?
+
+    @Query(
+        """
+        UPDATE scheduled_dose
+        SET scheduledAt = :newScheduledAt
+        WHERE id = :id
+            AND status = 'PENDING'
+            AND administrationEventId IS NULL
+        """,
+    )
+    suspend fun updatePendingScheduledAt(id: Long, newScheduledAt: Instant): Int
+
+    @Query(
+        """
+        UPDATE scheduled_dose
+        SET status = :status,
+            administrationEventId = :administrationEventId
+        WHERE id = :id
+            AND status = 'PENDING'
+            AND administrationEventId IS NULL
+        """,
+    )
+    suspend fun updatePendingStatus(
+        id: Long,
+        status: ScheduledDoseStatus,
+        administrationEventId: Long?,
+    ): Int
 }

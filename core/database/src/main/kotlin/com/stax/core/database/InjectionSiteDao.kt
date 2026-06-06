@@ -25,6 +25,9 @@ interface InjectionSiteDao {
     @Query("SELECT * FROM injection_site WHERE id = :id LIMIT 1")
     fun observeById(id: Long): Flow<InjectionSiteEntity?>
 
+    @Query("SELECT * FROM injection_site WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): InjectionSiteEntity?
+
     @Query(
         """
         SELECT * FROM injection_site

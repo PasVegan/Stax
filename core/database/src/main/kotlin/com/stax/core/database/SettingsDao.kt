@@ -13,6 +13,9 @@ abstract class SettingsDao {
     @Query("SELECT * FROM settings WHERE id = 1 LIMIT 1")
     abstract fun observe(): Flow<SettingsEntity?>
 
+    @Query("SELECT * FROM settings WHERE id = 1 LIMIT 1")
+    abstract suspend fun get(): SettingsEntity?
+
     @Update
     abstract suspend fun update(entity: SettingsEntity): Int
 

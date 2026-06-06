@@ -108,7 +108,7 @@ Release build optimization follows the `r8-analyzer` skill (see M20-01).
 - **Google Sans Flex** font family (Regular, Medium, SemiBold, Bold, Light)
 - **Material Symbols Rounded** for icons (load font via App Startup; render via text glyphs)
 - Room database, WorkManager (background), AlarmManager (exact reminders)
-- Navigation 3 (`NavDisplay` + `entryProvider` + `NavBackStack`), adaptive: bottom nav (compact), side rail (medium/foldables unfolded). Nav chrome via `NavigationSuiteScaffold`; multi-pane via Nav3 Scene strategies (`ListDetailSceneStrategy`, `SupportingPaneSceneStrategy`) — NOT `*PaneScaffold`. Lib: `androidx.compose.material3.adaptive:adaptive-navigation3`. Per-feature navigation follows the `navigation-3` skill; adaptive layout follows the `adaptive` skill.
+- Navigation 3 (`NavDisplay` + `entryProvider` + `NavBackStack`), adaptive: bottom nav (compact), side rail (medium/foldables unfolded). Nav chrome via `NavigationSuiteScaffold`; multi-pane via Nav3 Scene strategies (`ListDetailSceneStrategy`, `SupportingPaneSceneStrategy`) — do not use the `*PaneScaffold` composables. Libs: `androidx.compose.material3.adaptive:adaptive-navigation3` (Scene strategies) + `:adaptive-layout` (backs them + `WindowSizeClass`). Per-feature navigation follows the `navigation-3` skill; adaptive layout follows the `adaptive` skill.
 - **Material 3 components** for the whole design system (stable). Adaptive multi-column lists use the stable `GridCells.Adaptive`; the experimental `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+, opt-in) are optional and adopted only where a stable API can't express the layout.
 - Glance for home-screen widgets (§4.16): `androidx.glance:glance-appwidget`, `androidx.glance:glance-material3`.
 - Static app shortcuts via `<shortcuts>` XML (§4.17). No `androidx.sharetarget` needed at v1.
@@ -2360,7 +2360,7 @@ Dependency rules:
 | `:widget`, `:shortcut`, `:work`, `:notification` | `:core:domain`, `:core:data`                                |
 | `:app`                                           | everything                                                  |
 
-Features never depend on each other. Cross-feature integration is the responsibility of `:app` (Navigation 3 callbacks per §10.3). Enforced by the `ForbiddenModuleDependency` detekt rule introduced in M0-13.
+Features never depend on each other. Cross-feature integration is the responsibility of `:app` (Navigation 3 callbacks per §10.3). Enforced by the `checkForbiddenModuleDependencies` Gradle task in root `build.gradle.kts` (allow-list mirrors the dependency-rules table; wired into `check`), introduced in M0-13.
 
 Documentation: every module owns a top-level `CLAUDE.md` (with an `AGENT.md` symlink → `CLAUDE.md`) describing purpose + allowed dependencies + key types + applicable skills; every package within a module owns a `_Package.kt` with KDoc on its `package` declaration. Both are kept in sync with code changes per ISSUES X-05 / X-06. The repo root also owns a `CLAUDE.md` (+ `AGENT.md` symlink) — the entry point for any AI agent (§10.6).
 

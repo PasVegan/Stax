@@ -73,7 +73,7 @@ gap, update the spec in the same change.
 :core:domain         domain models, repository INTERFACES, errors, Result, Decimal/Quantity/Concentration   (pure Kotlin)
 :core:database       Room @Database, entities, DAOs, converters, migrations, seed callback
 :core:data           repository IMPLs (Room*), Entity↔Domain mappers, DataStore, ScheduledDoseGenerator, Koin coreDataModule
-:core:presentation   UiText, DataError→UiText, ObserveAsEvents, shared UI utils
+:core:presentation   UiText, DataError→UiText, shared UI utils (ObserveAsEvents — planned, lands with first feature)
 :core:design-system  M3 Expressive theme, typography, motion, shapes, tokens, Nav3 Scene wrappers, AdaptiveFab, icons
 :feature:<x>:presentation   one per feature (compounds, protocols, sites, dashboard, reconstitution, logging, settings, onboarding)
 :widget :shortcut :work :notification   out-of-app surfaces
@@ -92,8 +92,9 @@ gap, update the spec in the same change.
 | `:app` | everything |
 
 **Features never depend on each other.** Cross-feature wiring happens only in `:app` via Nav3
-lambda callbacks. Enforced by the `ForbiddenModuleDependency` detekt rule. A feature presentation
-module must **never** import `:core:database` or `:core:data`.
+lambda callbacks. Enforced by the `checkForbiddenModuleDependencies` Gradle task (defined in root
+`build.gradle.kts`, allow-list = the table above, wired into `./gradlew check`). A feature
+presentation module must **never** import `:core:database` or `:core:data`.
 
 Adding a module: apply the right convention plugin (below), register it in `settings.gradle.kts`,
 add a `CLAUDE.md` + `AGENT.md` symlink + `_Package.kt`. Skill: `android-module-structure`.
@@ -132,6 +133,7 @@ add a `CLAUDE.md` + `AGENT.md` symlink + `_Package.kt`. Skill: `android-module-s
 ./gradlew test                        # JVM unit tests (JUnit5)
 ./gradlew connectedCheck              # instrumented + Compose UI tests (needs device/emulator)
 ./gradlew ktlintCheck detekt          # lint — must be clean
+./gradlew check                       # all verification incl. checkForbiddenModuleDependencies (dep-rule guardrail)
 ./gradlew :core:domain:test           # scope tests to one module
 ```
 

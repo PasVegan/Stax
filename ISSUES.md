@@ -115,12 +115,12 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 - **Depends on**: M0-02.
 - **Spec refs**: Conventions / Module layout.
 - **Description**: Create all module directories per the Conventions layout: `:app`, `:core:domain`, `:core:database`, `:core:data`, `:core:presentation`, `:core:design-system`, `:feature:onboarding:presentation`, `:feature:compounds:presentation`, `:feature:protocols:presentation`, `:feature:sites:presentation`, `:feature:dashboard:presentation`, `:feature:reconstitution:presentation`, `:feature:logging:presentation`, `:feature:settings:presentation`, `:widget`, `:shortcut`, `:work`, `:notification`. Apply convention plugins per dependency-rules table. Each module starts empty with a placeholder `CLAUDE.md` + `AGENT.md` symlink (X-05) + `_Package.kt` (X-06).
-- **Acceptance**: `./gradlew :app:assembleDebug` builds the full graph. Dependency rules enforced via Gradle module-isolation tests (`forbidden-dependency` detekt rule).
+- **Acceptance**: `./gradlew :app:assembleDebug` builds the full graph. Dependency rules enforced via the `checkForbiddenModuleDependencies` Gradle task (root `build.gradle.kts`, wired into `check`).
 
 ### M0-04 · Compose + Material 3 Expressive + Adaptive libs
 - **Depends on**: M0-03.
 - **Spec refs**: §2.4, §6.4, §6.4.1.
-- **Description**: Add Compose BOM (stable), `androidx.compose.material3`, `androidx.compose.material3.adaptive:adaptive-navigation3` (Nav3 Scene strategies — list-detail / supporting-pane), `androidx.window`, `androidx.compose.material.icons-extended` to the `stax.compose` convention plugin. Do **not** add `adaptive-layout` `*PaneScaffold` — multi-pane is Scene-strategy based per §6.4. The experimental adaptive `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+) are optional — add the dependency + opt-in only if/when a screen adopts them. `:core:design-system` + every `:feature:*:presentation` consumes it.
+- **Description**: Add Compose BOM (stable), `androidx.compose.material3`, `androidx.compose.material3.adaptive:adaptive-layout` + `:adaptive-navigation3` (the latter provides the Nav3 Scene strategies — list-detail / supporting-pane; the former backs them + supplies `WindowSizeClass` / `currentWindowAdaptiveInfo`), `androidx.window`, `androidx.compose.material.icons-extended` to the `stax.compose` convention plugin. Do **not** *use* the `ListDetailPaneScaffold` / `SupportingPaneScaffold` composables — multi-pane is Scene-strategy based per §6.4 (the `adaptive-layout` **artifact** stays, since the Scene strategies depend on it). The experimental adaptive `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+) are optional — add the dependency + opt-in only if/when a screen adopts them. `:core:design-system` + every `:feature:*:presentation` consumes it.
 - **Acceptance**: `:core:design-system` compiles with a single placeholder composable.
 
 ### M0-05 · Add Koin DI (libraries only)
@@ -174,8 +174,8 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 ### M0-13 · Configure ktlint + detekt + Compose Compiler metrics + forbidden-dependencies
 - **Depends on**: M0-03.
 - **Spec refs**: §2.3.1, Conventions / Module layout.
-- **Description**: Add `ktlint-gradle` + `detekt-gradle-plugin`. Enable Compose compiler metrics output (`-P plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=...`). Add custom detekt rule `ForbiddenModuleDependency` enforcing the dependency-rules table (e.g. `:feature:*:presentation` must not depend on `:core:database` or `:core:data` directly).
-- **Acceptance**: `./gradlew ktlintCheck detekt` succeeds clean. Compose metrics emitted to `build/compose_metrics/`. Dependency rule violation in a synthetic test fails the build.
+- **Description**: Add `ktlint-gradle` + `detekt-gradle-plugin`. Enable Compose compiler metrics output (`-P plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=...`). Add the `checkForbiddenModuleDependencies` Gradle verification task (root `build.gradle.kts`) enforcing the dependency-rules table via a per-module allow-list (e.g. `:feature:*:presentation` must not depend on `:core:database` or `:core:data` directly); wire it into `check`.
+- **Acceptance**: `./gradlew ktlintCheck detekt` succeeds clean. Compose metrics emitted to `build/compose_metrics/`. A dependency-rule violation fails `./gradlew check` via `checkForbiddenModuleDependencies`.
 
 ---
 

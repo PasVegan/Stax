@@ -2231,7 +2231,7 @@ Per the `adaptive` skill:
 
 **Type scale**: pure M3 styles (`display`, `headline`, `title`, `body`, `label` with `-emphasized` variants where applicable). Font family = **Google Sans Flex**.
 
-**Shape scale**: must be emphasized via M3 Expressive guidelines
+**Shape scale**: M3 Expressive shape scale, defined in `StaxShapes.material` (a `Shapes`) and wired to `MaterialTheme.shapes` by `StaxTheme` (via `MaterialExpressiveTheme`). Base slots: `extraSmall` 4dp · `small` 8dp · `medium` 12dp · `large` 16dp · `extraLarge` 28dp; the three M3 Expressive "increased" slots (`largeIncreased`, `extraLargeIncreased`, `extraExtraLarge`) keep their `ShapeDefaults` values. Plus a `StaxShapes.Pill` token (≈999r) for chips / status badges / the selected nav indicator. Components read shapes from `MaterialTheme.shapes.<slot>` or `StaxShapes.Pill` — **never** inline `RoundedCornerShape(...)`, which is banned outside `:core:design-system` by the `checkForbiddenShapeApis` Gradle task (wired into `check`).
 
 **Components**: Material 3 components throughout, themed via **`MaterialExpressiveTheme`** (color / type / shape / **motion**) — `StaxTheme` wraps content in it so the expressive `MotionScheme` is provided app-wide and every M3 component animates expressively (§5.9), not just hand-written animations. Custom design-system components (syringe visualization §4.6, body-map renderer §4.12, dose card §4.1) are built on Compose primitives + the same `MaterialTheme` tokens — no separate styling system.
 

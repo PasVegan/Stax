@@ -51,6 +51,7 @@ fun StaxTheme(
         MaterialExpressiveTheme(
             colorScheme = animatedColorScheme,
             typography = StaxTypography.material,
+            shapes = StaxShapes.material,
             content = content,
         )
     }

@@ -419,7 +419,7 @@ Goal: app paints in M3 Expressive theme with Google Sans Flex + Material Symbols
 ### M4-01 · M3 Expressive color scheme + dynamic color
 - **Depends on**: M0-04, M3-03.
 - **Spec refs**: §2.3.6, §4.13.2, §9.
-- **Description**: Build `StaxTheme` composable consuming `Settings.theme` + `Settings.dynamicColor` from `SettingsRepository`. Light + dark schemes. Dynamic color via `dynamicLightColorScheme` / `dynamicDarkColorScheme` on Android 16.
+- **Description**: Build `StaxTheme` composable consuming `Settings.theme` + `Settings.dynamicColor` from `SettingsRepository`. Light + dark schemes. Dynamic color via `dynamicLightColorScheme` / `dynamicDarkColorScheme` on Android 16. Wrap content in **`MaterialExpressiveTheme`** so the expressive `MotionScheme` is provided app-wide (every M3 component animates expressively, §5.9) — not plain `MaterialTheme`.
 - **Acceptance**: Toggle theme in settings → all surfaces recolor with `defaultEffectsSpec()` 300ms cross-fade (§5.9).
 
 ### M4-02 · Google Sans Flex typography

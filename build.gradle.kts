@@ -1,8 +1,10 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 
 plugins {
@@ -26,6 +28,43 @@ abstract class CheckForbiddenModuleDependenciesTask : DefaultTask() {
         if (foundViolations.isNotEmpty()) {
             throw GradleException(
                 "Forbidden module dependencies:\n" + foundViolations.joinToString(separator = "\n"),
+            )
+        }
+    }
+}
+
+abstract class CheckForbiddenMotionApisTask : DefaultTask() {
+    @get:Internal
+    abstract val projectRoot: DirectoryProperty
+
+    @TaskAction
+    fun check() {
+        val tween = Regex("""\btween\s*(?:<[^>]*>)?\s*\(""") // matches tween( and tween<Float>(
+        val root = projectRoot.get().asFile
+        // Scan the source tree fresh on every run (no @InputFiles snapshot), so a newly added
+        // violation is always caught regardless of the configuration cache. Cheap: skips build dirs.
+        val violations = root.walkTopDown()
+            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
+            .filter { it.isFile && it.extension == "kt" && it.name != "StaxMotion.kt" }
+            .filter { it.invariantSeparatorsPath.contains("/src/") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    val code = line.substringBefore("//").trim()
+                    // Skip comment lines (KDoc/block-comment continuations and openers).
+                    if (code.startsWith("*") || code.startsWith("/*")) {
+                        null
+                    } else if (tween.containsMatchIn(code)) {
+                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toList()
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Inline tween(...) is forbidden outside StaxMotion (spec §5.9) — use a StaxMotion spec:\n" +
+                    violations.joinToString(separator = "\n"),
             )
         }
     }
@@ -113,6 +152,12 @@ gradle.projectsEvaluated {
     }
 }
 
+val checkForbiddenMotionApis = tasks.register<CheckForbiddenMotionApisTask>("checkForbiddenMotionApis") {
+    group = "verification"
+    description = "Fails when inline tween(...) is used outside StaxMotion — motion specs must be centralized (spec §5.9, M4-04)."
+    projectRoot.set(layout.projectDirectory)
+}
+
 tasks.named("check") {
-    dependsOn("checkForbiddenModuleDependencies")
+    dependsOn(checkForbiddenModuleDependencies, checkForbiddenMotionApis)
 }

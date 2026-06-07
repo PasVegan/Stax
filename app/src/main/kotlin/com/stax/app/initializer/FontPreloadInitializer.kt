@@ -10,7 +10,7 @@ private const val ASYNC_FONT_LOAD_THRESHOLD_MILLIS = 40L
 
 /**
  * Deferred initializer — measures Google Sans Flex load cost for §2.3.4.
- * Material Symbols Rounded joins this path in M4-03.
+ * Icons are vector drawables (not a font), so nothing else loads here.
  */
 class FontPreloadInitializer : Initializer<Unit> {
 

@@ -2229,6 +2229,10 @@ Per the `adaptive` skill:
 - `surface-container-low`, `surface-container`, `surface-container-high`, `surface-container-highest`
 - `outline`, `outline-variant`
 
+These standard M3 roles are read **directly** from `MaterialTheme.colorScheme` (e.g. `MaterialTheme.colorScheme.surfaceContainerLow`) — they are **not** re-wrapped in a tokens file.
+
+**Semantic color tokens** (`StaxColors` in `:core:design-system` `Tokens.kt`, M4-06): app-domain colors that M3 does **not** provide as a role — dose status (taken / missed / skipped / partial), low-stock vs `error`, success, the heat-map gradient ramp (§4.12.4), body-map dot + syringe-fill colors. Each is defined as an alias of an M3 `colorScheme` role where one fits (e.g. missed → `error`, skipped → `outline`), or a custom color **only** where M3 has no suitable role. `Tokens.kt` is the **single legal home for raw `Color(0xFF…)` literals** (including the fallback color-scheme seeds otherwise in `StaxTheme`); a raw color literal anywhere else fails lint (`checkForbiddenColorApis`, mirroring the motion/shape guards). Standard M3 roles are **not** duplicated here.
+
 **Type scale**: pure M3 styles (`display`, `headline`, `title`, `body`, `label` with `-emphasized` variants where applicable). Font family = **Google Sans Flex**.
 
 **Shape scale**: M3 Expressive shape scale, defined in `StaxShapes.material` (a `Shapes`) and wired to `MaterialTheme.shapes` by `StaxTheme` (via `MaterialExpressiveTheme`). Base slots: `extraSmall` 4dp · `small` 8dp · `medium` 12dp · `large` 16dp · `extraLarge` 28dp; the three M3 Expressive "increased" slots (`largeIncreased`, `extraLargeIncreased`, `extraExtraLarge`) keep their `ShapeDefaults` values. Plus a `StaxShapes.Pill` token (≈999r) for chips / status badges / the selected nav indicator. Components read shapes from `MaterialTheme.shapes.<slot>` or `StaxShapes.Pill` — **never** inline `RoundedCornerShape(...)`, which is banned outside `:core:design-system` by the `checkForbiddenShapeApis` Gradle task (wired into `check`).

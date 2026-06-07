@@ -23,7 +23,10 @@ depends on nothing — every feature consumes it.
   wired into `check`).
 - `StaxIcons` — hand-picked Material Symbols Rounded vector drawables (`res/drawable/ic_*.xml`);
   **no icon font / no `material-icons-extended`** — missing icon = request it, never invent (spec §9).
-- Coming per M4: shape scale, `Tokens.kt` (semantic color helpers), Scene-strategy wrappers + `AdaptiveFab`.
+- `StaxShapes` — M3 Expressive shape scale (`material: Shapes` wired to `MaterialTheme.shapes`) + the
+  `Pill` (≈999r) token (§9). **Inline `RoundedCornerShape(...)` is banned outside `:core:design-system`**
+  — features use `MaterialTheme.shapes.<slot>` / `StaxShapes.Pill` (enforced by `checkForbiddenShapeApis`).
+- Coming per M4: `Tokens.kt` (semantic color helpers), Scene-strategy wrappers + `AdaptiveFab`.
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

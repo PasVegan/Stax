@@ -15,7 +15,7 @@ depends on nothing — every feature consumes it.
 **Nothing** (pure Compose + Material 3).
 
 ## Key types
-- `StaxTheme` — M3 Expressive theme; consumes `Settings.theme` + `dynamicColor`; light/dark + dynamic color.
+- `StaxTheme` — M3 Expressive theme via `MaterialExpressiveTheme` (expressive `MotionScheme` app-wide → M3 components animate expressively); consumes `Settings.theme` + `dynamicColor`; light/dark + dynamic color.
 - `StaxTypography` — Google Sans Flex type scale (+ preview).
 - `StaxMotion` — centralized M3 Expressive motion specs from `MotionScheme.expressive()` + syringe
   spring / shape-morph corners / cross-fade durations (§5.9). **Inline `tween(...)` is banned outside

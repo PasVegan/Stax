@@ -1891,6 +1891,11 @@ Import:
 
 ### 5.9 Motion specs (M3 Expressive)
 
+`StaxTheme` provides the expressive `MotionScheme` app-wide via `MaterialExpressiveTheme`, so every
+Material 3 component animates expressively. Hand-written animations pull their specs from the
+`StaxMotion` object (sourced from `MotionScheme.expressive()`); inline `tween(...)` is banned outside
+`StaxMotion` (enforced by the `checkForbiddenMotionApis` Gradle task).
+
 | Use                          | Spec                                                                                                |
 |------------------------------|-----------------------------------------------------------------------------------------------------|
 | Screen-to-screen navigation  | `MotionScheme.expressive().fastSpatialSpec()`                                                       |
@@ -2228,7 +2233,7 @@ Per the `adaptive` skill:
 
 **Shape scale**: must be emphasized via M3 Expressive guidelines
 
-**Components**: Material 3 components throughout, themed via `MaterialTheme` (color / type / shape). Custom design-system components (syringe visualization §4.6, body-map renderer §4.12, dose card §4.1) are built on Compose primitives + the same `MaterialTheme` tokens — no separate styling system.
+**Components**: Material 3 components throughout, themed via **`MaterialExpressiveTheme`** (color / type / shape / **motion**) — `StaxTheme` wraps content in it so the expressive `MotionScheme` is provided app-wide and every M3 component animates expressively (§5.9), not just hand-written animations. Custom design-system components (syringe visualization §4.6, body-map renderer §4.12, dose card §4.1) are built on Compose primitives + the same `MaterialTheme` tokens — no separate styling system.
 
 **Icons**: the `Icon` composable + hand-picked **Material Symbols Rounded** vector drawables, owned by `:core:design-system`. Rules:
 - Assets live in `:core:design-system/src/main/res/drawable/`, named `ic_<name>.xml` (outlined) and `ic_<name>_filled.xml` (filled — e.g. the selected bottom-nav state). `<name>` is the Material Symbol's snake_case name (`ic_home`, `ic_calendar_month`).

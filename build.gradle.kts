@@ -70,6 +70,44 @@ abstract class CheckForbiddenMotionApisTask : DefaultTask() {
     }
 }
 
+abstract class CheckForbiddenShapeApisTask : DefaultTask() {
+    @get:Internal
+    abstract val projectRoot: DirectoryProperty
+
+    @TaskAction
+    fun check() {
+        val roundedCorner = Regex("""\bRoundedCornerShape\s*\(""")
+        val root = projectRoot.get().asFile
+        // Scan fresh every run (config-cache safe). :core:design-system owns shape construction
+        // (StaxShapes + custom morphing components); everything else must use shape tokens.
+        val violations = root.walkTopDown()
+            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { it.invariantSeparatorsPath.contains("/src/") }
+            .filterNot { it.invariantSeparatorsPath.contains("/core/design-system/") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    val code = line.substringBefore("//").trim()
+                    if (code.startsWith("*") || code.startsWith("/*")) {
+                        null
+                    } else if (roundedCorner.containsMatchIn(code)) {
+                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toList()
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Inline RoundedCornerShape(...) is forbidden outside :core:design-system (spec §9) — " +
+                    "use MaterialTheme.shapes.<slot> or StaxShapes.Pill:\n" +
+                    violations.joinToString(separator = "\n"),
+            )
+        }
+    }
+}
+
 private val productModules = setOf(
     ":core:domain",
     ":core:database",
@@ -158,6 +196,12 @@ val checkForbiddenMotionApis = tasks.register<CheckForbiddenMotionApisTask>("che
     projectRoot.set(layout.projectDirectory)
 }
 
+val checkForbiddenShapeApis = tasks.register<CheckForbiddenShapeApisTask>("checkForbiddenShapeApis") {
+    group = "verification"
+    description = "Fails when inline RoundedCornerShape(...) is used outside :core:design-system — use shape tokens (spec §9, M4-05)."
+    projectRoot.set(layout.projectDirectory)
+}
+
 tasks.named("check") {
-    dependsOn(checkForbiddenModuleDependencies, checkForbiddenMotionApis)
+    dependsOn(checkForbiddenModuleDependencies, checkForbiddenMotionApis, checkForbiddenShapeApis)
 }

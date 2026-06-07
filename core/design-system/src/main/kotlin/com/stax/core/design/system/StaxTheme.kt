@@ -2,8 +2,6 @@ package com.stax.core.design.system
 
 import android.content.Context
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -16,10 +14,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private const val THEME_CROSSFADE_DURATION_MILLIS = 300
-
 /**
  * Stax Material 3 Expressive theme with dynamic color and animated color-scheme changes.
+ *
+ * The theme cross-fade uses [StaxMotion.defaultEffectsSpec] — all motion specs are centralized
+ * in [StaxMotion] (spec §5.9); inline `tween(...)` is forbidden here.
  */
 @Suppress("FunctionName")
 @Composable
@@ -39,7 +38,7 @@ fun StaxTheme(
 
     Crossfade(
         targetState = colorScheme,
-        animationSpec = defaultEffectsSpec(),
+        animationSpec = StaxMotion.defaultEffectsSpec(),
         label = "StaxThemeColorScheme",
     ) { animatedColorScheme ->
         MaterialTheme(
@@ -56,10 +55,6 @@ private fun staxColorScheme(context: Context, darkTheme: Boolean, dynamicColor: 
     darkTheme -> STAX_DARK_COLOR_SCHEME
     else -> STAX_LIGHT_COLOR_SCHEME
 }
-
-private fun defaultEffectsSpec(): FiniteAnimationSpec<Float> = tween(
-    durationMillis = THEME_CROSSFADE_DURATION_MILLIS,
-)
 
 private val STAX_LIGHT_COLOR_SCHEME = lightColorScheme(
     primary = Color(0xFF006A64),

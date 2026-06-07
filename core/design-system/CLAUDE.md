@@ -17,10 +17,13 @@ depends on nothing — every feature consumes it.
 ## Key types
 - `StaxTheme` — M3 Expressive theme; consumes `Settings.theme` + `dynamicColor`; light/dark + dynamic color.
 - `StaxTypography` — Google Sans Flex type scale (+ preview).
-- Coming per M4: `StaxMotion` (motion specs), shape scale, `Tokens.kt` (semantic color helpers),
-  `StaxIcons` (hand-picked Material Symbols Rounded vector drawables; **no icon font / no
-  `material-icons-extended`** — missing icon = request it, never invent, spec §9), Scene-strategy
-  wrappers + `AdaptiveFab`.
+- `StaxMotion` — centralized M3 Expressive motion specs from `MotionScheme.expressive()` + syringe
+  spring / shape-morph corners / cross-fade durations (§5.9). **Inline `tween(...)` is banned outside
+  this object** — enforced by the `checkForbiddenMotionApis` Gradle task (root `build.gradle.kts`,
+  wired into `check`).
+- `StaxIcons` — hand-picked Material Symbols Rounded vector drawables (`res/drawable/ic_*.xml`);
+  **no icon font / no `material-icons-extended`** — missing icon = request it, never invent (spec §9).
+- Coming per M4: shape scale, `Tokens.kt` (semantic color helpers), Scene-strategy wrappers + `AdaptiveFab`.
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

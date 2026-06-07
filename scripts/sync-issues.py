@@ -153,22 +153,26 @@ def main():
     blob = f"https://github.com/{repo_slug()}/blob/{BRANCH}"
     with open(ISSUES_FILE, encoding="utf-8") as f:
         ordered, sections = parse_sections(f.read())
-    issues = gh_issues(args.include_closed)
-    id2num = {mid: it["number"] for mid, it in issues.items()}
+    # Resolve dependency links (#NN) against ALL issues — closed deps must still link.
+    all_issues = gh_issues(include_closed=True)
+    id2num = {mid: it["number"] for mid, it in all_issues.items()}
     only = {s.strip() for s in args.only.split(",") if s.strip()}
 
-    changed = unchanged = missing = 0
+    changed = unchanged = missing = skipped_closed = 0
     for mid in ordered:
         if only and mid not in only:
             continue
-        if mid not in issues:
+        it = all_issues.get(mid)
+        if it is None:
             missing += 1
-            print(f"·· {mid}: no {'open ' if not args.include_closed else ''}issue — skip")
+            print(f"·· {mid}: no issue — skip")
+            continue
+        if not args.include_closed and it.get("state") != "OPEN":
+            skipped_closed += 1  # closed: still link-resolvable, but don't rewrite history
             continue
         title, body_lines = sections[mid]
         new_title = f"{mid} · {title}"
         new_body = build_body(mid, body_lines, id2num, ordered, blob)
-        it = issues[mid]
         n = it["number"]
         # normalize CRLF / trailing ws for comparison
         cur_body = it["body"].replace("\r\n", "\n").rstrip() + "\n"
@@ -189,7 +193,8 @@ def main():
                 print(f"   !! edit failed: {r.stderr.strip()}")
 
     print(f"\n{'DRY-RUN ' if args.dry_run else ''}done: "
-          f"{changed} changed, {unchanged} unchanged, {missing} missing.")
+          f"{changed} changed, {unchanged} unchanged, "
+          f"{skipped_closed} closed-skipped, {missing} missing.")
 
 
 if __name__ == "__main__":

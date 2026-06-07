@@ -1,7 +1,8 @@
 # `:core:design-system` — M3 Expressive design system
 
 ## Purpose
-The visual foundation: `StaxTheme`, typography (Google Sans Flex), Material Symbols Rounded glyphs,
+The visual foundation: `StaxTheme`, typography (Google Sans Flex), Material Symbols Rounded **icon
+vector drawables** (`res/drawable/ic_*.xml`) + the `StaxIcons` accessor,
 motion specs, shape scale, semantic design tokens, and the reusable adaptive scaffolding wrappers
 (Nav3 Scene-strategy helpers, `NavigationSuiteScaffold` chrome, `AdaptiveFab`). Pure Compose,
 depends on nothing — every feature consumes it.
@@ -17,7 +18,9 @@ depends on nothing — every feature consumes it.
 - `StaxTheme` — M3 Expressive theme; consumes `Settings.theme` + `dynamicColor`; light/dark + dynamic color.
 - `StaxTypography` — Google Sans Flex type scale (+ preview).
 - Coming per M4: `StaxMotion` (motion specs), shape scale, `Tokens.kt` (semantic color helpers),
-  Material Symbols loader, Scene-strategy wrappers + `AdaptiveFab`.
+  `StaxIcons` (hand-picked Material Symbols Rounded vector drawables; **no icon font / no
+  `material-icons-extended`** — missing icon = request it, never invent, spec §9), Scene-strategy
+  wrappers + `AdaptiveFab`.
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

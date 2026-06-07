@@ -33,7 +33,7 @@ gap, update the spec in the same change.
 |------|--------|
 | Language / build | Kotlin `2.4.0`, AGP `9.2.1`, Gradle convention plugins in `:build-logic`, JDK **21** toolchain |
 | SDK | `compileSdk = 37` (required by `adaptive-navigation3` `1.3.0-beta02`), `minSdk = targetSdk = 36` (Android 16 only) |
-| UI | Jetpack Compose, **Material 3 Expressive** (BOM `2026.05.01`, material3 `1.5.0-alpha20`), Google Sans Flex, Material Symbols Rounded |
+| UI | Jetpack Compose, **Material 3 Expressive** (BOM `2026.05.01`, material3 `1.5.0-alpha20`), Google Sans Flex, Material Symbols Rounded icons as **vector drawables** via `Icon` (no icon font, no `material-icons-extended`) |
 | Navigation | **Navigation 3** (`NavDisplay` + `entryProvider` + `NavBackStack`), `navigation3 1.1.2` |
 | Adaptive | `NavigationSuiteScaffold` chrome + Nav3 **Scene strategies** (`ListDetailSceneStrategy`, `SupportingPaneSceneStrategy`) from `adaptive-navigation3` — **never** `*PaneScaffold` |
 | Architecture | **MVI** per screen, **Koin** DI (`4.2.1`) |
@@ -123,6 +123,9 @@ add a `CLAUDE.md` + `AGENT.md` symlink + `_Package.kt`. Skill: `android-module-s
 - Errors flow through typed `Result` + `DataError`; user-facing strings through `UiText`. Never
   throw on expected failures.
 - Multi-pane = Nav3 Scene strategies, **not** `ListDetailPaneScaffold` / `SupportingPaneScaffold`.
+- **Icons** = `Icon` + `StaxIcons` vector drawables (`:core:design-system/res/drawable/ic_*.xml`). No icon
+  font, no `material-icons-extended`. **Need an icon that isn't there? STOP and ask** — give the Material
+  Symbol name (Rounded, w400/grade0/24dp; `+_filled` if selectable). Never invent/substitute (spec §9).
 
 ---
 

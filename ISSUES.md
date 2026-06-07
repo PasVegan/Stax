@@ -120,7 +120,7 @@ Goal: empty app launches to a blank Compose Dashboard placeholder on a Pixel 10 
 ### M0-04 · Compose + Material 3 Expressive + Adaptive libs
 - **Depends on**: M0-03.
 - **Spec refs**: §2.4, §6.4, §6.4.1.
-- **Description**: Add Compose BOM (stable), `androidx.compose.material3`, `androidx.compose.material3.adaptive:adaptive-layout` + `:adaptive-navigation3` (the latter provides the Nav3 Scene strategies — list-detail / supporting-pane; the former backs them + supplies `WindowSizeClass` / `currentWindowAdaptiveInfo`), `androidx.window`, `androidx.compose.material.icons-extended` to the `stax.compose` convention plugin. Do **not** *use* the `ListDetailPaneScaffold` / `SupportingPaneScaffold` composables — multi-pane is Scene-strategy based per §6.4 (the `adaptive-layout` **artifact** stays, since the Scene strategies depend on it). The experimental adaptive `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+) are optional — add the dependency + opt-in only if/when a screen adopts them. `:core:design-system` + every `:feature:*:presentation` consumes it.
+- **Description**: Add Compose BOM (stable), `androidx.compose.material3`, `androidx.compose.material3.adaptive:adaptive-layout` + `:adaptive-navigation3` (the latter provides the Nav3 Scene strategies — list-detail / supporting-pane; the former backs them + supplies `WindowSizeClass` / `currentWindowAdaptiveInfo`), `androidx.window` to the `stax.compose` convention plugin. **Do not add `androidx.compose.material.icons-extended`** — icons are hand-picked Material Symbols Rounded vector drawables owned by `:core:design-system` rendered with the `Icon` composable (§9, M4-03). Do **not** *use* the `ListDetailPaneScaffold` / `SupportingPaneScaffold` composables — multi-pane is Scene-strategy based per §6.4 (the `adaptive-layout` **artifact** stays, since the Scene strategies depend on it). The experimental adaptive `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+) are optional — add the dependency + opt-in only if/when a screen adopts them. `:core:design-system` + every `:feature:*:presentation` consumes it.
 - **Acceptance**: `:core:design-system` compiles with a single placeholder composable.
 
 ### M0-05 · Add Koin DI (libraries only)
@@ -428,11 +428,11 @@ Goal: app paints in M3 Expressive theme with Google Sans Flex + Material Symbols
 - **Description**: Bundle Google Sans Flex Regular/Medium/SemiBold/Bold/Light as fonts. Build M3 `Typography` with display/headline/title/body/label scales + `-emphasized` variants.
 - **Acceptance**: Compose preview renders all scales correctly. `FontPreloadInitializer` measures cost (§2.3.4).
 
-### M4-03 · Material Symbols Rounded glyph loader
+### M4-03 · Material Symbols Rounded icon assets + `Icon` accessor
 - **Depends on**: M4-02.
-- **Spec refs**: §2.4.
-- **Description**: Load Material Symbols Rounded font via `FontPreloadInitializer`. Provide `MaterialSymbol("home")` composable rendering glyph as text.
-- **Acceptance**: Icon glyphs render at all weights; fallback to vector icon when font fails to load.
+- **Spec refs**: §2.4, §9.
+- **Description**: Bundle the hand-picked Material Symbols Rounded **vector drawables** in `:core:design-system/src/main/res/drawable/` (`ic_<name>.xml`, plus `ic_<name>_filled.xml` for the 5 bottom-nav destinations). Provide a type-safe `StaxIcons` accessor mapping each to its `painterResource`, used via the `Icon` composable (tint from `LocalContentColor`). No icon font; no `material-icons-extended`. Seed the set from the icon list in this milestone's comments (home, medication, calendar_month, person_pin_circle, settings, add, add_circle, edit, delete, close, arrow_back, arrow_forward, chevron_right, expand_more, expand_less, more_vert, check, check_circle, done, done_all, search, search_off, schedule, today, history, calculate, straighten, colorize, science, vaccines, bolt, flag, block, pause, play_arrow, restart_alt, warning, error, notifications, dark_mode, light_mode, event_available, event_busy).
+- **Acceptance**: Each icon renders in a Compose preview and tints with `LocalContentColor`. `StaxIcons` is the only way features reference icons (lint/review). **Missing-icon policy** (§9) is documented: a needed-but-absent icon is requested by Material Symbol name, never invented or pulled from `material-icons-extended`.
 
 ### M4-04 · Motion specs
 - **Depends on**: M4-01.
@@ -470,7 +470,7 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 ### M5-02 · Top-level NavigationSuiteScaffold
 - **Depends on**: M5-01, M4-01.
 - **Spec refs**: §4.0, §6.1, §6.4.1.
-- **Description**: `MainScaffold` composable using `NavigationSuiteScaffold` (items as `NavigationSuiteItem`) with 5 destinations: Home / Compounds / Protocols / Sites / Settings, wrapping the `NavDisplay`. Each destination's icon = Material Symbols Rounded glyph per §4.0. Hold a `rememberNavigationSuiteScaffoldState()` for hide-on-scroll chrome (§6.4.9).
+- **Description**: `MainScaffold` composable using `NavigationSuiteScaffold` (items as `NavigationSuiteItem`) with 5 destinations: Home / Compounds / Protocols / Sites / Settings, wrapping the `NavDisplay`. Each destination's icon = `StaxIcons` vector (Material Symbols Rounded) per §4.0 — outlined when unselected, `_filled` when selected. Hold a `rememberNavigationSuiteScaffoldState()` for hide-on-scroll chrome (§6.4.9).
 - **Acceptance**: Bottom nav at <600dp; rail at 600+; rail expands at 840+.
 
 ### M5-03 · Per-destination back stacks
@@ -695,7 +695,7 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 - **Depends on**: M10-01.
 - **Spec refs**: §4.12.4.
 - **Description**: Custom `Canvas` drawing human silhouette (Front + Back). Dots at fixed normalized coordinates per preset site list (§5.8.6). Dot states (Suggested / Cooling / Recent / Available) per §4.12.4.
-- **Acceptance**: Hit-test scales with canvas; dots ≥ 48dp diameter.
+- **Acceptance**: Hit-test scales with canvas.
 
 ### M10-03 · Heat map mode
 - **Depends on**: M10-02.
@@ -954,7 +954,7 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 ### M15-05 · Widget theming + a11y
 - **Depends on**: M15-02, M4-01.
 - **Spec refs**: §4.16.3, §4.16.6.
-- **Description**: GlanceTheme with dynamic color. Content descriptions per §4.16.6. ≥48dp touch targets.
+- **Description**: GlanceTheme with dynamic color. Content descriptions per §4.16.6.
 - **Acceptance**: TalkBack reads buttons correctly.
 
 ---
@@ -1044,7 +1044,7 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 ### M18-06 · Font cost measurement
 - **Depends on**: M4-02.
 - **Spec refs**: §2.3.4 FontPreloadInitializer.
-- **Description**: Benchmark Google Sans Flex + Material Symbols Rounded load time. If >40ms, switch to async preload with fallback.
+- **Description**: Benchmark Google Sans Flex load time. If >40ms, switch to async preload with fallback. (Icons are vector drawables, not a font — no icon-font load to measure.)
 - **Acceptance**: Decision recorded in `FontPreloadInitializer` with measurement evidence.
 
 ---

@@ -130,7 +130,8 @@ class ComposeConventionPlugin : Plugin<Project> {
         addImplementation("androidx-compose-ui")
         addImplementation("androidx-compose-ui-tooling-preview")
         addImplementation("androidx-compose-material3")
-        addImplementation("androidx-compose-material-icons-extended")
+        // No material-icons-extended: icons are hand-picked Material Symbols Rounded vector
+        // drawables in :core:design-system rendered via the Icon composable (spec §9, M4-03).
         addImplementation("androidx-compose-adaptive-layout")
         addImplementation("androidx-compose-adaptive-navigation3")
         addImplementation("androidx-window")

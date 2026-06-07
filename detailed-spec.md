@@ -77,7 +77,7 @@ Eager init fights the <400ms cold-start SLO. Split:
 **Deferred** (lazy reference / first-use):
 3. `RoomDatabaseInitializer` — declare reference only; real connection on first DAO call
 4. `WorkManagerInitializer` — custom config registration; periodic workers enqueued post-first-frame on `Lifecycle.STARTED`
-5. `FontPreloadInitializer` — measure cost before deciding eager vs async. If Google Sans Flex + Material Symbols Rounded combined >40ms on mid-tier device, load async with Compose `FontFamily` fallback for first frame, swap when ready
+5. `FontPreloadInitializer` — measure Google Sans Flex cost before deciding eager vs async. If >40ms on a mid-tier device, load async with a Compose `FontFamily` fallback for first frame, swap when ready. (Icons are vector drawables, not a font — nothing to preload there.)
 
 #### 2.3.5 Storage / SQLite
 - Room journal mode = `WRITE_AHEAD_LOGGING`. Enables concurrent reads during background-worker writes.
@@ -106,7 +106,7 @@ Release build optimization follows the `r8-analyzer` skill (see M20-01).
 - Kotlin + Jetpack Compose + Material 3 Expressive
 - MVI architecture, Koin DI
 - **Google Sans Flex** font family (Regular, Medium, SemiBold, Bold, Light)
-- **Material Symbols Rounded** for icons (load font via App Startup; render via text glyphs)
+- **Material Symbols Rounded** for icons — hand-picked **vector drawables** in `:core:design-system/src/main/res/drawable/` (`ic_<name>.xml`), rendered with the `Icon` composable via a type-safe `StaxIcons` accessor. **No icon font, no `material-icons-extended`.** Missing icon → request it, never invent/substitute (icon policy in §9)
 - Room database, WorkManager (background), AlarmManager (exact reminders)
 - Navigation 3 (`NavDisplay` + `entryProvider` + `NavBackStack`), adaptive: bottom nav (compact), side rail (medium/foldables unfolded). Nav chrome via `NavigationSuiteScaffold`; multi-pane via Nav3 Scene strategies (`ListDetailSceneStrategy`, `SupportingPaneSceneStrategy`) — do not use the `*PaneScaffold` composables. Libs: `androidx.compose.material3.adaptive:adaptive-navigation3` (Scene strategies) + `:adaptive-layout` (backs them + `WindowSizeClass`). Per-feature navigation follows the `navigation-3` skill; adaptive layout follows the `adaptive` skill.
 - **Material 3 components** for the whole design system (stable). Adaptive multi-column lists use the stable `GridCells.Adaptive`; the experimental `Grid` / `FlexBox` / `MediaQuery` APIs (Compose `1.11.0-beta01`+, opt-in) are optional and adopted only where a stable API can't express the layout.
@@ -1470,11 +1470,6 @@ Use `GlanceAppWidget.sizeMode = SizeMode.Responsive` so the system picks the rig
   - `GenerateScheduledDosesWorker` daily run.
 - No periodic widget poll — purely event-driven.
 
-#### 4.16.6 Accessibility
-
-- Each button has a `contentDescription`: `"Take {compound name} dose, {dose}"`, `"Snooze {compound name} dose by one hour"`.
-- Min touch target 48×48dp inside the widget, even at `small` size — drop secondary actions before shrinking primary below threshold.
-
 ---
 
 ### 4.17 Static app shortcuts
@@ -1976,7 +1971,7 @@ Goal: medium + expanded are first-class — UI rearranges meaningfully, not just
 
 No Large / X-Large support — out of scope per §2 (no desktop, no ultra-wide).
 
-Touch targets ≥ 48×48dp at every breakpoint. All measurements `dp`, never `px`.
+All measurements `dp`, never `px`.
 
 #### 6.4.1 Navigation chrome
 
@@ -2102,7 +2097,7 @@ Same adaptive treatment as Onboarding step 1.
 
 ##### Reconstitution syringe, body map, dose ladder
 
-Vector renderers — scale to allocated bounds with `Modifier.aspectRatio`. Hit-test regions for body-map dots (§4.12.4) scale with the canvas; never below `48dp` diameter.
+Vector renderers — scale to allocated bounds with `Modifier.aspectRatio`. Hit-test regions for body-map dots (§4.12.4) scale with the canvas.
 
 #### 6.4.3 Foldable hinge handling
 
@@ -2234,6 +2229,13 @@ Per the `adaptive` skill:
 **Shape scale**: must be emphasized via M3 Expressive guidelines
 
 **Components**: Material 3 components throughout, themed via `MaterialTheme` (color / type / shape). Custom design-system components (syringe visualization §4.6, body-map renderer §4.12, dose card §4.1) are built on Compose primitives + the same `MaterialTheme` tokens — no separate styling system.
+
+**Icons**: the `Icon` composable + hand-picked **Material Symbols Rounded** vector drawables, owned by `:core:design-system`. Rules:
+- Assets live in `:core:design-system/src/main/res/drawable/`, named `ic_<name>.xml` (outlined) and `ic_<name>_filled.xml` (filled — e.g. the selected bottom-nav state). `<name>` is the Material Symbol's snake_case name (`ic_home`, `ic_calendar_month`).
+- Exported from [fonts.google.com/icons](https://fonts.google.com/icons) as **Android Vector Drawable**, style **Rounded**, weight **400**, grade **0**, optical size **24dp**, single black fill. Color is applied at runtime via `Icon`'s `tint` / `LocalContentColor` — never bake color into the asset.
+- A type-safe accessor `StaxIcons` maps each icon to its `painterResource`; feature code references `StaxIcons.X`, never raw `R.drawable` ids or string names. Every `Icon` gets a `contentDescription` (or `null` when purely decorative) per §5.10 / M17.
+- **No icon font; do not add `androidx.compose.material.icons-extended`** (size + a11y + type-safety reasons).
+- **Missing-icon policy (normative)**: if a screen needs an icon that is not already in `res/drawable`, **stop and request it** — state the exact Material Symbol name (Rounded; weight 400 / grade 0 / 24dp; plus the `_filled` variant if it is a selectable/nav icon). Do **not** invent an icon, substitute a different one, reuse an unrelated icon, or pull from `material-icons-extended`. The maintainer downloads the asset and drops it in.
 
 ---
 

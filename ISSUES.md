@@ -446,11 +446,11 @@ Goal: app paints in M3 Expressive theme with Google Sans Flex + Material Symbols
 - **Description**: Define M3 Expressive shape scale (extra-small → extra-large, plus pill 999r). Wire to `MaterialTheme.shapes`.
 - **Acceptance**: All cards/buttons use shape tokens, not inline `RoundedCornerShape(...)`.
 
-### M4-06 · Design tokens reference module
+### M4-06 · Design tokens — semantic colors + raw-color lint
 - **Depends on**: M4-01.
 - **Spec refs**: §9.
-- **Description**: `ui/theme/Tokens.kt` exposing semantic helpers: `surfaceContainerLow`, `surfaceContainer`, etc. Composables read tokens, never raw colors.
-- **Acceptance**: detekt rule forbids `Color(0xff...)` literals outside `Tokens.kt`.
+- **Description**: `:core:design-system` `Tokens.kt` exposing **`StaxColors`** — semantic / domain colors that M3 does **not** provide as a role: dose status (taken / missed / skipped / partial), low-stock vs `error`, success, the heat-map gradient ramp (§4.12.4), body-map dot + syringe-fill colors. Each maps to a `MaterialTheme.colorScheme` role where one fits (e.g. `missed → error`, `skipped → outline`), or defines a custom color **only** where M3 has no suitable role. **Do NOT re-wrap standard M3 roles** (`primary`, `surfaceContainerLow`, `onSurfaceVariant`, …) — those are read directly from `MaterialTheme.colorScheme`. `Tokens.kt` is also the **single legal home for raw `Color(0xFF…)` literals**; move the fallback color-scheme seeds currently in `StaxTheme` here.
+- **Acceptance**: A lint (`checkForbiddenColorApis` Gradle task — mirroring the `tween` / `RoundedCornerShape` guards — or a detekt rule) fails on any `Color(0xFF…)` literal outside `Tokens.kt`. `StaxColors` defines at least the dose-status + heat-map tokens and they are consumed via `StaxColors`, not raw colors. Standard M3 roles are read from `MaterialTheme.colorScheme`, never re-wrapped.
 
 ---
 

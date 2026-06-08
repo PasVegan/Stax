@@ -18,6 +18,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Stax"
 
+include(":detekt-rules")
 include(":app")
 include(":core:domain")
 include(":core:database")

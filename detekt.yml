@@ -30,6 +30,8 @@ naming:
     active: false   # @Composable functions use PascalCase by Compose convention
   InvalidPackageDeclaration:
     active: false   # _Package.kt files have unusual names by design
+  MatchingDeclarationName:
+    active: false   # Routes.kt groups a feature's @Serializable NavKey routes by convention (§10.3)
   NoNameShadowing:
     active: true
 
@@ -62,3 +64,8 @@ potential-bugs:
 performance:
   SpreadOperator:
     active: false   # vararg usage in Koin modules is fine
+
+# Stax custom ruleset (provided by :detekt-rules, loaded via detektPlugins in DetektConventionPlugin)
+stax:
+  NoCrossFeatureRouteImport:
+    active: true   # features never import another feature's routes — wire nav via :app callbacks (§10.3)

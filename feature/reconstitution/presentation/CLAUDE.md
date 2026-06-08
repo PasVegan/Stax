@@ -13,8 +13,9 @@ chips, dose ladder, and save-concentration action. Pure dosing-math UI on top of
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `ReconstitutionPresentationModule` (Koin). Coming: `ReconstitutionViewModel` + State/Action/Event,
-  syringe visualization composable, equivalence chips, dose ladder, `Routes.kt`, `ReconstitutionEntries`.
+- `ReconstitutionPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+  `reconstitutionEntries` (Nav3 entryProvider extension). Coming: `ReconstitutionViewModel` +
+  State/Action/Event, syringe visualization composable, equivalence chips, dose ladder.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas syringe), `navigation-3`, `adaptive`, `android-di-koin`.

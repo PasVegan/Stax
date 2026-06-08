@@ -13,8 +13,9 @@ JSON with FK remap, reset all data, repair inventory), and About. Adaptive list-
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `SettingsPresentationModule` (Koin). Coming: `SettingsViewModel` + State/Action/Event, theme-picker
-  dialog, reminders rows, export/import flows, reset/repair flows, `Routes.kt`, `SettingsEntries`.
+- `SettingsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+  `settingsEntries` (Nav3 entryProvider extension). Coming: `SettingsViewModel` + State/Action/Event,
+  theme-picker dialog, reminders rows, export/import flows, reset/repair flows.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

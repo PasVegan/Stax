@@ -26,7 +26,11 @@ depends on nothing — every feature consumes it.
 - `StaxShapes` — M3 Expressive shape scale (`material: Shapes` wired to `MaterialTheme.shapes`) + the
   `Pill` (≈999r) token (§9). **Inline `RoundedCornerShape(...)` is banned outside `:core:design-system`**
   — features use `MaterialTheme.shapes.<slot>` / `StaxShapes.Pill` (enforced by `checkForbiddenShapeApis`).
-- Coming per M4: `Tokens.kt` (semantic color helpers), Scene-strategy wrappers + `AdaptiveFab`.
+- `Tokens.kt` / `StaxColors` — **semantic** color tokens (dose status, site status, low-stock, heat
+  map, syringe) aliased to `colorScheme` roles (§9). Standard M3 roles are read from
+  `MaterialTheme.colorScheme` directly (not re-wrapped). `Tokens.kt` is the **only** legal home for
+  raw `Color(0xFF…)` literals (scheme seeds) — banned elsewhere by `checkForbiddenColorApis`.
+- Coming per M4: Scene-strategy wrappers + `AdaptiveFab`.
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

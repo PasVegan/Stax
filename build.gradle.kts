@@ -108,6 +108,43 @@ abstract class CheckForbiddenShapeApisTask : DefaultTask() {
     }
 }
 
+abstract class CheckForbiddenColorApisTask : DefaultTask() {
+    @get:Internal
+    abstract val projectRoot: DirectoryProperty
+
+    @TaskAction
+    fun check() {
+        val colorLiteral = Regex("""\bColor\s*\(\s*0x""") // matches Color(0xFF…)
+        val root = projectRoot.get().asFile
+        // Scan fresh every run (config-cache safe). Tokens.kt is the only legal home for raw
+        // Color(0x…) literals (scheme seeds); everything else uses MaterialTheme.colorScheme / StaxColors.
+        val violations = root.walkTopDown()
+            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
+            .filter { it.isFile && it.extension == "kt" && it.name != "Tokens.kt" }
+            .filter { it.invariantSeparatorsPath.contains("/src/") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    val code = line.substringBefore("//").trim()
+                    if (code.startsWith("*") || code.startsWith("/*")) {
+                        null
+                    } else if (colorLiteral.containsMatchIn(code)) {
+                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toList()
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Raw Color(0x…) literals are forbidden outside Tokens.kt (spec §9) — " +
+                    "use MaterialTheme.colorScheme.<role> or a StaxColors semantic token:\n" +
+                    violations.joinToString(separator = "\n"),
+            )
+        }
+    }
+}
+
 private val productModules = setOf(
     ":core:domain",
     ":core:database",
@@ -202,6 +239,17 @@ val checkForbiddenShapeApis = tasks.register<CheckForbiddenShapeApisTask>("check
     projectRoot.set(layout.projectDirectory)
 }
 
+val checkForbiddenColorApis = tasks.register<CheckForbiddenColorApisTask>("checkForbiddenColorApis") {
+    group = "verification"
+    description = "Fails when a raw Color(0x…) literal is used outside Tokens.kt — use colorScheme roles / StaxColors (spec §9, M4-06)."
+    projectRoot.set(layout.projectDirectory)
+}
+
 tasks.named("check") {
-    dependsOn(checkForbiddenModuleDependencies, checkForbiddenMotionApis, checkForbiddenShapeApis)
+    dependsOn(
+        checkForbiddenModuleDependencies,
+        checkForbiddenMotionApis,
+        checkForbiddenShapeApis,
+        checkForbiddenColorApis,
+    )
 }

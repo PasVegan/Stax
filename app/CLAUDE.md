@@ -27,7 +27,10 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   assembles the `entryProvider` from every feature's `<feature>Entries` + wires cross-feature callbacks,
   rendering `MainNavigationState.toDecoratedEntries` and the `StaxListDetailScene` (Compounds /
   Protocols list-detail) + `StaxSupportingPaneScene` (Dashboard main/supporting) strategies in
-  `NavDisplay.sceneStrategies` (§6.4.2).
+  `NavDisplay.sceneStrategies` (§6.4.2). Predictive back: `NavDisplay`'s `predictivePopTransitionSpec`
+  (+ matching pop/forward specs, `StaxMotion`-driven scale + fade peek) animates the system back
+  gesture while the active Scene strategy resolves the detail → list transition (§6.4.5,
+  `enableOnBackInvokedCallback` in the manifest).
 - `MainNavigationState` / `rememberMainNavigationState` (`MainNavigationState.kt`) — one saveable
   `NavBackStack` per destination (Nav3 multiple-back-stacks recipe, §6.2 / §6.4.5). `onTopLevelSelected`
   switches destination or, on re-tap, pops that stack to root; `push` adds a stacked screen to the active

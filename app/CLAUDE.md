@@ -19,8 +19,9 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
 - `StaxApplication` — Application subclass; **does not** call `startKoin` (App Startup does).
 - `MainActivity` — `enableEdgeToEdge()` before `setContent`; applies `StaxTheme`, hosts `MainScaffold`.
 - `MainScaffold` (`MainScaffold.kt`) — top-level `NavigationSuiteScaffold` chrome wrapping the single
-  `NavDisplay`. `layoutType` computed from `currentWindowAdaptiveInfoV2()`: bottom `NavigationBar`
-  <600dp · `NavigationRail` 600dp+ · `WideNavigationRailExpanded` 840dp+ (§6.4.1). Holds a
+  `NavDisplay`. `layoutType` computed from `currentWindowAdaptiveInfoV2()` with M3 Expressive types:
+  `ShortNavigationBarCompact` <600dp · `WideNavigationRailCollapsed` 600dp+ ·
+  `WideNavigationRailExpanded` 840dp+ (§6.4.1). Holds a
   `rememberNavigationSuiteScaffoldState` for hide-on-scroll chrome (§6.4.9). `StaxNavDisplay` (private)
   assembles the `entryProvider` from every feature's `<feature>Entries` + wires cross-feature callbacks.
 - `TopLevelDestination` — the 5 destinations (Home/Compounds/Protocols/Sites/Settings): Nav3 root route

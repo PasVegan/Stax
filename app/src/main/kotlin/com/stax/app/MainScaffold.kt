@@ -57,8 +57,8 @@ enum class TopLevelDestination(val route: NavKey, @StringRes val labelRes: Int) 
 
 /**
  * Top-level adaptive navigation chrome (§6.4.1). `NavigationSuiteScaffold` swaps across window-size
- * breakpoints — bottom `NavigationBar` at compact (<600dp), `NavigationRail` at medium (600dp+),
- * wide rail at expanded (840dp+) — and wraps the app's single `NavDisplay`. A
+ * breakpoints — short bottom bar at compact (<600dp), collapsed wide rail at medium (600dp+), and
+ * an expanded wide rail at expanded (840dp+) — and wraps the app's single `NavDisplay`. A
  * [rememberNavigationSuiteScaffoldState] is held so screen scroll behaviour can hide/show the chrome
  * later (§6.4.9).
  *
@@ -76,15 +76,16 @@ fun MainScaffold(modifier: Modifier = Modifier) {
     val selected = TopLevelDestination.entries.firstOrNull { it.route == currentRoot }
         ?: TopLevelDestination.Home
 
-    // Bottom NavigationBar < 600dp · NavigationRail 600dp+ · wide rail expands at 840dp+ (§6.4.1).
-    // The 1.5 default keeps a bottom bar through Medium, so the type is chosen explicitly here.
+    // M3 Expressive nav types, width-driven (§6.4.1): short bottom bar < 600dp · collapsed wide rail
+    // 600dp+ · expanded wide rail 840dp+. The 1.5 default never width-expands the rail, so the
+    // expanded breakpoint is selected explicitly here.
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val navSuiteType = when {
         windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
             NavigationSuiteType.WideNavigationRailExpanded
         windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
-            NavigationSuiteType.NavigationRail
-        else -> NavigationSuiteType.NavigationBar
+            NavigationSuiteType.WideNavigationRailCollapsed
+        else -> NavigationSuiteType.ShortNavigationBarCompact
     }
 
     NavigationSuiteScaffold(

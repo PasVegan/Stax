@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stax.core.design.system.ProvideFoldingFeature
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.domain.AppTheme
 import com.stax.core.domain.Settings
@@ -39,7 +40,11 @@ private fun StaxApp(settingsRepository: SettingsRepository = koinInject()) {
     ) {
         // NavigationSuiteScaffold owns the system-bar insets for its chrome (edge-to-edge, §2.3.6);
         // per-screen content applies its own insets via app bars in later milestones.
-        MainScaffold(modifier = Modifier.fillMaxSize())
+        // ProvideFoldingFeature wraps the nav root so the adaptive Scenes can snap pane dividers to
+        // a vertical hinge (§6.4.3).
+        ProvideFoldingFeature {
+            MainScaffold(modifier = Modifier.fillMaxSize())
+        }
     }
 }
 

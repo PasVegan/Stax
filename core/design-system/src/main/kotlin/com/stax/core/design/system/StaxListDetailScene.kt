@@ -36,12 +36,16 @@ object StaxListDetailScene {
     @Composable
     fun <T : Any> rememberSceneStrategy(): ListDetailSceneStrategy<T> {
         val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
-        val directive = remember(windowAdaptiveInfo) {
+        val foldingFeature = LocalFoldingFeature.current
+        val directive = remember(windowAdaptiveInfo, foldingFeature) {
             val expanded = windowAdaptiveInfo.windowSizeClass
                 .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
-            calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(
+            val base = calculatePaneScaffoldDirective(windowAdaptiveInfo)
+            base.copy(
                 defaultPanePreferredWidth = if (expanded) ListPaneWidthExpanded else ListPaneWidthMedium,
                 horizontalPartitionSpacerSize = PaneDivider,
+                // Snap the divider to a vertical hinge when folded (§6.4.3).
+                excludedBounds = foldingFeature.verticalHingeBounds() ?: base.excludedBounds,
             )
         }
         return rememberListDetailSceneStrategy(directive = directive)

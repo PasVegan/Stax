@@ -35,10 +35,14 @@ object StaxSupportingPaneScene {
     @Composable
     fun <T : Any> rememberSceneStrategy(): SupportingPaneSceneStrategy<T> {
         val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
-        val directive = remember(windowAdaptiveInfo) {
-            calculatePaneScaffoldDirective(windowAdaptiveInfo).copy(
+        val foldingFeature = LocalFoldingFeature.current
+        val directive = remember(windowAdaptiveInfo, foldingFeature) {
+            val base = calculatePaneScaffoldDirective(windowAdaptiveInfo)
+            base.copy(
                 defaultPanePreferredWidth = SupportingPaneWidth,
                 horizontalPartitionSpacerSize = PaneDivider,
+                // Snap the divider to a vertical hinge when folded (§6.4.3).
+                excludedBounds = foldingFeature.verticalHingeBounds() ?: base.excludedBounds,
             )
         }
         return rememberSupportingPaneSceneStrategy(directive = directive)

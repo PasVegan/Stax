@@ -17,7 +17,8 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
 
 ## Key types
 - `StaxApplication` — Application subclass; **does not** call `startKoin` (App Startup does).
-- `MainActivity` — `enableEdgeToEdge()` before `setContent`; applies `StaxTheme`, hosts `MainScaffold`.
+- `MainActivity` — `enableEdgeToEdge()` before `setContent`; applies `StaxTheme`, wraps the nav root in
+  `ProvideFoldingFeature` (hinge detection, §6.4.3), hosts `MainScaffold`.
 - `MainScaffold` (`MainScaffold.kt`) — top-level `NavigationSuiteScaffold` chrome wrapping the single
   `NavDisplay`. `layoutType` computed from `currentWindowAdaptiveInfoV2()` with M3 Expressive types:
   `ShortNavigationBarCompact` <600dp · `WideNavigationRailCollapsed` 600dp+ ·

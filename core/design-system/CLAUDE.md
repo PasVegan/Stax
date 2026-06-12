@@ -38,7 +38,10 @@ depends on nothing — every feature consumes it.
   `rememberSceneStrategy` (Material `SupportingPaneSceneStrategy`, supporting pane `360dp` ≈40% / main
   fills ≈60%, 1dp divider) + `mainPane()` / `supportingPane()` metadata. **Not**
   `SupportingPaneScaffold` (§6.4). Used by the Dashboard Medium layout.
-- Coming: `AdaptiveFab` (M5-06).
+- `AdaptiveFab` — primary FAB that animates its position across breakpoints (§6.4.6): floating
+  bottom-end at Compact (`16dp` inset), top-start rail FAB slot at Medium+, with the move driven by
+  `StaxMotion.defaultSpatialSpec()` (animated `BiasAlignment`). Place as the last child of a
+  `fillMaxSize` overlay over screen content.
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

@@ -10,15 +10,12 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
-import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxIcons
@@ -62,18 +59,22 @@ enum class TopLevelDestination(val route: NavKey, @StringRes val labelRes: Int) 
  * [rememberNavigationSuiteScaffoldState] is held so screen scroll behaviour can hide/show the chrome
  * later (§6.4.9).
  *
- * Selection follows the active stack's root. Re-tapping a destination resets to its root. A single
- * shared back stack is used for now; per-destination back stacks land in M5-03.
+ * Each destination owns its own saveable back stack ([MainNavigationState], §6.2 / §6.4.5):
+ * switching destinations preserves each section's history, and re-tapping the active item pops it
+ * back to its root.
  */
 @OptIn(ExperimentalMaterial3AdaptiveNavigationSuiteApi::class)
 @Suppress("FunctionName")
 @Composable
 fun MainScaffold(modifier: Modifier = Modifier) {
-    val backStack = rememberNavBackStack(TopLevelDestination.Home.route)
+    val topLevelRoutes = remember { TopLevelDestination.entries.map { it.route }.toSet() }
+    val navState = rememberMainNavigationState(
+        startRoute = TopLevelDestination.Home.route,
+        topLevelRoutes = topLevelRoutes,
+    )
     val navSuiteState = rememberNavigationSuiteScaffoldState()
 
-    val currentRoot = backStack.firstOrNull()
-    val selected = TopLevelDestination.entries.firstOrNull { it.route == currentRoot }
+    val selected = TopLevelDestination.entries.firstOrNull { it.route == navState.topLevelRoute }
         ?: TopLevelDestination.Home
 
     // M3 Expressive nav types, width-driven (§6.4.1): short bottom bar < 600dp · collapsed wide rail
@@ -94,7 +95,7 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                 val isSelected = destination == selected
                 item(
                     selected = isSelected,
-                    onClick = { backStack.switchTopLevel(destination) },
+                    onClick = { navState.onTopLevelSelected(destination.route) },
                     icon = {
                         Icon(
                             painter = destination.painter(isSelected),
@@ -109,7 +110,7 @@ fun MainScaffold(modifier: Modifier = Modifier) {
         layoutType = navSuiteType,
         state = navSuiteState,
     ) {
-        StaxNavDisplay(backStack = backStack, modifier = Modifier.fillMaxSize())
+        StaxNavDisplay(navState = navState, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -124,59 +125,48 @@ private fun TopLevelDestination.painter(selected: Boolean): Painter = when (this
 }
 
 /**
- * Switches the shared back stack to [destination]'s root, clearing any pushed detail (single-stack
- * model; per-destination retention lands in M5-03). Re-tapping the active destination pops to root.
- */
-private fun NavBackStack<NavKey>.switchTopLevel(destination: TopLevelDestination) {
-    clear()
-    add(destination.route)
-}
-
-/**
- * The app's single Navigation 3 host. The [NavBackStack] is saveable (survives configuration
- * changes and process death) and route arguments reach each screen through the typed `NavKey`
- * passed to its entry. The `entryProvider` is assembled from each feature's `<feature>Entries`
- * extension; all cross-feature navigation is wired here as lambda callbacks so feature modules
- * never reference one another (spec §10.3).
+ * The app's single Navigation 3 host. The active destination's back stack — and every other
+ * destination's — is saveable (survives configuration changes and process death), and route
+ * arguments reach each screen through the typed `NavKey` passed to its entry. The `entryProvider` is
+ * assembled from each feature's `<feature>Entries` extension; stacked screens push onto the active
+ * destination's stack and all cross-feature navigation is wired here as lambda callbacks so feature
+ * modules never reference one another (spec §10.3).
  */
 @Suppress("FunctionName")
 @Composable
-private fun StaxNavDisplay(backStack: NavBackStack<NavKey>, modifier: Modifier = Modifier) {
+private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = Modifier) {
+    val entryProvider = entryProvider {
+        dashboardEntries(
+            onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
+        )
+        compoundsEntries(
+            onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
+            onCreateCompound = { navState.push(CreateCompoundRoute) },
+            onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
+            onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
+            onBack = { navState.goBack() },
+        )
+        protocolsEntries(
+            onProtocolClick = { protocolId -> navState.push(ProtocolDetailRoute(protocolId)) },
+            onCreateProtocol = { navState.push(CreateProtocolRoute) },
+            onBack = { navState.goBack() },
+        )
+        sitesEntries()
+        settingsEntries()
+        reconstitutionEntries(
+            onBack = { navState.goBack() },
+        )
+        loggingEntries(
+            onBack = { navState.goBack() },
+        )
+        onboardingEntries(
+            onOnboardingComplete = { navState.goBack() },
+        )
+    }
+
     NavDisplay(
-        backStack = backStack,
+        entries = navState.toDecoratedEntries(entryProvider),
         modifier = modifier,
-        onBack = { backStack.removeLastOrNull() },
-        entryDecorators = listOf(
-            rememberSaveableStateHolderNavEntryDecorator(),
-            rememberViewModelStoreNavEntryDecorator(),
-        ),
-        entryProvider = entryProvider {
-            dashboardEntries(
-                onCompoundClick = { compoundId -> backStack.add(CompoundDetailRoute(compoundId)) },
-            )
-            compoundsEntries(
-                onCompoundClick = { compoundId -> backStack.add(CompoundDetailRoute(compoundId)) },
-                onCreateCompound = { backStack.add(CreateCompoundRoute) },
-                onEditCompound = { compoundId -> backStack.add(EditCompoundRoute(compoundId)) },
-                onReconstitute = { compoundId -> backStack.add(ReconstitutionRoute(compoundId)) },
-                onBack = { backStack.removeLastOrNull() },
-            )
-            protocolsEntries(
-                onProtocolClick = { protocolId -> backStack.add(ProtocolDetailRoute(protocolId)) },
-                onCreateProtocol = { backStack.add(CreateProtocolRoute) },
-                onBack = { backStack.removeLastOrNull() },
-            )
-            sitesEntries()
-            settingsEntries()
-            reconstitutionEntries(
-                onBack = { backStack.removeLastOrNull() },
-            )
-            loggingEntries(
-                onBack = { backStack.removeLastOrNull() },
-            )
-            onboardingEntries(
-                onOnboardingComplete = { backStack.removeLastOrNull() },
-            )
-        },
+        onBack = { navState.goBack() },
     )
 }

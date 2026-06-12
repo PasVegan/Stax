@@ -23,7 +23,13 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   `ShortNavigationBarCompact` <600dp · `WideNavigationRailCollapsed` 600dp+ ·
   `WideNavigationRailExpanded` 840dp+ (§6.4.1). Holds a
   `rememberNavigationSuiteScaffoldState` for hide-on-scroll chrome (§6.4.9). `StaxNavDisplay` (private)
-  assembles the `entryProvider` from every feature's `<feature>Entries` + wires cross-feature callbacks.
+  assembles the `entryProvider` from every feature's `<feature>Entries` + wires cross-feature callbacks,
+  rendering `MainNavigationState.toDecoratedEntries`.
+- `MainNavigationState` / `rememberMainNavigationState` (`MainNavigationState.kt`) — one saveable
+  `NavBackStack` per destination (Nav3 multiple-back-stacks recipe, §6.2 / §6.4.5). `onTopLevelSelected`
+  switches destination or, on re-tap, pops that stack to root; `push` adds a stacked screen to the active
+  stack; `goBack` pops or returns to Home ("exit through home"). Active route + every stack survive config
+  changes + process death (`rememberSerializable` + `rememberNavBackStack`).
 - `TopLevelDestination` — the 5 destinations (Home/Compounds/Protocols/Sites/Settings): Nav3 root route
   + `StaxIcons` outlined/`Filled` icon + label (§4.0).
 - `initializer/` — `KoinInitializer` (starts Koin, eager), `ThemeInitializer` (eager, DataStore theme cache),

@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.ExperimentalMaterial3AdaptiveNavigationSuiteApi
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -19,6 +20,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxIcons
+import com.stax.core.design.system.StaxListDetailScene
 import com.stax.feature.compounds.presentation.navigation.CompoundDetailRoute
 import com.stax.feature.compounds.presentation.navigation.CompoundsRoute
 import com.stax.feature.compounds.presentation.navigation.CreateCompoundRoute
@@ -132,22 +134,26 @@ private fun TopLevelDestination.painter(selected: Boolean): Painter = when (this
  * destination's stack and all cross-feature navigation is wired here as lambda callbacks so feature
  * modules never reference one another (spec §10.3).
  */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("FunctionName")
 @Composable
 private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = Modifier) {
+    // List-detail Scene (§6.4.2): Compounds / Protocols list entries pair with their detail entries.
+    val listDetailSceneStrategy = StaxListDetailScene.rememberSceneStrategy<NavKey>()
+
     val entryProvider = entryProvider {
         dashboardEntries(
             onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
         )
         compoundsEntries(
-            onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
+            onCompoundClick = { compoundId -> navState.showDetail(CompoundDetailRoute(compoundId)) },
             onCreateCompound = { navState.push(CreateCompoundRoute) },
             onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
             onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
             onBack = { navState.goBack() },
         )
         protocolsEntries(
-            onProtocolClick = { protocolId -> navState.push(ProtocolDetailRoute(protocolId)) },
+            onProtocolClick = { protocolId -> navState.showDetail(ProtocolDetailRoute(protocolId)) },
             onCreateProtocol = { navState.push(CreateProtocolRoute) },
             onBack = { navState.goBack() },
         )
@@ -167,6 +173,7 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
     NavDisplay(
         entries = navState.toDecoratedEntries(entryProvider),
         modifier = modifier,
+        sceneStrategies = listOf(listDetailSceneStrategy),
         onBack = { navState.goBack() },
     )
 }

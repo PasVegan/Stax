@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stax.core.design.system.StaxListDetailScene
 
 /**
  * Contributes the Protocols feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -20,19 +21,26 @@ import androidx.navigation3.runtime.NavKey
  * Navigation actions are lambda callbacks supplied by `:app` (spec §10.3); this module never
  * references another feature's routes. Route arguments reach the screen through the typed [NavKey]
  * passed to the entry.
+ *
+ * Protocols list + detail are tagged as the list-detail Scene's panes (§6.4.2): two panes at 600dp+,
+ * single-pane push below.
  */
 fun EntryProviderScope<NavKey>.protocolsEntries(
     onProtocolClick: (Long) -> Unit,
     onCreateProtocol: () -> Unit,
     onBack: () -> Unit,
 ) {
-    entry<ProtocolsRoute> {
+    entry<ProtocolsRoute>(
+        metadata = StaxListDetailScene.listPane(
+            detailPlaceholder = { PlaceholderScreen(title = "Select a protocol") },
+        ),
+    ) {
         PlaceholderScreen(title = "Protocols") {
             Button(onClick = onCreateProtocol) { Text(text = "New protocol") }
             Button(onClick = { onProtocolClick(SAMPLE_PROTOCOL_ID) }) { Text(text = "Open protocol") }
         }
     }
-    entry<ProtocolDetailRoute> { key ->
+    entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane()) { key ->
         PlaceholderScreen(title = "Protocol #${key.protocolId}") {
             Button(onClick = onBack) { Text(text = "Back") }
         }

@@ -15,8 +15,9 @@ Compound/Protocol *screens* — those are composed via `:app` wiring/callbacks, 
 the compounds/protocols feature modules (features never depend on features).
 
 ## Key types
-- `OnboardingPresentationModule` (Koin). Coming: `OnboardingViewModel` + State/Action/Event, Welcome +
-  permission-gate composables, `Routes.kt`, `OnboardingEntries`.
+- `OnboardingPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+  `onboardingEntries` (Nav3 entryProvider extension). Coming: `OnboardingViewModel` + State/Action/Event,
+  Welcome + permission-gate composables.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

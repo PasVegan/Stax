@@ -81,6 +81,8 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
         pluginManager.apply("com.stax.android.library")
         pluginManager.apply("com.stax.compose")
         pluginManager.apply("com.stax.koin")
+        // Feature routes are @Serializable NavKey types (Nav3 saveable back stack, §10.3).
+        pluginManager.apply("com.stax.kotlinx.serialization")
 
         addImplementation("androidx-lifecycle-runtime-compose")
         addImplementation("androidx-lifecycle-viewmodel-compose")
@@ -149,6 +151,11 @@ class KtlintConventionPlugin : Plugin<Project> {
 class DetektConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("io.gitlab.arturbosch.detekt")
+        // Stax custom rules (e.g. NoCrossFeatureRouteImport, §10.3). The rules module itself
+        // does not apply detekt, so it never depends on its own output.
+        if (path != ":detekt-rules") {
+            dependencies.add("detektPlugins", dependencies.project(mapOf("path" to ":detekt-rules")))
+        }
         extensions.configure<DetektExtension> {
             config.from(rootProject.file("detekt.yml"))
             buildUponDefaultConfig = true

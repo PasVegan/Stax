@@ -14,8 +14,9 @@ This is where inventory deduction is triggered (executed in the data layer).
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `LoggingPresentationModule` (Koin). Coming: Take Dose + Log Dose variant ViewModels &
-  State/Action/Event, grouped-event sheet, edit-dose, admin-event-detail, `Routes.kt`, `LoggingEntries`.
+- `LoggingPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+  `loggingEntries` (Nav3 entryProvider extension). Coming: Take Dose + Log Dose variant ViewModels &
+  State/Action/Event, grouped-event sheet, edit-dose, admin-event-detail.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `edge-to-edge`, `android-di-koin`.

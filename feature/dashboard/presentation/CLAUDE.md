@@ -14,8 +14,9 @@ recent activity, grouped-administration suggestion, and the direct-log/menu FAB.
 never another feature.
 
 ## Key types
-- `DashboardPresentationModule` (Koin). Coming: `DashboardViewModel` + `DashboardState/Action/Event`,
-  `Routes.kt` (NavKeys), `DashboardEntries` (Nav3 entry provider), Root + Screen composables, dose-card UI.
+- `DashboardPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+  `dashboardEntries` (Nav3 entryProvider extension). Coming: `DashboardViewModel` +
+  `DashboardState/Action/Event`, Root + Screen composables, dose-card UI.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

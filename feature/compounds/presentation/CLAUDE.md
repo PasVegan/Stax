@@ -14,8 +14,9 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `CompoundsPresentationModule` (Koin). Coming: list + detail + create/edit ViewModels & State/Action/Event,
-  `Routes.kt` (NavKeys), `CompoundsEntries`, Root/Screen composables, history paging.
+- `CompoundsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes) +
+  `compoundsEntries` (Nav3 entryProvider extension). Coming: list/detail/create/edit ViewModels &
+  State/Action/Event, Root/Screen composables, history paging.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

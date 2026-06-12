@@ -70,6 +70,7 @@ gap, update the spec in the same change.
 ```
 :app                 wires modules, NavDisplay + entryProvider, Application, App Startup initializers
 :build-logic         Gradle convention plugins (com.stax.*)
+:detekt-rules        custom detekt ruleset (stax) — e.g. NoCrossFeatureRouteImport; loaded via detektPlugins
 :core:domain         domain models, repository INTERFACES, errors, Result, Decimal/Quantity/Concentration   (pure Kotlin)
 :core:database       Room @Database, entities, DAOs, converters, migrations, seed callback
 :core:data           repository IMPLs (Room*), Entity↔Domain mappers, DataStore, ScheduledDoseGenerator, Koin coreDataModule

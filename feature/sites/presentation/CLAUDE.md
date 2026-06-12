@@ -14,8 +14,9 @@ picker. Includes the rotation-suggestion algorithm surface.
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `SitesPresentationModule` (Koin). Coming: `SitesViewModel` + State/Action/Event, body-map vector
-  renderer, heat-map mode, site-detail sheet, site-picker flow, `Routes.kt`, `SitesEntries`.
+- `SitesPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+  `sitesEntries` (Nav3 entryProvider extension). Coming: `SitesViewModel` + State/Action/Event,
+  body-map vector renderer, heat-map mode, site-detail sheet, site-picker flow.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas/vector + hit-testing), `navigation-3`,

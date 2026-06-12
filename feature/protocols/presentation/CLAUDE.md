@@ -13,8 +13,9 @@ forecast & warnings), escalation rules, and the pause-with-unsaved-changes flow.
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `ProtocolsPresentationModule` (Koin). Coming: list/detail/create ViewModels & State/Action/Event,
-  `Routes.kt` (NavKeys), `ProtocolsEntries`, Root/Screen composables, forecast preview.
+- `ProtocolsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes) +
+  `protocolsEntries` (Nav3 entryProvider extension). Coming: list/detail/create ViewModels &
+  State/Action/Event, Root/Screen composables, forecast preview.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

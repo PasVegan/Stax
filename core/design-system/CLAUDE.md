@@ -30,7 +30,11 @@ depends on nothing — every feature consumes it.
   map, syringe) aliased to `colorScheme` roles (§9). Standard M3 roles are read from
   `MaterialTheme.colorScheme` directly (not re-wrapped). `Tokens.kt` is the **only** legal home for
   raw `Color(0xFF…)` literals (scheme seeds) — banned elsewhere by `checkForbiddenColorApis`.
-- Coming per M4: Scene-strategy wrappers + `AdaptiveFab`.
+- `StaxListDetailScene` — reusable Nav3 **list-detail Scene** wrapper (§6.4.2): `rememberSceneStrategy`
+  (Material `ListDetailSceneStrategy` with list pane `360dp` Medium / `400dp` Expanded + 1dp pane
+  divider) + `listPane(detailPlaceholder)` / `detailPane()` metadata helpers. **Not**
+  `ListDetailPaneScaffold` (§6.4). Used by Compounds / Protocols / Settings entries.
+- Coming: `SupportingPane` Scene wrapper (M5-05) + `AdaptiveFab` (M5-06).
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

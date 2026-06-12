@@ -24,8 +24,9 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   `WideNavigationRailExpanded` 840dp+ (§6.4.1). Holds a
   `rememberNavigationSuiteScaffoldState` for hide-on-scroll chrome (§6.4.9). `StaxNavDisplay` (private)
   assembles the `entryProvider` from every feature's `<feature>Entries` + wires cross-feature callbacks,
-  rendering `MainNavigationState.toDecoratedEntries` and the `StaxListDetailScene` strategy in
-  `NavDisplay.sceneStrategies` (Compounds / Protocols list-detail, §6.4.2).
+  rendering `MainNavigationState.toDecoratedEntries` and the `StaxListDetailScene` (Compounds /
+  Protocols list-detail) + `StaxSupportingPaneScene` (Dashboard main/supporting) strategies in
+  `NavDisplay.sceneStrategies` (§6.4.2).
 - `MainNavigationState` / `rememberMainNavigationState` (`MainNavigationState.kt`) — one saveable
   `NavBackStack` per destination (Nav3 multiple-back-stacks recipe, §6.2 / §6.4.5). `onTopLevelSelected`
   switches destination or, on re-tap, pops that stack to root; `push` adds a stacked screen to the active

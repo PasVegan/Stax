@@ -60,6 +60,17 @@ class MainNavigationState(
     }
 
     /**
+     * Selects [route] as the active destination's detail pane (§6.4.2). Any existing detail of the
+     * same type is replaced rather than stacked, so at Medium+ the detail pane swaps in place
+     * without growing the back stack; at Compact it simply pushes the detail.
+     */
+    fun showDetail(route: NavKey) {
+        val stack = currentStack
+        stack.removeAll { it::class == route::class }
+        stack.add(route)
+    }
+
+    /**
      * Handles system / predictive back: pops the active stack, or — at a non-Home root — returns to
      * the Home stack. At the Home root nothing pops (the back press leaves the app).
      */

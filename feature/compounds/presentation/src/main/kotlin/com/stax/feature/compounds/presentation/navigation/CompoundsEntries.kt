@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stax.core.design.system.StaxListDetailScene
 
 /**
  * Contributes the Compounds feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -20,6 +21,9 @@ import androidx.navigation3.runtime.NavKey
  * Every navigation action is a lambda callback supplied by `:app` (spec §10.3) — this module never
  * references another feature's routes. Route arguments reach the screen (and, later, its ViewModel)
  * through the typed [NavKey] passed to the entry, never via `toRoute<T>()`.
+ *
+ * Compounds list + detail are tagged as the list-detail Scene's panes (§6.4.2): two panes at 600dp+,
+ * single-pane push below.
  */
 fun EntryProviderScope<NavKey>.compoundsEntries(
     onCompoundClick: (Long) -> Unit,
@@ -28,13 +32,17 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
     onReconstitute: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
-    entry<CompoundsRoute> {
+    entry<CompoundsRoute>(
+        metadata = StaxListDetailScene.listPane(
+            detailPlaceholder = { PlaceholderScreen(title = "Select a compound") },
+        ),
+    ) {
         PlaceholderScreen(title = "Compounds") {
             Button(onClick = onCreateCompound) { Text(text = "New compound") }
             Button(onClick = { onCompoundClick(SAMPLE_COMPOUND_ID) }) { Text(text = "Open compound") }
         }
     }
-    entry<CompoundDetailRoute> { key ->
+    entry<CompoundDetailRoute>(metadata = StaxListDetailScene.detailPane()) { key ->
         PlaceholderScreen(title = "Compound #${key.compoundId}") {
             Button(onClick = { onEditCompound(key.compoundId) }) { Text(text = "Edit") }
             Button(onClick = { onReconstitute(key.compoundId) }) { Text(text = "Reconstitute") }

@@ -21,12 +21,14 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxListDetailScene
+import com.stax.core.design.system.StaxSupportingPaneScene
 import com.stax.feature.compounds.presentation.navigation.CompoundDetailRoute
 import com.stax.feature.compounds.presentation.navigation.CompoundsRoute
 import com.stax.feature.compounds.presentation.navigation.CreateCompoundRoute
 import com.stax.feature.compounds.presentation.navigation.EditCompoundRoute
 import com.stax.feature.compounds.presentation.navigation.compoundsEntries
 import com.stax.feature.dashboard.presentation.navigation.DashboardRoute
+import com.stax.feature.dashboard.presentation.navigation.DashboardSupportingRoute
 import com.stax.feature.dashboard.presentation.navigation.dashboardEntries
 import com.stax.feature.logging.presentation.navigation.loggingEntries
 import com.stax.feature.onboarding.presentation.navigation.onboardingEntries
@@ -140,10 +142,13 @@ private fun TopLevelDestination.painter(selected: Boolean): Painter = when (this
 private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = Modifier) {
     // List-detail Scene (§6.4.2): Compounds / Protocols list entries pair with their detail entries.
     val listDetailSceneStrategy = StaxListDetailScene.rememberSceneStrategy<NavKey>()
+    // Supporting-pane Scene (§6.4.2): Dashboard main pane + supporting pane.
+    val supportingPaneSceneStrategy = StaxSupportingPaneScene.rememberSceneStrategy<NavKey>()
 
     val entryProvider = entryProvider {
         dashboardEntries(
             onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
+            onShowSupporting = { navState.push(DashboardSupportingRoute) },
         )
         compoundsEntries(
             onCompoundClick = { compoundId -> navState.showDetail(CompoundDetailRoute(compoundId)) },
@@ -173,7 +178,7 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
     NavDisplay(
         entries = navState.toDecoratedEntries(entryProvider),
         modifier = modifier,
-        sceneStrategies = listOf(listDetailSceneStrategy),
+        sceneStrategies = listOf(listDetailSceneStrategy, supportingPaneSceneStrategy),
         onBack = { navState.goBack() },
     )
 }

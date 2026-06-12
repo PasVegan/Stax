@@ -34,7 +34,11 @@ depends on nothing — every feature consumes it.
   (Material `ListDetailSceneStrategy` with list pane `360dp` Medium / `400dp` Expanded + 1dp pane
   divider) + `listPane(detailPlaceholder)` / `detailPane()` metadata helpers. **Not**
   `ListDetailPaneScaffold` (§6.4). Used by Compounds / Protocols / Settings entries.
-- Coming: `SupportingPane` Scene wrapper (M5-05) + `AdaptiveFab` (M5-06).
+- `StaxSupportingPaneScene` — reusable Nav3 **supporting-pane Scene** wrapper (§6.4.2 Dashboard):
+  `rememberSceneStrategy` (Material `SupportingPaneSceneStrategy`, supporting pane `360dp` ≈40% / main
+  fills ≈60%, 1dp divider) + `mainPane()` / `supportingPane()` metadata. **Not**
+  `SupportingPaneScaffold` (§6.4). Used by the Dashboard Medium layout.
+- Coming: `AdaptiveFab` (M5-06).
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

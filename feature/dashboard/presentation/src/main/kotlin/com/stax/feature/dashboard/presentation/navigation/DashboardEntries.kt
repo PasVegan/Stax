@@ -13,18 +13,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stax.core.design.system.StaxSupportingPaneScene
 
 /**
- * Contributes the Dashboard (Home) `NavEntry` to the app's `NavDisplay` `entryProvider`.
+ * Contributes the Dashboard (Home) `NavEntry`s to the app's `NavDisplay` `entryProvider`.
  *
- * Opening a compound from a Dashboard card is a cross-feature jump, so it is expressed as a lambda
- * callback supplied by `:app` (spec §10.3) — this module never references the Compounds routes.
+ * The Dashboard uses the supporting-pane Scene (§6.4.2): [DashboardRoute] is the main pane and
+ * [DashboardSupportingRoute] the supporting pane (inventory warnings + recent activity), rendered
+ * beside the main pane at Medium+. Opening a compound from a Dashboard card is a cross-feature jump,
+ * so it is a lambda callback supplied by `:app` (spec §10.3) — this module never references the
+ * Compounds routes.
  */
-fun EntryProviderScope<NavKey>.dashboardEntries(onCompoundClick: (Long) -> Unit) {
-    entry<DashboardRoute> {
+fun EntryProviderScope<NavKey>.dashboardEntries(onCompoundClick: (Long) -> Unit, onShowSupporting: () -> Unit) {
+    entry<DashboardRoute>(metadata = StaxSupportingPaneScene.mainPane()) {
         PlaceholderScreen(title = "Dashboard") {
             Button(onClick = { onCompoundClick(SAMPLE_COMPOUND_ID) }) { Text(text = "Open compound") }
+            Button(onClick = onShowSupporting) { Text(text = "Show supporting") }
         }
+    }
+    entry<DashboardSupportingRoute>(metadata = StaxSupportingPaneScene.supportingPane()) {
+        PlaceholderScreen(title = "Inventory & activity")
     }
 }
 

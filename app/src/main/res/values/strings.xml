@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Stax</string>
+
+    <!-- Top-level navigation destinations (§4.0 / §6.1) -->
+    <string name="nav_home">Home</string>
+    <string name="nav_compounds">Compounds</string>
+    <string name="nav_protocols">Protocols</string>
+    <string name="nav_sites">Sites</string>
+    <string name="nav_settings">Settings</string>
 </resources>

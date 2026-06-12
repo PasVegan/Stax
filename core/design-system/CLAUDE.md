@@ -42,6 +42,11 @@ depends on nothing — every feature consumes it.
   bottom-end at Compact (`16dp` inset), top-start rail FAB slot at Medium+, with the move driven by
   `StaxMotion.defaultSpatialSpec()` (animated `BiasAlignment`). Place as the last child of a
   `fillMaxSize` overlay over screen content.
+- `LocalFoldingFeature` / `ProvideFoldingFeature` — `WindowInfoTracker.windowLayoutInfo` collector +
+  `CompositionLocal<FoldingFeature?>` (§6.4.3). `ProvideFoldingFeature` wraps the nav roots; the
+  list-detail / supporting-pane Scenes read it (`verticalHingeBounds()` → directive `excludedBounds`)
+  to snap a two-pane divider to a vertical hinge. Also available to screens for single-pane hinge
+  padding / tabletop layouts.
 
 ## Applicable skills
 `android-compose-ui` (design-system composables, stability), `adaptive` (Scene wrappers, nav chrome),

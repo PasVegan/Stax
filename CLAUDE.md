@@ -116,7 +116,10 @@ add a `CLAUDE.md` + `AGENT.md` symlink + `_Package.kt`. Skill: `android-module-s
   `Concentration` value types from `:core:domain`.
 - **No `LocalDateTime`.** Use `Instant` + `LocalDate` + `LocalTime` from kotlinx-datetime (§5.7).
 - **No raw color literals** (`Color(0xff…)`) outside `Tokens.kt`; **no `tween(`** outside
-  `StaxMotion`; **no Room access** from `:feature:*`.
+  `StaxMotion`; **no `WindowInsets` API** outside `:core:design-system`; **no Room access** from
+  `:feature:*`.
+- **Every `NavDisplay` entry is a Scene pane** — its content root applies `Modifier.paneInsets()`
+  exactly once and uses no other inset API (§2.3.6).
 - **No `remember`/`rememberSaveable` for app state** — app state lives in the ViewModel,
   collected via `collectAsStateWithLifecycle()`. Only Compose-internal state (`LazyListState`,
   etc.) uses `remember*`.

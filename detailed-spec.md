@@ -87,8 +87,12 @@ Eager init fights the <400ms cold-start SLO. Split:
 Follow the `edge-to-edge` skill.
 - `enableEdgeToEdge()` before `setContent` in every `Activity.onCreate`.
 - `android:windowSoftInputMode="adjustResize"` in the manifest for every Activity that shows a soft keyboard (text fields).
-- All padding derived from `WindowInsets.statusBars`, `WindowInsets.navigationBars`, `WindowInsets.ime` (via `Modifier.imePadding()` / `windowInsetsPadding`). No hardcoded inset dimensions anywhere.
+- All padding derived from the framework insets (status bars, navigation bars, display cutout, IME). No hardcoded inset dimensions anywhere.
 - Apply insets with exactly **one** method per surface (inset-padding OR ruler-alignment) — never both, to avoid double padding. Lists + FAB must not be obscured by the nav bar; text fields must stay visible above the IME.
+- **Per-pane insets (§6.4, M5-09).** A `NavDisplay` entry *is* a Scene pane, and the adaptive Scene strategies propagate no insets of their own — so each pane claims its own slice, exactly once, at its content root via `Modifier.paneInsets()` from `:core:design-system` (ruler alignment: `fitInside(WindowInsetsRulers.SafeDrawing.current)`, which covers system bars + cutout + IME in one method).
+  - Ruler alignment, not `windowInsetsPadding`, because rulers resolve in the pane's own coordinate space: only the pane that actually touches a system bar is inset by it (nav bar on the bottom-most pane of a tabletop split; a landscape cutout / three-button bar on the outer pane of a side-by-side split). Consumption-based padding would give the whole window inset to both panes and open a gap down the middle.
+  - Double padding is structurally impossible: a node already inside the safe area resolves its rulers to its own edges, so nesting `paneInsets` — or composing it with the padding `NavigationSuiteScaffold` applies for its chrome — adds nothing.
+  - Every other `WindowInsets` API is banned outside `:core:design-system`, enforced by the `checkForbiddenInsetApis` Gradle task (wired into `check`).
 - System-bar legibility: rely on the framework's adaptive bar-icon contrast; do not hardcode bar colors.
 
 #### 2.3.7 RenderEffect blur

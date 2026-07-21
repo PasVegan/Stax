@@ -145,6 +145,53 @@ abstract class CheckForbiddenColorApisTask : DefaultTask() {
     }
 }
 
+abstract class CheckForbiddenInsetApisTask : DefaultTask() {
+    @get:Internal
+    abstract val projectRoot: DirectoryProperty
+
+    @TaskAction
+    fun check() {
+        // Inset-padding modifiers + any direct WindowInsets read. Modifier.paneInsets() (ruler
+        // alignment) is the single inset method a pane may use, so mixing in a second one is the
+        // double-padding bug §2.3.6 forbids.
+        val insetApi = Regex(
+            """\b(safeDrawingPadding|safeContentPadding|safeGesturesPadding|imePadding|""" +
+                """systemBarsPadding|navigationBarsPadding|statusBarsPadding|""" +
+                """displayCutoutPadding|captionBarPadding|windowInsetsPadding|""" +
+                """windowInsetsTopHeight|windowInsetsBottomHeight|windowInsetsStartWidth|""" +
+                """windowInsetsEndWidth|consumeWindowInsets)\s*\(|\bWindowInsets\.""",
+        )
+        val root = projectRoot.get().asFile
+        // Scan fresh every run (config-cache safe). :core:design-system owns inset handling
+        // (StaxPaneInsets); every other module applies it through Modifier.paneInsets().
+        val violations = root.walkTopDown()
+            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { it.invariantSeparatorsPath.contains("/src/") }
+            .filterNot { it.invariantSeparatorsPath.contains("/core/design-system/") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    val code = line.substringBefore("//").trim()
+                    if (code.startsWith("*") || code.startsWith("/*")) {
+                        null
+                    } else if (insetApi.containsMatchIn(code)) {
+                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toList()
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "WindowInsets APIs are forbidden outside :core:design-system (spec §2.3.6) — a pane " +
+                    "gets exactly one inset method, Modifier.paneInsets():\n" +
+                    violations.joinToString(separator = "\n"),
+            )
+        }
+    }
+}
+
 private val productModules = setOf(
     ":core:domain",
     ":core:database",
@@ -245,11 +292,18 @@ val checkForbiddenColorApis = tasks.register<CheckForbiddenColorApisTask>("check
     projectRoot.set(layout.projectDirectory)
 }
 
+val checkForbiddenInsetApis = tasks.register<CheckForbiddenInsetApisTask>("checkForbiddenInsetApis") {
+    group = "verification"
+    description = "Fails when a WindowInsets API is used outside :core:design-system — a pane gets exactly one inset method, Modifier.paneInsets() (spec §2.3.6, M5-09)."
+    projectRoot.set(layout.projectDirectory)
+}
+
 tasks.named("check") {
     dependsOn(
         checkForbiddenModuleDependencies,
         checkForbiddenMotionApis,
         checkForbiddenShapeApis,
         checkForbiddenColorApis,
+        checkForbiddenInsetApis,
     )
 }

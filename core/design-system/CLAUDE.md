@@ -16,6 +16,11 @@ depends on nothing — every feature consumes it.
 
 ## Key types
 - `StaxTheme` — M3 Expressive theme via `MaterialExpressiveTheme` (expressive `MotionScheme` app-wide → M3 components animate expressively); consumes `Settings.theme` + `dynamicColor`; light/dark + dynamic color.
+  The scheme change cross-fades **per color role** (`animateColorAsState`, `StaxMotion.defaultEffectsSpec`,
+  §5.9) — **never** by wrapping `content` in `Crossfade`/`AnimatedContent`. A structural fade puts the
+  whole app in a new composition group on every theme recompute, and `rememberSaveable` derives its
+  registry key from the enclosing group: all auto-keyed saved state (the nav back stacks included) would
+  become unreachable and reset on every configuration change.
 - `StaxTypography` — Google Sans Flex type scale (+ preview).
 - `StaxMotion` — centralized M3 Expressive motion specs from `MotionScheme.expressive()` + syringe
   spring / shape-morph corners / cross-fade durations (§5.9). **Inline `tween(...)` is banned outside

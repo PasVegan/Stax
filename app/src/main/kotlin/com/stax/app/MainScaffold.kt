@@ -177,7 +177,9 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             onBack = { navState.goBack() },
         )
         onboardingEntries(
-            onOnboardingComplete = { navState.goBack() },
+            // Step 2 (Create Compound) lands with M6-02; until then both actions leave the flow.
+            onContinue = { navState.goBack() },
+            onSkip = { navState.goBack() },
         )
     }
 

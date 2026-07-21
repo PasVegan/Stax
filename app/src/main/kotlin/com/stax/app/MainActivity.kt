@@ -39,7 +39,7 @@ private fun StaxApp(settingsRepository: SettingsRepository = koinInject()) {
         dynamicColor = settings?.dynamicColor ?: true,
     ) {
         // NavigationSuiteScaffold owns the system-bar insets for its chrome (edge-to-edge, §2.3.6);
-        // per-screen content applies its own insets via app bars in later milestones.
+        // each NavDisplay entry is a Scene pane and claims its own slice via Modifier.paneInsets().
         // ProvideFoldingFeature wraps the nav root so the adaptive Scenes can snap pane dividers to
         // a vertical hinge (§6.4.3).
         ProvideFoldingFeature {

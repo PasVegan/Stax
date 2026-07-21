@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
+import com.stax.core.design.system.paneInsets
 
 /**
  * Contributes the Compounds feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -70,6 +71,7 @@ private fun PlaceholderScreen(title: String, modifier: Modifier = Modifier, acti
     Column(
         modifier = modifier
             .fillMaxSize()
+            .paneInsets()
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,

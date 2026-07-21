@@ -39,6 +39,9 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   (`rememberSerializable` + `rememberNavBackStack`).
 - `TopLevelDestination` — the 5 destinations (Home/Compounds/Protocols/Sites/Settings): Nav3 root route
   + `StaxIcons` outlined/`Filled` icon + label (§4.0).
+- `res/values/themes.xml` — `Theme.Stax`, the window theme declared on `<application>`: DeviceDefault
+  DayNight with **no title / no action bar**. The window is pure Compose and edge-to-edge, so a
+  platform ActionBar would overlay pane content (it claims no inset of its own, §2.3.6).
 - `initializer/` — `KoinInitializer` (starts Koin, eager), `ThemeInitializer` (eager, DataStore theme cache),
   `RoomDatabaseInitializer`, `WorkManagerInitializer`, `FontPreloadInitializer` (deferred, `Lifecycle.STARTED`).
 

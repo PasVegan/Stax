@@ -16,7 +16,10 @@ resource-or-literal user strings, the `DataError → UiText` mapping, and shared
 ## Key types
 - `UiText` — sealed type for literal vs. string-resource text resolved in Compose.
 - `DataErrorUiText` — `DataError.toUiText()` extension (map typed errors → user strings).
-- (Shared `ObserveAsEvents` + UI utils live here as features are built out.)
+- `ObserveAsEvents` — lifecycle-aware collector for a ViewModel's one-time event flow (§10.1).
+  Collects between `STARTED` and `STOPPED` (the ViewModel's `Channel` holds events fired while the
+  screen is backgrounded) and invokes the handler on `Dispatchers.Main.immediate` so navigation takes
+  effect in the same frame. Every `<Screen>Root` uses it.
 
 ## Applicable skills
 `android-presentation-mvi` (UiText, ObserveAsEvents), `android-error-handling`.

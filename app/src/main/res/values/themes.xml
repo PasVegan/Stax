@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        The app window is pure Compose: `StaxTheme` paints everything (§9) and `enableEdgeToEdge()`
+        draws behind the system bars, with each Scene pane claiming its own insets via
+        `Modifier.paneInsets()` (§2.3.6). The platform ActionBar would sit on top of that content —
+        it has no inset of its own to claim — so the window declares no title/action bar.
+    -->
+    <style name="Theme.Stax" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+</resources>

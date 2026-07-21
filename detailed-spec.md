@@ -1992,6 +1992,8 @@ Use `NavigationSuiteScaffold` (items supplied as `NavigationSuiteItem`s) so chro
 
 Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fills remainder. Status bar + nav bar insets respected via §2.3.6 edge-to-edge.
 
+**Every scaffold scene carries its own `sceneKey`.** `NavDisplay` keys its `AnimatedContent` by `(scene::class, scene.key)`, and both `ListDetailSceneStrategy` and `SupportingPaneSceneStrategy` build the same `ThreePaneScaffoldScene` class — so on the Material default (`sceneKey = Unit`) Compounds, Protocols, Settings and the Dashboard all collapse onto one content slot. The scaffold state remembered for the outgoing scene is then reused by the incoming scene's scaffold, whose new `Transition` finds the same `SeekableTransitionState` already in use, and the app crashes ("An instance of SeekableTransitionState has been used in different Transitions"). `StaxListDetailScene` / `StaxSupportingPaneScene` therefore make `sceneKey` a required parameter, and each feature declares its own constant.
+
 #### 6.4.2 Per-screen layouts
 
 ##### Dashboard (§4.1)

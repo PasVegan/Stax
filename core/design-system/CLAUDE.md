@@ -32,11 +32,16 @@ depends on nothing — every feature consumes it.
   raw `Color(0xFF…)` literals (scheme seeds) — banned elsewhere by `checkForbiddenColorApis`.
 - `StaxListDetailScene` — reusable Nav3 **list-detail Scene** wrapper (§6.4.2): `rememberSceneStrategy`
   (Material `ListDetailSceneStrategy` with list pane `360dp` Medium / `400dp` Expanded + 1dp pane
-  divider) + `listPane(detailPlaceholder)` / `detailPane()` metadata helpers. **Not**
+  divider) + `listPane(sceneKey, detailPlaceholder)` / `detailPane(sceneKey)` metadata helpers. **Not**
   `ListDetailPaneScaffold` (§6.4). Used by Compounds / Protocols / Settings entries.
+  **`sceneKey` is mandatory** (the Material API defaults it to `Unit`): `NavDisplay` keys its
+  `AnimatedContent` by `(scene::class, scene.key)`, so every scaffold scene sharing the default key
+  lands in one content slot and the reused scaffold state crashes with "An instance of
+  SeekableTransitionState has been used in different Transitions".
 - `StaxSupportingPaneScene` — reusable Nav3 **supporting-pane Scene** wrapper (§6.4.2 Dashboard):
   `rememberSceneStrategy` (Material `SupportingPaneSceneStrategy`, supporting pane `360dp` ≈40% / main
-  fills ≈60%, 1dp divider) + `mainPane()` / `supportingPane()` metadata. **Not**
+  fills ≈60%, 1dp divider) + `mainPane(sceneKey)` / `supportingPane(sceneKey)` metadata (`sceneKey`
+  mandatory, same reason as above — it builds the same `ThreePaneScaffoldScene` class). **Not**
   `SupportingPaneScaffold` (§6.4). Used by the Dashboard Medium layout.
 - `Modifier.paneInsets()` — the **single** inset method a Scene pane may use (§2.3.6, M5-09): ruler
   alignment (`fitInside(WindowInsetsRulers.SafeDrawing.current)`) covering system bars + cutout + IME.

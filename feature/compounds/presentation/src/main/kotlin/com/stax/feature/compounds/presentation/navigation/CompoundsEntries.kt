@@ -35,6 +35,7 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
 ) {
     entry<CompoundsRoute>(
         metadata = StaxListDetailScene.listPane(
+            sceneKey = COMPOUNDS_SCENE_KEY,
             detailPlaceholder = { PlaceholderScreen(title = "Select a compound") },
         ),
     ) {
@@ -43,7 +44,7 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
             Button(onClick = { onCompoundClick(SAMPLE_COMPOUND_ID) }) { Text(text = "Open compound") }
         }
     }
-    entry<CompoundDetailRoute>(metadata = StaxListDetailScene.detailPane()) { key ->
+    entry<CompoundDetailRoute>(metadata = StaxListDetailScene.detailPane(COMPOUNDS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Compound #${key.compoundId}") {
             Button(onClick = { onEditCompound(key.compoundId) }) { Text(text = "Edit") }
             Button(onClick = { onReconstitute(key.compoundId) }) { Text(text = "Reconstitute") }
@@ -61,6 +62,12 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
         }
     }
 }
+
+/**
+ * Identifies the Compounds list-detail scene. Each scaffold scene in the app's single `NavDisplay`
+ * needs its own key or they share one `AnimatedContent` slot and crash (see `StaxListDetailScene`).
+ */
+private const val COMPOUNDS_SCENE_KEY = "compounds"
 
 /** Placeholder id used to demonstrate the list → detail push until the real list lands. */
 private const val SAMPLE_COMPOUND_ID = 1L

@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.dp
  * (≈60%, ≥400dp). This is a Nav3 **Scene strategy**, not `SupportingPaneScaffold` (banned by §6.4).
  * Tag the main entry with [mainPane] and the supporting entry with [supportingPane]; the strategy
  * then shows the main pane alone below 600dp and the main + supporting panes side-by-side at 600dp+.
+ *
+ * Every scene **must** carry its own `sceneKey` — see [StaxListDetailScene] for why the Material
+ * default of `Unit` crashes once a `NavDisplay` hosts more than one scaffold scene.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 object StaxSupportingPaneScene {
@@ -48,9 +51,10 @@ object StaxSupportingPaneScene {
         return rememberSupportingPaneSceneStrategy(directive = directive)
     }
 
-    /** Metadata marking an entry as the **main** pane. */
-    fun mainPane(): Map<String, Any> = SupportingPaneSceneStrategy.mainPane()
+    /** Metadata marking an entry as the **main** pane of the scene identified by [sceneKey]. */
+    fun mainPane(sceneKey: String): Map<String, Any> = SupportingPaneSceneStrategy.mainPane(sceneKey = sceneKey)
 
-    /** Metadata marking an entry as the **supporting** pane. */
-    fun supportingPane(): Map<String, Any> = SupportingPaneSceneStrategy.supportingPane()
+    /** Metadata marking an entry as the **supporting** pane of the scene identified by [sceneKey]. */
+    fun supportingPane(sceneKey: String): Map<String, Any> =
+        SupportingPaneSceneStrategy.supportingPane(sceneKey = sceneKey)
 }

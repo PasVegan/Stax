@@ -83,6 +83,10 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
         pluginManager.apply("com.stax.koin")
         // Feature routes are @Serializable NavKey types (Nav3 saveable back stack, §10.3).
         pluginManager.apply("com.stax.kotlinx.serialization")
+        // Every feature ships a ViewModel, and every ViewModel is unit-tested (§10.5) — so the test
+        // harness comes with the plugin rather than being opted into module by module. Without it a
+        // module's src/test is silently not compiled, which reads as "no tests" instead of failing.
+        pluginManager.apply("com.stax.testing")
 
         addImplementation("androidx-lifecycle-runtime-compose")
         addImplementation("androidx-lifecycle-viewmodel-compose")

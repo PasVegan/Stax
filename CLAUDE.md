@@ -103,9 +103,11 @@ add a `CLAUDE.md` + `AGENT.md` symlink + `_Package.kt`. Skill: `android-module-s
 ### Convention plugins (`:build-logic`, ids `com.stax.*`)
 
 `com.stax.android.application` · `com.stax.android.library` · `com.stax.android.feature`
-(library + compose + koin + feature deps) · `com.stax.kotlin.library` (pure Kotlin) ·
+(library + compose + koin + serialization + **testing** + feature deps — a feature module applies
+this one plugin and nothing else) · `com.stax.kotlin.library` (pure Kotlin) ·
 `com.stax.compose` · `com.stax.koin` · `com.stax.room` · `com.stax.kotlinx.serialization` ·
-`com.stax.testing` · `com.stax.ktlint` · `com.stax.detekt`. SDK/JDK constants live in
+`com.stax.testing` (applied on its own by `:core:*` / `:app`) · `com.stax.ktlint` ·
+`com.stax.detekt`. SDK/JDK constants live in
 `StaxConventionPlugins.kt` — change them there, not per module.
 
 ---

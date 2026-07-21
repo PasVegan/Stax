@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
  * Wired into the theme as `MaterialTheme.shapes` by [StaxTheme] (via `MaterialExpressiveTheme`).
  * Components read shapes from `MaterialTheme.shapes.<slot>` (`extraSmall` … `extraLarge`) or from
  * [Pill] — **never** inline `RoundedCornerShape(...)`, which is banned outside `:core:design-system`
- * by the `checkForbiddenShapeApis` Gradle task (wired into `check`).
+ * by the `stax:NoInlineRoundedCornerShape` detekt rule.
  *
  * The three M3 Expressive "increased" slots (`largeIncreased`, `extraLargeIncreased`,
  * `extraExtraLarge`) keep their `ShapeDefaults` values via the [Shapes] constructor.

@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * Design tokens (§9). The **single legal home for raw `Color(0xFF…)` literals** — a raw color
- * anywhere else in the codebase fails the `checkForbiddenColorApis` Gradle guard.
+ * anywhere else in the codebase fails the `stax:NoRawColorLiteral` detekt rule.
  *
  * Contains the fallback color-scheme seeds (used when dynamic color is unavailable) and
  * [StaxColors], the app's **semantic** color tokens. Standard M3 roles (`primary`,

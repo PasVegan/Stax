@@ -19,17 +19,19 @@ depends on nothing — every feature consumes it.
 - `StaxTypography` — Google Sans Flex type scale (+ preview).
 - `StaxMotion` — centralized M3 Expressive motion specs from `MotionScheme.expressive()` + syringe
   spring / shape-morph corners / cross-fade durations (§5.9). **Inline `tween(...)` is banned outside
-  this object** — enforced by the `checkForbiddenMotionApis` Gradle task (root `build.gradle.kts`,
-  wired into `check`).
+  this object** — enforced by the `stax:NoInlineTween` detekt rule (`:detekt-rules`; `StaxMotion.kt`
+  is the only `excludes` entry in `detekt.yml`).
 - `StaxIcons` — hand-picked Material Symbols Rounded vector drawables (`res/drawable/ic_*.xml`);
   **no icon font / no `material-icons-extended`** — missing icon = request it, never invent (spec §9).
 - `StaxShapes` — M3 Expressive shape scale (`material: Shapes` wired to `MaterialTheme.shapes`) + the
   `Pill` (≈999r) token (§9). **Inline `RoundedCornerShape(...)` is banned outside `:core:design-system`**
-  — features use `MaterialTheme.shapes.<slot>` / `StaxShapes.Pill` (enforced by `checkForbiddenShapeApis`).
+  — features use `MaterialTheme.shapes.<slot>` / `StaxShapes.Pill` (enforced by the
+  `stax:NoInlineRoundedCornerShape` detekt rule).
 - `Tokens.kt` / `StaxColors` — **semantic** color tokens (dose status, site status, low-stock, heat
   map, syringe) aliased to `colorScheme` roles (§9). Standard M3 roles are read from
   `MaterialTheme.colorScheme` directly (not re-wrapped). `Tokens.kt` is the **only** legal home for
-  raw `Color(0xFF…)` literals (scheme seeds) — banned elsewhere by `checkForbiddenColorApis`.
+  raw `Color(0xFF…)` literals (scheme seeds) — banned elsewhere by the `stax:NoRawColorLiteral`
+  detekt rule (hex-literal args only; `Color(r, g, b)` is a computed value and passes).
 - `StaxListDetailScene` — reusable Nav3 **list-detail Scene** wrapper (§6.4.2): `rememberSceneStrategy`
   (Material `ListDetailSceneStrategy` with list pane `360dp` Medium / `400dp` Expanded + 1dp pane
   divider) + `listPane(sceneKey, detailPlaceholder)` / `detailPane(sceneKey)` metadata helpers. **Not**
@@ -47,7 +49,7 @@ depends on nothing — every feature consumes it.
   alignment (`fitInside(WindowInsetsRulers.SafeDrawing.current)`) covering system bars + cutout + IME.
   Applied once at the content root of every `NavDisplay` entry. Position-aware, so each pane gets only
   the slice it actually touches; idempotent, so double padding is impossible. Every other
-  `WindowInsets` API is banned outside this module (`checkForbiddenInsetApis`).
+  `WindowInsets` API is banned outside this module (`stax:NoWindowInsetsOutsideDesignSystem`).
 - `AdaptiveFab` — primary FAB that animates its position across breakpoints (§6.4.6): floating
   bottom-end at Compact (`16dp` inset), top-start rail FAB slot at Medium+, with the move driven by
   `StaxMotion.defaultSpatialSpec()` (animated `BiasAlignment`). Place as the last child of a
@@ -69,7 +71,7 @@ Shared.
 - **Material 3 components only** — this is where theming lives. Slot APIs (`@Composable () -> Unit`
   params) are allowed **here** but discouraged in feature modules (§2.3.1).
 - **No raw colors** outside `Tokens.kt`; **no `tween(`** outside `StaxMotion`; **no `WindowInsets`
-  API** outside this module (lint-enforced).
+  API** outside this module — all four enforced by the `stax` detekt ruleset (`:detekt-rules`).
 - Multi-pane wrappers use Nav3 `ListDetailSceneStrategy` / `SupportingPaneSceneStrategy` — **never**
   `*PaneScaffold` (§6.4).
 - See spec §9 (design tokens), §5.9 (motion), §6.4; ISSUES M4-*, M5-04/05/06.

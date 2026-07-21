@@ -10,7 +10,7 @@ import androidx.compose.ui.layout.WindowInsetsRulers
  * skill).
  *
  * This is the **one and only** inset method a pane may use (spec §2.3.6: inset-padding *or*
- * ruler-alignment, never both) — enforced by the `checkForbiddenInsetApis` Gradle task, which bans
+ * ruler-alignment, never both) — enforced by the `stax:NoWindowInsetsOutsideDesignSystem` detekt rule, which bans
  * the `WindowInsets` padding modifiers outside `:core:design-system`. Apply it once, at the root of
  * every `NavDisplay` entry, because a Nav3 entry *is* a Scene pane: the adaptive Scene strategies
  * lay panes out but propagate no insets of their own, so each pane must claim its own.

@@ -70,7 +70,7 @@ gap, update the spec in the same change.
 ```
 :app                 wires modules, NavDisplay + entryProvider, Application, App Startup initializers
 :build-logic         Gradle convention plugins (com.stax.*)
-:detekt-rules        custom detekt ruleset (stax) — e.g. NoCrossFeatureRouteImport; loaded via detektPlugins
+:detekt-rules        custom detekt ruleset (stax) — NoCrossFeatureRouteImport + the forbidden-API bans; loaded via detektPlugins
 :core:domain         domain models, repository INTERFACES, errors, Result, Decimal/Quantity/Concentration   (pure Kotlin)
 :core:database       Room @Database, entities, DAOs, converters, migrations, seed callback
 :core:data           repository IMPLs (Room*), Entity↔Domain mappers, DataStore, ScheduledDoseGenerator, Koin coreDataModule
@@ -116,8 +116,9 @@ add a `CLAUDE.md` + `AGENT.md` symlink + `_Package.kt`. Skill: `android-module-s
   `Concentration` value types from `:core:domain`.
 - **No `LocalDateTime`.** Use `Instant` + `LocalDate` + `LocalTime` from kotlinx-datetime (§5.7).
 - **No raw color literals** (`Color(0xff…)`) outside `Tokens.kt`; **no `tween(`** outside
-  `StaxMotion`; **no `WindowInsets` API** outside `:core:design-system`; **no Room access** from
-  `:feature:*`.
+  `StaxMotion`; **no inline `RoundedCornerShape(`** or **`WindowInsets` API** outside
+  `:core:design-system`; **no Room access** from `:feature:*`. The first four are the `stax` detekt
+  ruleset (`:detekt-rules`); exemptions are `excludes` globs in `detekt.yml`.
 - **Every `NavDisplay` entry is a Scene pane** — its content root applies `Modifier.paneInsets()`
   exactly once and uses no other inset API (§2.3.6).
 - **No `remember`/`rememberSaveable` for app state** — app state lives in the ViewModel,

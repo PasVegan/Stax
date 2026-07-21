@@ -14,4 +14,8 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+
+    // ObserveAsEvents: lifecycle-aware collection of a ViewModel's event flow (§10.1).
+    api(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.kotlinx.coroutines.android)
 }

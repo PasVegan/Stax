@@ -3,6 +3,7 @@ package com.stax.app
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSerializable
@@ -93,14 +94,18 @@ class MainNavigationState(
         // in-use stacks are rendered.
         val decoratedByRoute = LinkedHashMap<NavKey, List<NavEntry<NavKey>>>(backStacks.size)
         for ((route, stack) in backStacks) {
-            decoratedByRoute[route] = rememberDecoratedNavEntries(
-                backStack = stack,
-                entryDecorators = listOf(
-                    rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator(),
-                ),
-                entryProvider = entryProvider,
-            )
+            // Keyed for the same reason as the stacks themselves: the decorators hold saveable state
+            // (each entry's UI state) whose registry keys would otherwise collide across iterations.
+            decoratedByRoute[route] = key(route) {
+                rememberDecoratedNavEntries(
+                    backStack = stack,
+                    entryDecorators = listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator(),
+                    ),
+                    entryProvider = entryProvider,
+                )
+            }
         }
         return routesInUse().flatMap { decoratedByRoute[it].orEmpty() }
     }
@@ -116,16 +121,24 @@ class MainNavigationState(
  */
 @Composable
 fun rememberMainNavigationState(startRoute: NavKey, topLevelRoutes: Set<NavKey>): MainNavigationState {
-    val topLevelRoute = rememberSerializable(
-        startRoute,
-        topLevelRoutes,
-        serializer = MutableStateSerializer(NavKeySerializer()),
-    ) {
-        mutableStateOf(startRoute)
+    // Every saveable here is wrapped in `key(...)`. An unkeyed rememberSaveable/rememberSerializable
+    // derives its registry key from the *enclosing composable's* compound hash, not its call site, so
+    // all the siblings below — and all five stacks of the loop — would share one key. The registry
+    // tolerates that by saving a list per key and popping it positionally on restore, which means one
+    // ordering or type mismatch makes every value fall back to its default: the whole nav state
+    // silently resets on every configuration change.
+    val topLevelRoute = key(TOP_LEVEL_ROUTE_KEY) {
+        rememberSerializable(
+            startRoute,
+            topLevelRoutes,
+            serializer = MutableStateSerializer(NavKeySerializer()),
+        ) {
+            mutableStateOf(startRoute)
+        }
     }
 
-    // One saveable back stack per destination; order follows topLevelRoutes.
-    val backStacks = topLevelRoutes.associateWith { key -> rememberNavBackStack(key) }
+    // One saveable back stack per destination, keyed by that destination's route.
+    val backStacks = topLevelRoutes.associateWith { route -> key(route) { rememberNavBackStack(route) } }
 
     return remember(startRoute, topLevelRoutes) {
         MainNavigationState(
@@ -135,3 +148,6 @@ fun rememberMainNavigationState(startRoute: NavKey, topLevelRoutes: Set<NavKey>)
         )
     }
 }
+
+/** Registry key for the active-destination state (see [rememberMainNavigationState]). */
+private const val TOP_LEVEL_ROUTE_KEY = "MainNavigationState.topLevelRoute"

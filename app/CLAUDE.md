@@ -36,7 +36,9 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   switches destination or, on re-tap, pops that stack to root; `push` adds a stacked screen to the active
   stack; `showDetail` replaces the same-type detail (two-pane swap, §6.4.2); `goBack` pops or returns to
   Home ("exit through home"). Active route + every stack survive config changes + process death
-  (`rememberSerializable` + `rememberNavBackStack`).
+  (`rememberSerializable` + `rememberNavBackStack`). Every saveable here sits inside a `key(...)` — an
+  unkeyed one takes its registry key from the *enclosing composable's* compound hash, so the five stacks
+  of the loop (and their sibling state) would share one key and restore positionally.
 - `TopLevelDestination` — the 5 destinations (Home/Compounds/Protocols/Sites/Settings): Nav3 root route
   + `StaxIcons` outlined/`Filled` icon + label (§4.0).
 - `res/values/themes.xml` — `Theme.Stax`, the window theme declared on `<application>`: DeviceDefault

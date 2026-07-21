@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxSupportingPaneScene
+import com.stax.core.design.system.paneInsets
 
 /**
  * Contributes the Dashboard (Home) `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -25,16 +26,23 @@ import com.stax.core.design.system.StaxSupportingPaneScene
  * Compounds routes.
  */
 fun EntryProviderScope<NavKey>.dashboardEntries(onCompoundClick: (Long) -> Unit, onShowSupporting: () -> Unit) {
-    entry<DashboardRoute>(metadata = StaxSupportingPaneScene.mainPane()) {
+    entry<DashboardRoute>(metadata = StaxSupportingPaneScene.mainPane(DASHBOARD_SCENE_KEY)) {
         PlaceholderScreen(title = "Dashboard") {
             Button(onClick = { onCompoundClick(SAMPLE_COMPOUND_ID) }) { Text(text = "Open compound") }
             Button(onClick = onShowSupporting) { Text(text = "Show supporting") }
         }
     }
-    entry<DashboardSupportingRoute>(metadata = StaxSupportingPaneScene.supportingPane()) {
+    entry<DashboardSupportingRoute>(metadata = StaxSupportingPaneScene.supportingPane(DASHBOARD_SCENE_KEY)) {
         PlaceholderScreen(title = "Inventory & activity")
     }
 }
+
+/**
+ * Identifies the Dashboard supporting-pane scene. Each scaffold scene in the app's single
+ * `NavDisplay` needs its own key or they share one `AnimatedContent` slot and crash (see
+ * `StaxListDetailScene`).
+ */
+private const val DASHBOARD_SCENE_KEY = "dashboard"
 
 /** Placeholder id used to demonstrate the cross-feature jump until the real cards land. */
 private const val SAMPLE_COMPOUND_ID = 1L
@@ -45,6 +53,7 @@ private fun PlaceholderScreen(title: String, modifier: Modifier = Modifier, acti
     Column(
         modifier = modifier
             .fillMaxSize()
+            .paneInsets()
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,

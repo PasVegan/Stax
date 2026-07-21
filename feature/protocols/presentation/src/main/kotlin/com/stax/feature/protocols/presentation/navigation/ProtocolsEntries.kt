@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
+import com.stax.core.design.system.paneInsets
 
 /**
  * Contributes the Protocols feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -32,6 +33,7 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
 ) {
     entry<ProtocolsRoute>(
         metadata = StaxListDetailScene.listPane(
+            sceneKey = PROTOCOLS_SCENE_KEY,
             detailPlaceholder = { PlaceholderScreen(title = "Select a protocol") },
         ),
     ) {
@@ -40,7 +42,7 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
             Button(onClick = { onProtocolClick(SAMPLE_PROTOCOL_ID) }) { Text(text = "Open protocol") }
         }
     }
-    entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane()) { key ->
+    entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane(PROTOCOLS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Protocol #${key.protocolId}") {
             Button(onClick = onBack) { Text(text = "Back") }
         }
@@ -53,6 +55,8 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
 }
 
 /** Placeholder id used to demonstrate the list → detail push until the real list lands. */
+private const val PROTOCOLS_SCENE_KEY = "protocols"
+
 private const val SAMPLE_PROTOCOL_ID = 1L
 
 @Suppress("FunctionName")
@@ -61,6 +65,7 @@ private fun PlaceholderScreen(title: String, modifier: Modifier = Modifier, acti
     Column(
         modifier = modifier
             .fillMaxSize()
+            .paneInsets()
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,

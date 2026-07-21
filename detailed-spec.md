@@ -87,8 +87,12 @@ Eager init fights the <400ms cold-start SLO. Split:
 Follow the `edge-to-edge` skill.
 - `enableEdgeToEdge()` before `setContent` in every `Activity.onCreate`.
 - `android:windowSoftInputMode="adjustResize"` in the manifest for every Activity that shows a soft keyboard (text fields).
-- All padding derived from `WindowInsets.statusBars`, `WindowInsets.navigationBars`, `WindowInsets.ime` (via `Modifier.imePadding()` / `windowInsetsPadding`). No hardcoded inset dimensions anywhere.
+- All padding derived from the framework insets (status bars, navigation bars, display cutout, IME). No hardcoded inset dimensions anywhere.
 - Apply insets with exactly **one** method per surface (inset-padding OR ruler-alignment) — never both, to avoid double padding. Lists + FAB must not be obscured by the nav bar; text fields must stay visible above the IME.
+- **Per-pane insets (§6.4, M5-09).** A `NavDisplay` entry *is* a Scene pane, and the adaptive Scene strategies propagate no insets of their own — so each pane claims its own slice, exactly once, at its content root via `Modifier.paneInsets()` from `:core:design-system` (ruler alignment: `fitInside(WindowInsetsRulers.SafeDrawing.current)`, which covers system bars + cutout + IME in one method).
+  - Ruler alignment, not `windowInsetsPadding`, because rulers resolve in the pane's own coordinate space: only the pane that actually touches a system bar is inset by it (nav bar on the bottom-most pane of a tabletop split; a landscape cutout / three-button bar on the outer pane of a side-by-side split). Consumption-based padding would give the whole window inset to both panes and open a gap down the middle.
+  - Double padding is structurally impossible: a node already inside the safe area resolves its rulers to its own edges, so nesting `paneInsets` — or composing it with the padding `NavigationSuiteScaffold` applies for its chrome — adds nothing.
+  - Every other `WindowInsets` API is banned outside `:core:design-system`, enforced by the `stax:NoWindowInsetsOutsideDesignSystem` detekt rule (`:detekt-rules`).
 - System-bar legibility: rely on the framework's adaptive bar-icon contrast; do not hardcode bar colors.
 
 #### 2.3.7 RenderEffect blur
@@ -1894,7 +1898,7 @@ Import:
 `StaxTheme` provides the expressive `MotionScheme` app-wide via `MaterialExpressiveTheme`, so every
 Material 3 component animates expressively. Hand-written animations pull their specs from the
 `StaxMotion` object (sourced from `MotionScheme.expressive()`); inline `tween(...)` is banned outside
-`StaxMotion` (enforced by the `checkForbiddenMotionApis` Gradle task).
+`StaxMotion` (enforced by the `stax:NoInlineTween` detekt rule).
 
 | Use                          | Spec                                                                                                |
 |------------------------------|-----------------------------------------------------------------------------------------------------|
@@ -1987,6 +1991,8 @@ Use `NavigationSuiteScaffold` (items supplied as `NavigationSuiteItem`s) so chro
 - **Expanded**: `NavigationRail` pinned start edge. Width `96dp`. Icon + label below icon. FAB anchored top of rail. Optionally show short app-name header at rail top.
 
 Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fills remainder. Status bar + nav bar insets respected via §2.3.6 edge-to-edge.
+
+**Every scaffold scene carries its own `sceneKey`.** `NavDisplay` keys its `AnimatedContent` by `(scene::class, scene.key)`, and both `ListDetailSceneStrategy` and `SupportingPaneSceneStrategy` build the same `ThreePaneScaffoldScene` class — so on the Material default (`sceneKey = Unit`) Compounds, Protocols, Settings and the Dashboard all collapse onto one content slot. The scaffold state remembered for the outgoing scene is then reused by the incoming scene's scaffold, whose new `Transition` finds the same `SeekableTransitionState` already in use, and the app crashes ("An instance of SeekableTransitionState has been used in different Transitions"). `StaxListDetailScene` / `StaxSupportingPaneScene` therefore make `sceneKey` a required parameter, and each feature declares its own constant.
 
 #### 6.4.2 Per-screen layouts
 
@@ -2231,11 +2237,11 @@ Per the `adaptive` skill:
 
 These standard M3 roles are read **directly** from `MaterialTheme.colorScheme` (e.g. `MaterialTheme.colorScheme.surfaceContainerLow`) — they are **not** re-wrapped in a tokens file.
 
-**Semantic color tokens** (`StaxColors` in `:core:design-system` `Tokens.kt`, M4-06): app-domain colors that M3 does **not** provide as a role — dose status (taken / missed / skipped / partial), low-stock vs `error`, success, the heat-map gradient ramp (§4.12.4), body-map dot + syringe-fill colors. Each is defined as an alias of an M3 `colorScheme` role where one fits (e.g. missed → `error`, skipped → `outline`), or a custom color **only** where M3 has no suitable role. `Tokens.kt` is the **single legal home for raw `Color(0xFF…)` literals** (including the fallback color-scheme seeds otherwise in `StaxTheme`); a raw color literal anywhere else fails lint (`checkForbiddenColorApis`, mirroring the motion/shape guards). Standard M3 roles are **not** duplicated here.
+**Semantic color tokens** (`StaxColors` in `:core:design-system` `Tokens.kt`, M4-06): app-domain colors that M3 does **not** provide as a role — dose status (taken / missed / skipped / partial), low-stock vs `error`, success, the heat-map gradient ramp (§4.12.4), body-map dot + syringe-fill colors. Each is defined as an alias of an M3 `colorScheme` role where one fits (e.g. missed → `error`, skipped → `outline`), or a custom color **only** where M3 has no suitable role. `Tokens.kt` is the **single legal home for raw `Color(0xFF…)` literals** (including the fallback color-scheme seeds otherwise in `StaxTheme`); a raw color literal anywhere else fails lint (`stax:NoRawColorLiteral`, mirroring the motion/shape guards). Standard M3 roles are **not** duplicated here.
 
 **Type scale**: pure M3 styles (`display`, `headline`, `title`, `body`, `label` with `-emphasized` variants where applicable). Font family = **Google Sans Flex**.
 
-**Shape scale**: M3 Expressive shape scale, defined in `StaxShapes.material` (a `Shapes`) and wired to `MaterialTheme.shapes` by `StaxTheme` (via `MaterialExpressiveTheme`). Base slots: `extraSmall` 4dp · `small` 8dp · `medium` 12dp · `large` 16dp · `extraLarge` 28dp; the three M3 Expressive "increased" slots (`largeIncreased`, `extraLargeIncreased`, `extraExtraLarge`) keep their `ShapeDefaults` values. Plus a `StaxShapes.Pill` token (≈999r) for chips / status badges / the selected nav indicator. Components read shapes from `MaterialTheme.shapes.<slot>` or `StaxShapes.Pill` — **never** inline `RoundedCornerShape(...)`, which is banned outside `:core:design-system` by the `checkForbiddenShapeApis` Gradle task (wired into `check`).
+**Shape scale**: M3 Expressive shape scale, defined in `StaxShapes.material` (a `Shapes`) and wired to `MaterialTheme.shapes` by `StaxTheme` (via `MaterialExpressiveTheme`). Base slots: `extraSmall` 4dp · `small` 8dp · `medium` 12dp · `large` 16dp · `extraLarge` 28dp; the three M3 Expressive "increased" slots (`largeIncreased`, `extraLargeIncreased`, `extraExtraLarge`) keep their `ShapeDefaults` values. Plus a `StaxShapes.Pill` token (≈999r) for chips / status badges / the selected nav indicator. Components read shapes from `MaterialTheme.shapes.<slot>` or `StaxShapes.Pill` — **never** inline `RoundedCornerShape(...)`, which is banned outside `:core:design-system` by the `stax:NoInlineRoundedCornerShape` detekt rule.
 
 **Components**: Material 3 components throughout, themed via **`MaterialExpressiveTheme`** (color / type / shape / **motion**) — `StaxTheme` wraps content in it so the expressive `MotionScheme` is provided app-wide and every M3 component animates expressively (§5.9), not just hand-written animations. Custom design-system components (syringe visualization §4.6, body-map renderer §4.12, dose card §4.1) are built on Compose primitives + the same `MaterialTheme` tokens — no separate styling system.
 

@@ -19,6 +19,15 @@ import androidx.window.core.layout.WindowSizeClass
  * the detail entry with [detailPane]; the strategy then renders one pane below 600dp (selecting an
  * item pushes the detail) and two panes at 600dp+ (selecting swaps the detail pane without a push,
  * showing the placeholder when nothing is selected).
+ *
+ * Every scene **must** carry its own `sceneKey`, which is why that parameter has no default here even
+ * though the Material API defaults it to `Unit`. `NavDisplay` keys its `AnimatedContent` by
+ * `(scene::class, scene.key)`, and both this strategy and [StaxSupportingPaneScene] build the same
+ * `ThreePaneScaffoldScene` class — so on the default key Compounds, Protocols, Settings and the
+ * Dashboard all collapse onto a single `AnimatedContent` slot. The scaffold state remembered for the
+ * outgoing scene is then reused by the incoming scene's scaffold, whose new `Transition` finds the
+ * same `SeekableTransitionState` already in use, and the app crashes with "An instance of
+ * SeekableTransitionState has been used in different Transitions".
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 object StaxListDetailScene {
@@ -52,12 +61,12 @@ object StaxListDetailScene {
     }
 
     /**
-     * Metadata marking an entry as the **list** pane. [detailPlaceholder] fills the detail pane at
-     * Medium+ while no item is selected.
+     * Metadata marking an entry as the **list** pane of the scene identified by [sceneKey].
+     * [detailPlaceholder] fills the detail pane at Medium+ while no item is selected.
      */
-    fun listPane(detailPlaceholder: @Composable () -> Unit): Map<String, Any> =
-        ListDetailSceneStrategy.listPane(detailPlaceholder = { detailPlaceholder() })
+    fun listPane(sceneKey: String, detailPlaceholder: @Composable () -> Unit): Map<String, Any> =
+        ListDetailSceneStrategy.listPane(sceneKey = sceneKey, detailPlaceholder = { detailPlaceholder() })
 
-    /** Metadata marking an entry as the **detail** pane. */
-    fun detailPane(): Map<String, Any> = ListDetailSceneStrategy.detailPane()
+    /** Metadata marking an entry as the **detail** pane of the scene identified by [sceneKey]. */
+    fun detailPane(sceneKey: String): Map<String, Any> = ListDetailSceneStrategy.detailPane(sceneKey = sceneKey)
 }

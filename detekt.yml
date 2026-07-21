@@ -69,3 +69,15 @@ performance:
 stax:
   NoCrossFeatureRouteImport:
     active: true   # features never import another feature's routes — wire nav via :app callbacks (§10.3)
+  NoInlineTween:
+    active: true   # motion specs are centralized in StaxMotion (§5.9)
+    excludes: ['**/StaxMotion.kt']
+  NoInlineRoundedCornerShape:
+    active: true   # shapes come from MaterialTheme.shapes.<slot> / StaxShapes.Pill (§9)
+    excludes: ['**/core/design-system/**']
+  NoRawColorLiteral:
+    active: true   # colorScheme roles / StaxColors tokens; Tokens.kt owns the scheme seeds (§9)
+    excludes: ['**/Tokens.kt']
+  NoWindowInsetsOutsideDesignSystem:
+    active: true   # a pane gets exactly one inset method, Modifier.paneInsets() (§2.3.6)
+    excludes: ['**/core/design-system/**']

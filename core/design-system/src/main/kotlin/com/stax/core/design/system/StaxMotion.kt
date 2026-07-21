@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
  *
  * All animation specs come from here, sourced from [MotionScheme.expressive]. Inline
  * `tween(...)` is forbidden everywhere else in the codebase — enforced by the
- * `checkForbiddenMotionApis` Gradle task (wired into `check`). Use a spec from this object
+ * `stax:NoInlineTween` detekt rule. Use a spec from this object
  * instead of hand-rolling an [androidx.compose.animation.core.AnimationSpec].
  *
  * The shape-morph corner radii here are the source/target values for the morphs described in

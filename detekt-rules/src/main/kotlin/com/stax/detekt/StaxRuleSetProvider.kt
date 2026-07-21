@@ -11,6 +11,14 @@ import io.gitlab.arturbosch.detekt.api.RuleSetProvider
 class StaxRuleSetProvider : RuleSetProvider {
     override val ruleSetId: String = "stax"
 
-    override fun instance(config: Config): RuleSet =
-        RuleSet(ruleSetId, listOf(NoCrossFeatureRouteImport(config)))
+    override fun instance(config: Config): RuleSet = RuleSet(
+        ruleSetId,
+        listOf(
+            NoCrossFeatureRouteImport(config),
+            NoInlineTween(config),
+            NoInlineRoundedCornerShape(config),
+            NoRawColorLiteral(config),
+            NoWindowInsetsOutsideDesignSystem(config),
+        ),
+    )
 }

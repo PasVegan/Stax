@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stax.core.design.system.paneInsets
 
 /**
  * Contributes the Settings `NavEntry` to the app's `NavDisplay` `entryProvider`. A self-contained
@@ -20,6 +21,7 @@ fun EntryProviderScope<NavKey>.settingsEntries() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .paneInsets()
                 .padding(24.dp),
             contentAlignment = Alignment.Center,
         ) {

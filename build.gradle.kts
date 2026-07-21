@@ -1,10 +1,8 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.ProjectDependency
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 
 plugins {
@@ -28,118 +26,6 @@ abstract class CheckForbiddenModuleDependenciesTask : DefaultTask() {
         if (foundViolations.isNotEmpty()) {
             throw GradleException(
                 "Forbidden module dependencies:\n" + foundViolations.joinToString(separator = "\n"),
-            )
-        }
-    }
-}
-
-abstract class CheckForbiddenMotionApisTask : DefaultTask() {
-    @get:Internal
-    abstract val projectRoot: DirectoryProperty
-
-    @TaskAction
-    fun check() {
-        val tween = Regex("""\btween\s*(?:<[^>]*>)?\s*\(""") // matches tween( and tween<Float>(
-        val root = projectRoot.get().asFile
-        // Scan the source tree fresh on every run (no @InputFiles snapshot), so a newly added
-        // violation is always caught regardless of the configuration cache. Cheap: skips build dirs.
-        val violations = root.walkTopDown()
-            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
-            .filter { it.isFile && it.extension == "kt" && it.name != "StaxMotion.kt" }
-            .filter { it.invariantSeparatorsPath.contains("/src/") }
-            .flatMap { file ->
-                file.readLines().mapIndexedNotNull { index, line ->
-                    val code = line.substringBefore("//").trim()
-                    // Skip comment lines (KDoc/block-comment continuations and openers).
-                    if (code.startsWith("*") || code.startsWith("/*")) {
-                        null
-                    } else if (tween.containsMatchIn(code)) {
-                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
-                    } else {
-                        null
-                    }
-                }
-            }
-            .toList()
-        if (violations.isNotEmpty()) {
-            throw GradleException(
-                "Inline tween(...) is forbidden outside StaxMotion (spec §5.9) — use a StaxMotion spec:\n" +
-                    violations.joinToString(separator = "\n"),
-            )
-        }
-    }
-}
-
-abstract class CheckForbiddenShapeApisTask : DefaultTask() {
-    @get:Internal
-    abstract val projectRoot: DirectoryProperty
-
-    @TaskAction
-    fun check() {
-        val roundedCorner = Regex("""\bRoundedCornerShape\s*\(""")
-        val root = projectRoot.get().asFile
-        // Scan fresh every run (config-cache safe). :core:design-system owns shape construction
-        // (StaxShapes + custom morphing components); everything else must use shape tokens.
-        val violations = root.walkTopDown()
-            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
-            .filter { it.isFile && it.extension == "kt" }
-            .filter { it.invariantSeparatorsPath.contains("/src/") }
-            .filterNot { it.invariantSeparatorsPath.contains("/core/design-system/") }
-            .flatMap { file ->
-                file.readLines().mapIndexedNotNull { index, line ->
-                    val code = line.substringBefore("//").trim()
-                    if (code.startsWith("*") || code.startsWith("/*")) {
-                        null
-                    } else if (roundedCorner.containsMatchIn(code)) {
-                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
-                    } else {
-                        null
-                    }
-                }
-            }
-            .toList()
-        if (violations.isNotEmpty()) {
-            throw GradleException(
-                "Inline RoundedCornerShape(...) is forbidden outside :core:design-system (spec §9) — " +
-                    "use MaterialTheme.shapes.<slot> or StaxShapes.Pill:\n" +
-                    violations.joinToString(separator = "\n"),
-            )
-        }
-    }
-}
-
-abstract class CheckForbiddenColorApisTask : DefaultTask() {
-    @get:Internal
-    abstract val projectRoot: DirectoryProperty
-
-    @TaskAction
-    fun check() {
-        val colorLiteral = Regex("""\bColor\s*\(\s*0x""") // matches Color(0xFF…)
-        val root = projectRoot.get().asFile
-        // Scan fresh every run (config-cache safe). Tokens.kt is the only legal home for raw
-        // Color(0x…) literals (scheme seeds); everything else uses MaterialTheme.colorScheme / StaxColors.
-        val violations = root.walkTopDown()
-            .onEnter { dir -> dir.name !in setOf("build", ".git", ".gradle", ".idea", ".kotlin") }
-            .filter { it.isFile && it.extension == "kt" && it.name != "Tokens.kt" }
-            .filter { it.invariantSeparatorsPath.contains("/src/") }
-            .flatMap { file ->
-                file.readLines().mapIndexedNotNull { index, line ->
-                    val code = line.substringBefore("//").trim()
-                    if (code.startsWith("*") || code.startsWith("/*")) {
-                        null
-                    } else if (colorLiteral.containsMatchIn(code)) {
-                        "${file.toRelativeString(root)}:${index + 1}: ${line.trim()}"
-                    } else {
-                        null
-                    }
-                }
-            }
-            .toList()
-        if (violations.isNotEmpty()) {
-            throw GradleException(
-                "Raw Color(0x…) literals are forbidden outside Tokens.kt (spec §9) — " +
-                    "use MaterialTheme.colorScheme.<role> or a StaxColors semantic token:\n" +
-                    violations.joinToString(separator = "\n"),
             )
         }
     }
@@ -227,29 +113,8 @@ gradle.projectsEvaluated {
     }
 }
 
-val checkForbiddenMotionApis = tasks.register<CheckForbiddenMotionApisTask>("checkForbiddenMotionApis") {
-    group = "verification"
-    description = "Fails when inline tween(...) is used outside StaxMotion — motion specs must be centralized (spec §5.9, M4-04)."
-    projectRoot.set(layout.projectDirectory)
-}
-
-val checkForbiddenShapeApis = tasks.register<CheckForbiddenShapeApisTask>("checkForbiddenShapeApis") {
-    group = "verification"
-    description = "Fails when inline RoundedCornerShape(...) is used outside :core:design-system — use shape tokens (spec §9, M4-05)."
-    projectRoot.set(layout.projectDirectory)
-}
-
-val checkForbiddenColorApis = tasks.register<CheckForbiddenColorApisTask>("checkForbiddenColorApis") {
-    group = "verification"
-    description = "Fails when a raw Color(0x…) literal is used outside Tokens.kt — use colorScheme roles / StaxColors (spec §9, M4-06)."
-    projectRoot.set(layout.projectDirectory)
-}
-
+// The forbidden-API guards (inline tween / RoundedCornerShape / raw Color / WindowInsets) are
+// detekt rules in :detekt-rules, not tasks here — they need an AST, not a line regex.
 tasks.named("check") {
-    dependsOn(
-        checkForbiddenModuleDependencies,
-        checkForbiddenMotionApis,
-        checkForbiddenShapeApis,
-        checkForbiddenColorApis,
-    )
+    dependsOn(checkForbiddenModuleDependencies)
 }

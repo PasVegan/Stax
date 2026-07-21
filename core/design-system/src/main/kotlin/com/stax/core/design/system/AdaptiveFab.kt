@@ -28,6 +28,9 @@ import androidx.window.core.layout.WindowSizeClass
  * overlay (e.g. over a screen's content); its own `Box` fills the available space and aligns the FAB.
  *
  * The icon and behaviour are identical across breakpoints — only the position changes.
+ *
+ * Applies no insets of its own: the overlay sits inside a pane that already claimed its slice via
+ * [paneInsets], which is what keeps the Compact bottom-end FAB clear of the nav bar (§2.3.6).
  */
 @Suppress("FunctionName")
 @Composable

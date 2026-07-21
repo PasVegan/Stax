@@ -38,6 +38,11 @@ depends on nothing — every feature consumes it.
   `rememberSceneStrategy` (Material `SupportingPaneSceneStrategy`, supporting pane `360dp` ≈40% / main
   fills ≈60%, 1dp divider) + `mainPane()` / `supportingPane()` metadata. **Not**
   `SupportingPaneScaffold` (§6.4). Used by the Dashboard Medium layout.
+- `Modifier.paneInsets()` — the **single** inset method a Scene pane may use (§2.3.6, M5-09): ruler
+  alignment (`fitInside(WindowInsetsRulers.SafeDrawing.current)`) covering system bars + cutout + IME.
+  Applied once at the content root of every `NavDisplay` entry. Position-aware, so each pane gets only
+  the slice it actually touches; idempotent, so double padding is impossible. Every other
+  `WindowInsets` API is banned outside this module (`checkForbiddenInsetApis`).
 - `AdaptiveFab` — primary FAB that animates its position across breakpoints (§6.4.6): floating
   bottom-end at Compact (`16dp` inset), top-start rail FAB slot at Medium+, with the move driven by
   `StaxMotion.defaultSpatialSpec()` (animated `BiasAlignment`). Place as the last child of a
@@ -58,7 +63,8 @@ Shared.
 ## Notes
 - **Material 3 components only** — this is where theming lives. Slot APIs (`@Composable () -> Unit`
   params) are allowed **here** but discouraged in feature modules (§2.3.1).
-- **No raw colors** outside `Tokens.kt`; **no `tween(`** outside `StaxMotion` (lint-enforced).
+- **No raw colors** outside `Tokens.kt`; **no `tween(`** outside `StaxMotion`; **no `WindowInsets`
+  API** outside this module (lint-enforced).
 - Multi-pane wrappers use Nav3 `ListDetailSceneStrategy` / `SupportingPaneSceneStrategy` — **never**
   `*PaneScaffold` (§6.4).
 - See spec §9 (design tokens), §5.9 (motion), §6.4; ISSUES M4-*, M5-04/05/06.

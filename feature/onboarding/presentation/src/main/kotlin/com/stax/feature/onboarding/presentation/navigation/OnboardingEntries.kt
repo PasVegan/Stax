@@ -2,7 +2,7 @@ package com.stax.feature.onboarding.presentation.navigation
 
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
-import com.stax.feature.onboarding.presentation.welcome.WelcomeScreen
+import com.stax.feature.onboarding.presentation.welcome.WelcomeRoot
 
 /**
  * Contributes the Onboarding `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -13,6 +13,6 @@ import com.stax.feature.onboarding.presentation.welcome.WelcomeScreen
  */
 fun EntryProviderScope<NavKey>.onboardingEntries(onContinue: () -> Unit, onSkip: () -> Unit) {
     entry<OnboardingRoute> {
-        WelcomeScreen(onContinue = onContinue, onSkip = onSkip)
+        WelcomeRoot(onContinue = onContinue, onSkip = onSkip)
     }
 }

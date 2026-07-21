@@ -18,11 +18,12 @@ the compounds/protocols feature modules (features never depend on features).
 - `OnboardingPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
   `onboardingEntries(onContinue, onSkip)` (Nav3 entryProvider extension — `:app` decides where each
   action leads).
-- `WelcomeScreen` (`welcome/`) — step 1 (§4.14): hero + headline + subtitle + Continue + Skip + step
-  pills. **No ViewModel**: the step is a static introduction whose only outputs are the two lambdas,
-  so there is no state to hold (§10.1 applies to screens that have state). Adaptive per §6.4.2 —
-  private `CompactWelcome` (single centered column) / `WideWelcome` (hero-left, content-right at
-  600dp+), selected from `currentWindowAdaptiveInfoV2()`.
+- `welcome/` — step 1 (§4.14): hero + headline + subtitle + Continue + Skip + step pills. MVI per
+  §10.1: `WelcomeState` (flow position) / `WelcomeAction` / `WelcomeEvent` (`NavigateToNextStep`,
+  `SkipOnboarding` — intents, not destinations) / `WelcomeViewModel`, with `WelcomeRoot` +
+  `WelcomeScreen` in `WelcomeScreen.kt`. The step reads and writes nothing; completion is persisted
+  in step 3 (M6-03). Adaptive per §6.4.2 — private `CompactWelcome` (single centered column) /
+  `WideWelcome` (hero-left, content-right at 600dp+), selected from `currentWindowAdaptiveInfoV2()`.
 - `OnboardingHeroBlob` / `OnboardingStepIndicator` (`components/`) — the three-blob hero illustration
   (`Canvas`, every dimension a fraction of the square side so it scales to its bounds) with the
   round `primary` logo badge, and the progress pill row. Both are reused by the permission gate

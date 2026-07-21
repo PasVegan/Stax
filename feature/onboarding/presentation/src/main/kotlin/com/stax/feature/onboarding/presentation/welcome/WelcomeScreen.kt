@@ -15,22 +15,50 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
+import com.stax.core.presentation.ObserveAsEvents
 import com.stax.feature.onboarding.presentation.R
 import com.stax.feature.onboarding.presentation.components.OnboardingHeroBlob
 import com.stax.feature.onboarding.presentation.components.OnboardingStepIndicator
+import org.koin.androidx.compose.koinViewModel
 
-/** Step 1 of the 3-step onboarding flow (§4.14). */
-private const val WELCOME_STEP = 1
-private const val ONBOARDING_STEP_COUNT = 3
+/**
+ * Root of onboarding step 1 (§10.1): holds the [WelcomeViewModel], observes its one-time events and
+ * turns them into the navigation callbacks `:app` supplied ([onContinue] / [onSkip], §10.3).
+ */
+@Suppress("FunctionName")
+@Composable
+fun WelcomeRoot(
+    onContinue: () -> Unit,
+    onSkip: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: WelcomeViewModel = koinViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    ObserveAsEvents(viewModel.events, onContinue, onSkip) { event ->
+        when (event) {
+            WelcomeEvent.NavigateToNextStep -> onContinue()
+            WelcomeEvent.SkipOnboarding -> onSkip()
+        }
+    }
+
+    WelcomeScreen(
+        state = state,
+        onAction = viewModel::onAction,
+        modifier = modifier,
+    )
+}
 
 /**
  * Onboarding step 1 — Welcome (§4.14 step 1).
@@ -39,26 +67,25 @@ private const val ONBOARDING_STEP_COUNT = 3
  * "Skip" text action, with the step-indicator pills showing progress through the flow.
  *
  * Adaptive per §6.4.2: a single centered column at Compact, and a hero-left / content-right split at
- * Medium and Expanded — the same content, re-laid-out rather than re-written. [onContinue] and
- * [onSkip] are wired by `:app`, which owns where each one leads (§10.3).
+ * Medium and Expanded — the same content, re-laid-out rather than re-written.
  */
 @Suppress("FunctionName")
 @Composable
-fun WelcomeScreen(onContinue: () -> Unit, onSkip: () -> Unit, modifier: Modifier = Modifier) {
+fun WelcomeScreen(state: WelcomeState, onAction: (WelcomeAction) -> Unit, modifier: Modifier = Modifier) {
     val heroLeftLayout = currentWindowAdaptiveInfoV2().windowSizeClass
         .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     if (heroLeftLayout) {
-        WideWelcome(onContinue = onContinue, onSkip = onSkip, modifier = modifier)
+        WideWelcome(state = state, onAction = onAction, modifier = modifier)
     } else {
-        CompactWelcome(onContinue = onContinue, onSkip = onSkip, modifier = modifier)
+        CompactWelcome(state = state, onAction = onAction, modifier = modifier)
     }
 }
 
 /** Compact (<600dp): full-screen stepper — pills, hero, copy and actions stacked and centered. */
 @Suppress("FunctionName")
 @Composable
-private fun CompactWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier: Modifier = Modifier) {
+private fun CompactWelcome(state: WelcomeState, onAction: (WelcomeAction) -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -66,7 +93,7 @@ private fun CompactWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier:
             .padding(SCREEN_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        OnboardingStepIndicator(currentStep = WELCOME_STEP, stepCount = ONBOARDING_STEP_COUNT)
+        OnboardingStepIndicator(currentStep = state.currentStep, stepCount = state.stepCount)
 
         Column(
             modifier = Modifier
@@ -79,7 +106,7 @@ private fun CompactWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier:
             WelcomeCopy(textAlign = TextAlign.Center)
         }
 
-        WelcomeActions(onContinue = onContinue, onSkip = onSkip)
+        WelcomeActions(onAction = onAction)
     }
 }
 
@@ -89,7 +116,7 @@ private fun CompactWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier:
  */
 @Suppress("FunctionName")
 @Composable
-private fun WideWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier: Modifier = Modifier) {
+private fun WideWelcome(state: WelcomeState, onAction: (WelcomeAction) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxSize()
@@ -111,7 +138,7 @@ private fun WideWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier: Mo
                 .weight(1f)
                 .fillMaxHeight(),
         ) {
-            OnboardingStepIndicator(currentStep = WELCOME_STEP, stepCount = ONBOARDING_STEP_COUNT)
+            OnboardingStepIndicator(currentStep = state.currentStep, stepCount = state.stepCount)
 
             Column(
                 modifier = Modifier
@@ -122,7 +149,7 @@ private fun WideWelcome(onContinue: () -> Unit, onSkip: () -> Unit, modifier: Mo
                 WelcomeCopy(textAlign = TextAlign.Start)
             }
 
-            WelcomeActions(onContinue = onContinue, onSkip = onSkip)
+            WelcomeActions(onAction = onAction)
         }
     }
 }
@@ -154,15 +181,15 @@ private fun WelcomeCopy(textAlign: TextAlign, modifier: Modifier = Modifier) {
 /** Full-width filled "Continue" with "Skip" below it (§4.14 step 1). */
 @Suppress("FunctionName")
 @Composable
-private fun WelcomeActions(onContinue: () -> Unit, onSkip: () -> Unit) {
+private fun WelcomeActions(onAction: (WelcomeAction) -> Unit) {
     Button(
-        onClick = onContinue,
+        onClick = { onAction(WelcomeAction.OnContinueClick) },
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(text = stringResource(R.string.onboarding_continue))
     }
     TextButton(
-        onClick = onSkip,
+        onClick = { onAction(WelcomeAction.OnSkipClick) },
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(text = stringResource(R.string.onboarding_skip))
@@ -186,7 +213,7 @@ private const val WIDE_HERO_WIDTH_FRACTION = 0.8f
 private fun WelcomeScreenPreview() {
     StaxTheme(dynamicColor = false) {
         Surface {
-            WelcomeScreen(onContinue = {}, onSkip = {})
+            WelcomeScreen(state = WelcomeState(), onAction = {})
         }
     }
 }

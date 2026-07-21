@@ -1,6 +1,11 @@
 package com.stax.app
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -21,6 +26,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxListDetailScene
+import com.stax.core.design.system.StaxMotion
 import com.stax.core.design.system.StaxSupportingPaneScene
 import com.stax.feature.compounds.presentation.navigation.CompoundDetailRoute
 import com.stax.feature.compounds.presentation.navigation.CompoundsRoute
@@ -179,6 +185,39 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
         entries = navState.toDecoratedEntries(entryProvider),
         modifier = modifier,
         sceneStrategies = listOf(listDetailSceneStrategy, supportingPaneSceneStrategy),
+        transitionSpec = { STAX_FORWARD_TRANSITION },
+        popTransitionSpec = { STAX_BACK_TRANSITION },
+        // Predictive back: NavDisplay seeks this peek by the system back-gesture progress, and the
+        // active Scene strategy resolves the detail → list transition (§6.4.5).
+        predictivePopTransitionSpec = { STAX_BACK_TRANSITION },
         onBack = { navState.goBack() },
     )
 }
+
+/** Outgoing scene scales down toward this fraction during a back / predictive-pop peek (§6.4.5). */
+private const val PREDICTIVE_PEEK_SCALE = 0.92f
+
+/** Incoming (previous) scene sits behind the outgoing one during a back peek so it is revealed. */
+private const val BACK_TARGET_Z_INDEX = -1f
+
+/** Incoming scene sits on top during a forward push. */
+private const val FORWARD_TARGET_Z_INDEX = 1f
+
+/**
+ * Back / predictive-pop peek (§6.4.5, §5.9): the outgoing scene scales down + fades on top, revealing
+ * the incoming (previous) scene behind it. Driven by [StaxMotion] specs — no inline `tween`.
+ */
+private val STAX_BACK_TRANSITION: ContentTransform = ContentTransform(
+    targetContentEnter = fadeIn(StaxMotion.defaultEffectsSpec()),
+    initialContentExit = scaleOut(StaxMotion.defaultSpatialSpec(), targetScale = PREDICTIVE_PEEK_SCALE) +
+        fadeOut(StaxMotion.defaultEffectsSpec()),
+    targetContentZIndex = BACK_TARGET_Z_INDEX,
+)
+
+/** Forward push: the incoming scene scales up from the peek scale + fades in on top (§5.9). */
+private val STAX_FORWARD_TRANSITION: ContentTransform = ContentTransform(
+    targetContentEnter = scaleIn(StaxMotion.defaultSpatialSpec(), initialScale = PREDICTIVE_PEEK_SCALE) +
+        fadeIn(StaxMotion.defaultEffectsSpec()),
+    initialContentExit = fadeOut(StaxMotion.defaultEffectsSpec()),
+    targetContentZIndex = FORWARD_TARGET_Z_INDEX,
+)

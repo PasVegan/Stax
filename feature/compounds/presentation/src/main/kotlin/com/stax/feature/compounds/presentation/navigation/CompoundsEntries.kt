@@ -32,6 +32,7 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
     onEditCompound: (Long) -> Unit,
     onReconstitute: (Long) -> Unit,
     onBack: () -> Unit,
+    onSkipOnboardingStep: () -> Unit,
 ) {
     entry<CompoundsRoute>(
         metadata = StaxListDetailScene.listPane(
@@ -51,9 +52,17 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
             Button(onClick = onBack) { Text(text = "Back") }
         }
     }
-    entry<CreateCompoundRoute> {
-        PlaceholderScreen(title = "New compound") {
-            Button(onClick = onBack) { Text(text = "Cancel") }
+    entry<CreateCompoundRoute> { key ->
+        // Onboarding step 2 reuses this form (§4.14 step 2): same screen, app bar titled
+        // "Add your first compound · 2 of 3" with Skip in its trailing slot. The real app bar
+        // arrives with the form itself (M7-04) — until then the placeholder carries the actions.
+        val title = if (key.onboarding) "Add your first compound · 2 of 3" else "New compound"
+        PlaceholderScreen(title = title) {
+            if (key.onboarding) {
+                Button(onClick = onSkipOnboardingStep) { Text(text = "Skip") }
+            } else {
+                Button(onClick = onBack) { Text(text = "Cancel") }
+            }
         }
     }
     entry<EditCompoundRoute> { key ->

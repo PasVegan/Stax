@@ -6,7 +6,8 @@ First-run flow: Welcome stepper, then steps that **reuse** Create Compound (§4.
 
 ## Module coordinates
 - Gradle: `:feature:onboarding:presentation` · plugin `com.stax.android.feature`.
-- Package: `com.stax.feature.onboarding.presentation` (`.di`, `.navigation`, `.components`, `.welcome`).
+- Package: `com.stax.feature.onboarding.presentation` (`.di`, `.navigation`, `.components`, `.welcome`,
+  `.completion`).
 - Deps: `:core:domain`, `:core:presentation`, `:core:design-system`.
 
 ## Allowed dependencies
@@ -22,7 +23,7 @@ the compounds/protocols feature modules (features never depend on features).
   §10.1: `WelcomeState` (flow position) / `WelcomeAction` / `WelcomeEvent` (`NavigateToNextStep`,
   `SkipOnboarding` — intents, not destinations) / `WelcomeViewModel`, with `WelcomeRoot` +
   `WelcomeScreen` in `WelcomeScreen.kt`. The step reads and writes nothing; completion is persisted
-  in step 3 (M6-03). Adaptive per §6.4.2 — private `CompactWelcome` (single centered column) /
+  at the end of the flow (`completion/`). Adaptive per §6.4.2 — private `CompactWelcome` (single centered column) /
   `WideWelcome` (hero-left, content-right at 600dp+), selected from `currentWindowAdaptiveInfoV2()`.
 - `OnboardingHeroBlob` / `OnboardingStepIndicator` (`components/`) — the three-blob hero illustration
   (`Canvas`, every dimension a fraction of the square side so it scales to its bounds) with the
@@ -32,6 +33,13 @@ the compounds/protocols feature modules (features never depend on features).
   with `CreateCompoundRoute(onboarding = true)` and the form's Skip with a pop. Nothing of step 2
   lives here: features never depend on features. The form itself is M7-04; until it lands the entry
   is a placeholder carrying the onboarding title + Skip.
+- Step 3 (§4.14) is the Create Protocol form flagged the same way, and it is the last step — Save
+  and Skip both end the flow. `completion/` owns what "end of flow" means here:
+  `rememberOnboardingCompletion()` hands `:app` a callback backed by
+  `OnboardingCompletionViewModel`, which writes `Settings.onboardingCompleted = true` through
+  `SettingsRepository`. `:app` pairs that callback with the navigation to Dashboard. The ViewModel
+  has no state/action/event triple on purpose — it is not a screen (see its KDoc). The form itself
+  is M9-03.
 - Coming: permission-gate composables (M6-04/M6-05).
 
 ## Applicable skills

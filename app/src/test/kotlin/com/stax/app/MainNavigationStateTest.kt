@@ -100,4 +100,28 @@ class MainNavigationStateTest {
 
         assertThat(state.backStacks.getValue(CompoundsRoute)).hasSize(2)
     }
+
+    @Test
+    fun `going to the start root drops everything stacked on home`() {
+        val state = newState()
+        state.push(CompoundDetailRoute(compoundId = 7L))
+        state.push(CompoundDetailRoute(compoundId = 8L))
+
+        state.goToStartRoot()
+
+        assertThat(state.topLevelRoute).isEqualTo(DashboardRoute)
+        assertThat(state.backStacks.getValue(DashboardRoute)).containsExactly(DashboardRoute)
+    }
+
+    @Test
+    fun `going to the start root clears the destination it was called from`() {
+        val state = newState()
+        state.onTopLevelSelected(CompoundsRoute)
+        state.push(CompoundDetailRoute(compoundId = 7L))
+
+        state.goToStartRoot()
+
+        assertThat(state.topLevelRoute).isEqualTo(DashboardRoute)
+        assertThat(state.backStacks.getValue(CompoundsRoute)).containsExactly(CompoundsRoute)
+    }
 }

@@ -11,6 +11,12 @@ data object ProtocolsRoute : NavKey
 @Serializable
 data class ProtocolDetailRoute(val protocolId: Long) : NavKey
 
-/** Create-protocol flow. */
+/**
+ * Create-protocol flow (§4.9).
+ *
+ * [onboarding] marks the instance that onboarding step 3 reuses (§4.14 step 3): the same form, with
+ * the app bar titled "Create your first protocol · 3 of 3" and a Skip action in its trailing slot.
+ * Onboarding cannot reach this route itself — `:app` builds it (§10.3).
+ */
 @Serializable
-data object CreateProtocolRoute : NavKey
+data class CreateProtocolRoute(val onboarding: Boolean = false) : NavKey

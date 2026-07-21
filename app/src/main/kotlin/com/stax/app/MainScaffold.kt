@@ -37,6 +37,7 @@ import com.stax.feature.dashboard.presentation.navigation.DashboardRoute
 import com.stax.feature.dashboard.presentation.navigation.DashboardSupportingRoute
 import com.stax.feature.dashboard.presentation.navigation.dashboardEntries
 import com.stax.feature.logging.presentation.navigation.loggingEntries
+import com.stax.feature.onboarding.presentation.completion.rememberOnboardingCompletion
 import com.stax.feature.onboarding.presentation.navigation.onboardingEntries
 import com.stax.feature.protocols.presentation.navigation.CreateProtocolRoute
 import com.stax.feature.protocols.presentation.navigation.ProtocolDetailRoute
@@ -151,6 +152,10 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
     // Supporting-pane Scene (§6.4.2): Dashboard main pane + supporting pane.
     val supportingPaneSceneStrategy = StaxSupportingPaneScene.rememberSceneStrategy<NavKey>()
 
+    // Onboarding ends on a screen it does not own (§4.14 step 3 reuses Create Protocol), so the
+    // completion write is hoisted out of that feature and handed back to onboarding from here.
+    val completeOnboarding = rememberOnboardingCompletion()
+
     val entryProvider = entryProvider {
         dashboardEntries(
             onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
@@ -162,18 +167,21 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
             onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
             onBack = { navState.goBack() },
-            // §4.14: skip advances to step 3, which lands with M6-03 — until then it leaves the
-            // flow, popping step 2 and the Welcome step behind it. Either way nothing is saved:
-            // the form persists nothing before its own Save (M7-04).
-            onSkipOnboardingStep = {
-                navState.goBack()
-                navState.goBack()
-            },
+            // §4.14 step 2: skipping advances to step 3 — the Create Protocol form, flagged the same
+            // way — and saves nothing, because the form persists nothing before its own Save (M7-04).
+            onSkipOnboardingStep = { navState.push(CreateProtocolRoute(onboarding = true)) },
         )
         protocolsEntries(
             onProtocolClick = { protocolId -> navState.showDetail(ProtocolDetailRoute(protocolId)) },
-            onCreateProtocol = { navState.push(CreateProtocolRoute) },
+            onCreateProtocol = { navState.push(CreateProtocolRoute()) },
             onBack = { navState.goBack() },
+            // §4.14 step 3 is the last step, so finishing or skipping it ends onboarding: persist
+            // the completion (onboarding's own business, hence the callback) and drop the whole
+            // stepper to land on Dashboard.
+            onFinishOnboarding = {
+                completeOnboarding()
+                navState.goToStartRoot()
+            },
         )
         sitesEntries()
         settingsEntries()

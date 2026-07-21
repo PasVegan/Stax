@@ -30,6 +30,7 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
     onProtocolClick: (Long) -> Unit,
     onCreateProtocol: () -> Unit,
     onBack: () -> Unit,
+    onFinishOnboarding: () -> Unit,
 ) {
     entry<ProtocolsRoute>(
         metadata = StaxListDetailScene.listPane(
@@ -47,9 +48,18 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
             Button(onClick = onBack) { Text(text = "Back") }
         }
     }
-    entry<CreateProtocolRoute> {
-        PlaceholderScreen(title = "New protocol") {
-            Button(onClick = onBack) { Text(text = "Cancel") }
+    entry<CreateProtocolRoute> { key ->
+        // Onboarding step 3 reuses this form (§4.14 step 3): same screen, app bar titled
+        // "Create your first protocol · 3 of 3" with Skip in its trailing slot. It is the last step,
+        // so Save and Skip both end the flow and both report it through [onFinishOnboarding] — the
+        // real app bar and Save arrive with the form itself (M9-03), which is a placeholder for now.
+        val title = if (key.onboarding) "Create your first protocol · 3 of 3" else "New protocol"
+        PlaceholderScreen(title = title) {
+            if (key.onboarding) {
+                Button(onClick = onFinishOnboarding) { Text(text = "Skip") }
+            } else {
+                Button(onClick = onBack) { Text(text = "Cancel") }
+            }
         }
     }
 }

@@ -35,7 +35,8 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   `NavBackStack` per destination (Nav3 multiple-back-stacks recipe, §6.2 / §6.4.5). `onTopLevelSelected`
   switches destination or, on re-tap, pops that stack to root; `push` adds a stacked screen to the active
   stack; `showDetail` replaces the same-type detail (two-pane swap, §6.4.2); `goBack` pops or returns to
-  Home ("exit through home"). Active route + every stack survive config changes + process death
+  Home ("exit through home"); `goToStartRoot` ends a flow outright — it clears the active stack and lands
+  on Home's root (onboarding completion, §4.14). Active route + every stack survive config changes + process death
   (`rememberSerializable` + `rememberNavBackStack`). Every saveable here sits inside a `key(...)` — an
   unkeyed one takes its registry key from the *enclosing composable's* compound hash, so the five stacks
   of the loop (and their sibling state) would share one key and restore positionally.

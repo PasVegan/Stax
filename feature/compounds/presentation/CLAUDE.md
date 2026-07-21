@@ -17,6 +17,10 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
 - `CompoundsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes) +
   `compoundsEntries` (Nav3 entryProvider extension). Coming: list/detail/create/edit ViewModels &
   State/Action/Event, Root/Screen composables, history paging.
+- `CreateCompoundRoute(onboarding)` — onboarding step 2 reuses this form (§4.14 step 2): same screen,
+  app bar titled "Add your first compound · 2 of 3" with Skip in the trailing slot, driven by the
+  route flag. `compoundsEntries(onSkipOnboardingStep = …)` carries that Skip back to `:app`, which
+  owns the flow — this module still knows nothing about the onboarding feature (§10.3).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

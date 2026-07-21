@@ -158,10 +158,17 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
         )
         compoundsEntries(
             onCompoundClick = { compoundId -> navState.showDetail(CompoundDetailRoute(compoundId)) },
-            onCreateCompound = { navState.push(CreateCompoundRoute) },
+            onCreateCompound = { navState.push(CreateCompoundRoute()) },
             onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
             onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
             onBack = { navState.goBack() },
+            // §4.14: skip advances to step 3, which lands with M6-03 — until then it leaves the
+            // flow, popping step 2 and the Welcome step behind it. Either way nothing is saved:
+            // the form persists nothing before its own Save (M7-04).
+            onSkipOnboardingStep = {
+                navState.goBack()
+                navState.goBack()
+            },
         )
         protocolsEntries(
             onProtocolClick = { protocolId -> navState.showDetail(ProtocolDetailRoute(protocolId)) },
@@ -177,8 +184,10 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             onBack = { navState.goBack() },
         )
         onboardingEntries(
-            // Step 2 (Create Compound) lands with M6-02; until then both actions leave the flow.
-            onContinue = { navState.goBack() },
+            // Step 2 reuses the Create Compound form (§4.14 step 2). The reuse is wired here
+            // because features never depend on features: onboarding names the intent, `:app`
+            // names the destination (§10.3).
+            onContinue = { navState.push(CreateCompoundRoute(onboarding = true)) },
             onSkip = { navState.goBack() },
         )
     }

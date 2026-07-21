@@ -28,6 +28,10 @@ the compounds/protocols feature modules (features never depend on features).
   (`Canvas`, every dimension a fraction of the square side so it scales to its bounds) with the
   round `primary` logo badge, and the progress pill row. Both are reused by the permission gate
   (§4.15, M6-04).
+- Step 2 (§4.14) is the Create Compound form flagged as onboarding — `:app` answers `onContinue`
+  with `CreateCompoundRoute(onboarding = true)` and the form's Skip with a pop. Nothing of step 2
+  lives here: features never depend on features. The form itself is M7-04; until it lands the entry
+  is a placeholder carrying the onboarding title + Skip.
 - Coming: permission-gate composables (M6-04/M6-05).
 
 ## Applicable skills

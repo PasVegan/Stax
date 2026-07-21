@@ -11,9 +11,15 @@ data object CompoundsRoute : NavKey
 @Serializable
 data class CompoundDetailRoute(val compoundId: Long) : NavKey
 
-/** Create-compound form. */
+/**
+ * Create-compound form (§4.4).
+ *
+ * [onboarding] marks the instance that onboarding step 2 reuses (§4.14 step 2): the same form, with
+ * the app bar titled "Add your first compound · 2 of 3" and a Skip action in its trailing slot.
+ * Onboarding cannot reach this route itself — `:app` builds it (§10.3).
+ */
 @Serializable
-data object CreateCompoundRoute : NavKey
+data class CreateCompoundRoute(val onboarding: Boolean = false) : NavKey
 
 /** Edit the compound identified by [compoundId]. */
 @Serializable

@@ -40,7 +40,16 @@ the compounds/protocols feature modules (features never depend on features).
   `SettingsRepository`. `:app` pairs that callback with the navigation to Dashboard. The ViewModel
   has no state/action/event triple on purpose — it is not a screen (see its KDoc). The form itself
   is M9-03.
-- Coming: permission-gate composables (M6-04/M6-05).
+- `notificationgate/` — the notification-permission gate (§4.15, M6-04): the screen shown after
+  onboarding when `POST_NOTIFICATIONS` is not granted. MVI per §10.1 (`NotificationGateState` /
+  `Action` / `Event` / `NotificationGateViewModel`, `NotificationGateRoot` + `NotificationGateScreen`),
+  reusing `OnboardingHeroBlob` and the same Compact/Wide adaptive split as Welcome (no step pills).
+  The Root owns the framework side — the `RequestPermission` launcher, the permanent-denial
+  `shouldShowRequestPermissionRationale` check that gates the "Open system settings" action, and the
+  jump to app notification settings — while `:app` supplies the `onProceed` destination (Dashboard).
+  `onboardingEntries` gained a third callback, `onNotificationGateProceed`; `:app` routes onboarding
+  finish/skip through the gate (persist completion → push gate → gate proceeds to Dashboard).
+- Coming: exact-alarm rationale (M6-05).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

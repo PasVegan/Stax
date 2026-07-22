@@ -16,6 +16,11 @@ forecast & warnings), escalation rules, and the pause-with-unsaved-changes flow.
 - `ProtocolsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes) +
   `protocolsEntries` (Nav3 entryProvider extension). Coming: list/detail/create ViewModels &
   State/Action/Event, Root/Screen composables, forecast preview.
+- `CreateProtocolRoute(onboarding)` — onboarding step 3 reuses this form (§4.14 step 3): same screen,
+  app bar titled "Create your first protocol · 3 of 3" with Skip in the trailing slot, driven by the
+  route flag. It is the last step, so Save and Skip both end the flow;
+  `protocolsEntries(onFinishOnboarding = …)` carries that back to `:app`, which owns the flow — this
+  module still knows nothing about the onboarding feature (§10.3).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.

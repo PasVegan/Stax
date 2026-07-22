@@ -47,12 +47,23 @@ class MainNavigationState(
      */
     fun onTopLevelSelected(route: NavKey) {
         if (topLevelRoute == route) {
-            backStacks[route]?.let { stack ->
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-            }
+            backStacks[route]?.let(::popToRoot)
         } else {
             topLevelRoute = route
         }
+    }
+
+    /**
+     * Lands on [startRoute] with nothing stacked on it, whichever destination is active and however
+     * deep its stack is. Used to end a flow rather than to walk back out of it — onboarding
+     * completion drops the whole stepper and shows Dashboard (§4.14).
+     */
+    fun goToStartRoot() {
+        // The flow was pushed onto whichever destination was active, so clear that stack as well:
+        // leaving it behind would resume a finished flow the next time the user goes back to it.
+        popToRoot(currentStack)
+        topLevelRoute = startRoute
+        popToRoot(currentStack)
     }
 
     /** Pushes a stacked screen onto the active destination's stack (§6.2). */
@@ -108,6 +119,11 @@ class MainNavigationState(
             }
         }
         return routesInUse().flatMap { decoratedByRoute[it].orEmpty() }
+    }
+
+    /** Drops everything stacked on [stack]'s root destination. */
+    private fun popToRoot(stack: NavBackStack<NavKey>) {
+        while (stack.size > 1) stack.removeAt(stack.lastIndex)
     }
 
     /** Start route first ("exit through home"), then the active route when it differs. */

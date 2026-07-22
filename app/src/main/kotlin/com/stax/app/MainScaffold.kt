@@ -38,6 +38,7 @@ import com.stax.feature.dashboard.presentation.navigation.DashboardSupportingRou
 import com.stax.feature.dashboard.presentation.navigation.dashboardEntries
 import com.stax.feature.logging.presentation.navigation.loggingEntries
 import com.stax.feature.onboarding.presentation.completion.rememberOnboardingCompletion
+import com.stax.feature.onboarding.presentation.navigation.NotificationGateRoute
 import com.stax.feature.onboarding.presentation.navigation.onboardingEntries
 import com.stax.feature.protocols.presentation.navigation.CreateProtocolRoute
 import com.stax.feature.protocols.presentation.navigation.ProtocolDetailRoute
@@ -156,6 +157,13 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
     // completion write is hoisted out of that feature and handed back to onboarding from here.
     val completeOnboarding = rememberOnboardingCompletion()
 
+    // Finishing or skipping onboarding persists completion, then hands off to the notification gate
+    // (§4.15) — the last thing before Dashboard. The gate's own "proceed" drops the whole flow.
+    val finishOnboardingToGate = {
+        completeOnboarding()
+        navState.push(NotificationGateRoute)
+    }
+
     val entryProvider = entryProvider {
         dashboardEntries(
             onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
@@ -176,12 +184,9 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             onCreateProtocol = { navState.push(CreateProtocolRoute()) },
             onBack = { navState.goBack() },
             // §4.14 step 3 is the last step, so finishing or skipping it ends onboarding: persist
-            // the completion (onboarding's own business, hence the callback) and drop the whole
-            // stepper to land on Dashboard.
-            onFinishOnboarding = {
-                completeOnboarding()
-                navState.goToStartRoot()
-            },
+            // the completion (onboarding's own business, hence the callback) and hand off to the
+            // notification gate (§4.15) before Dashboard.
+            onFinishOnboarding = finishOnboardingToGate,
         )
         sitesEntries()
         settingsEntries()
@@ -197,12 +202,11 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             // names the destination (§10.3).
             onContinue = { navState.push(CreateCompoundRoute(onboarding = true)) },
             // Skip on step 1 is skip-anywhere: it ends onboarding just like finishing step 3, so it
-            // persists completion and drops the whole flow to Dashboard — not a plain back-pop, or
+            // persists completion and hands off to the notification gate — not a plain back-pop, or
             // the flag stays false and onboarding returns on the next launch (§4.14).
-            onSkip = {
-                completeOnboarding()
-                navState.goToStartRoot()
-            },
+            onSkip = finishOnboardingToGate,
+            // The gate is the last thing before Dashboard: answering it drops the whole flow (§4.15).
+            onNotificationGateProceed = { navState.goToStartRoot() },
         )
     }
 

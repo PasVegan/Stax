@@ -8,6 +8,6 @@ sealed interface WelcomeEvent {
     /** Advance the flow — step 2 reuses Create Compound (M6-02). */
     data object NavigateToNextStep : WelcomeEvent
 
-    /** Leave onboarding without completing it. */
+    /** End onboarding here (skip-anywhere): `:app` persists completion and lands on Dashboard. */
     data object SkipOnboarding : WelcomeEvent
 }

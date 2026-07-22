@@ -196,7 +196,13 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             // because features never depend on features: onboarding names the intent, `:app`
             // names the destination (§10.3).
             onContinue = { navState.push(CreateCompoundRoute(onboarding = true)) },
-            onSkip = { navState.goBack() },
+            // Skip on step 1 is skip-anywhere: it ends onboarding just like finishing step 3, so it
+            // persists completion and drops the whole flow to Dashboard — not a plain back-pop, or
+            // the flag stays false and onboarding returns on the next launch (§4.14).
+            onSkip = {
+                completeOnboarding()
+                navState.goToStartRoot()
+            },
         )
     }
 

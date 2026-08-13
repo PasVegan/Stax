@@ -38,12 +38,22 @@ private fun StaxApp(settingsRepository: SettingsRepository = koinInject()) {
         darkTheme = settings.darkTheme(systemDarkTheme),
         dynamicColor = settings?.dynamicColor ?: true,
     ) {
-        // NavigationSuiteScaffold owns the system-bar insets for its chrome (edge-to-edge, §2.3.6);
-        // each NavDisplay entry is a Scene pane and claims its own slice via Modifier.paneInsets().
-        // ProvideFoldingFeature wraps the nav root so the adaptive Scenes can snap pane dividers to
-        // a vertical hinge (§6.4.3).
-        ProvideFoldingFeature {
-            MainScaffold(modifier = Modifier.fillMaxSize())
+        // Whether onboarding has run (§4.14) decides the *initial* back stack, so nothing composes
+        // until settings arrive — otherwise Dashboard renders for a frame and onboarding animates in
+        // over it on first launch. The window theme paints the background meanwhile, and the row is
+        // seeded on database creation so this resolves within a frame or two of a cold start.
+        val onboardingCompleted = settings?.onboardingCompleted
+        if (onboardingCompleted != null) {
+            // NavigationSuiteScaffold owns the system-bar insets for its chrome (edge-to-edge, §2.3.6);
+            // each NavDisplay entry is a Scene pane and claims its own slice via Modifier.paneInsets().
+            // ProvideFoldingFeature wraps the nav root so the adaptive Scenes can snap pane dividers to
+            // a vertical hinge (§6.4.3).
+            ProvideFoldingFeature {
+                MainScaffold(
+                    onboardingCompleted = onboardingCompleted,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }

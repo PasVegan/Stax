@@ -41,6 +41,10 @@ class MainNavigationState(
     private val currentStack: NavBackStack<NavKey>
         get() = backStacks.getValue(topLevelRoute)
 
+    /** The screen on top of the active destination's stack — what the user is currently looking at. */
+    val currentRoute: NavKey
+        get() = currentStack.last()
+
     /**
      * Handles a tap on a top-level nav item: switches to [route], or — if it is already the active
      * destination — pops its stack back to its root (§6.4.5). Re-tapping at the root is a no-op.
@@ -134,9 +138,16 @@ class MainNavigationState(
 /**
  * Builds a [MainNavigationState] whose active destination and per-destination back stacks all
  * survive configuration changes and process death. [startRoute] must be one of [topLevelRoutes].
+ *
+ * [initialStackedRoute], when given, starts [startRoute]'s stack with that route already on top — a
+ * flow the user must answer before reaching the start destination (first-run onboarding, §4.14).
  */
 @Composable
-fun rememberMainNavigationState(startRoute: NavKey, topLevelRoutes: Set<NavKey>): MainNavigationState {
+fun rememberMainNavigationState(
+    startRoute: NavKey,
+    topLevelRoutes: Set<NavKey>,
+    initialStackedRoute: NavKey? = null,
+): MainNavigationState {
     // Every saveable here is wrapped in `key(...)`. An unkeyed rememberSaveable/rememberSerializable
     // derives its registry key from the *enclosing composable's* compound hash, not its call site, so
     // all the siblings below — and all five stacks of the loop — would share one key. The registry
@@ -153,8 +164,13 @@ fun rememberMainNavigationState(startRoute: NavKey, topLevelRoutes: Set<NavKey>)
         }
     }
 
-    // One saveable back stack per destination, keyed by that destination's route.
-    val backStacks = topLevelRoutes.associateWith { route -> key(route) { rememberNavBackStack(route) } }
+    // One saveable back stack per destination, keyed by that destination's route. `initialStackedRoute`
+    // is only an *initial* value: a restored stack always wins, so a configuration change or process
+    // death part-way through the seeded flow never pushes it a second time.
+    val backStacks = topLevelRoutes.associateWith { route ->
+        val initialStack = if (route == startRoute) listOfNotNull(route, initialStackedRoute) else listOf(route)
+        key(route) { rememberNavBackStack(*initialStack.toTypedArray()) }
+    }
 
     return remember(startRoute, topLevelRoutes) {
         MainNavigationState(

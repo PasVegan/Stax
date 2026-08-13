@@ -37,6 +37,22 @@ class MainNavigationStateTest {
     }
 
     @Test
+    fun `the current route is the top of the active stack`() {
+        val state = newState()
+        state.push(CompoundDetailRoute(compoundId = 3L))
+
+        assertThat(state.currentRoute).isEqualTo(CompoundDetailRoute(compoundId = 3L))
+    }
+
+    @Test
+    fun `the current route follows the active destination`() {
+        val state = newState()
+        state.onTopLevelSelected(CompoundsRoute)
+
+        assertThat(state.currentRoute).isEqualTo(CompoundsRoute)
+    }
+
+    @Test
     fun `selecting another destination switches to it`() {
         val state = newState()
 

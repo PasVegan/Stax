@@ -10,7 +10,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -26,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -138,7 +142,19 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
                             contentDescription = null,
                         )
                     },
-                    label = { Text(text = stringResource(destination.labelRes)) },
+                    label = {
+                        // Five items on a very narrow window (a folded cover screen is ~330dp) leave
+                        // "Compounds" too little room, and the item's label slot puts no limit on the
+                        // text: it wraps to a second line and breaks the bar's rhythm. Pin it to one
+                        // line and let the label shrink to fit instead, down to a floor below which it
+                        // ellipsizes. Only the labels that need it shrink; the rest keep the token size.
+                        Text(
+                            text = stringResource(destination.labelRes),
+                            autoSize = rememberNavLabelAutoSize(),
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1,
+                        )
+                    },
                 )
             }
         },
@@ -271,6 +287,31 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
         onBack = { navState.goBack() },
     )
 }
+
+/**
+ * Shrink-to-fit for a nav item's label, ceilinged at whatever size the item already provides — each
+ * nav suite type styles its label slot with its own token, so reading [LocalTextStyle] keeps that
+ * size as the maximum and only ever scales down from it.
+ *
+ * `StepBased` requires `min < max` and would throw otherwise, so a token at or below the floor
+ * returns `null`: the label then simply ellipsizes at one line. Remembered because `TextAutoSize`
+ * documents itself as identity-sensitive on the text layout path.
+ */
+@Composable
+private fun rememberNavLabelAutoSize(): TextAutoSize? {
+    val labelFontSize = LocalTextStyle.current.fontSize
+    return remember(labelFontSize) {
+        labelFontSize
+            .takeIf { it.isSp && it > NAV_LABEL_MIN_FONT_SIZE }
+            ?.let { TextAutoSize.StepBased(minFontSize = NAV_LABEL_MIN_FONT_SIZE, maxFontSize = it) }
+    }
+}
+
+/**
+ * Floor for the auto-sized nav labels (§4.0). It is an `sp` value, so it still tracks the user's font
+ * scale; below it the label ellipsizes rather than shrinking further.
+ */
+private val NAV_LABEL_MIN_FONT_SIZE = 9.sp
 
 /** Outgoing scene scales down toward this fraction during a back / predictive-pop peek (§6.4.5). */
 private const val PREDICTIVE_PEEK_SCALE = 0.92f

@@ -59,7 +59,12 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   unkeyed one takes its registry key from the *enclosing composable's* compound hash, so the five stacks
   of the loop (and their sibling state) would share one key and restore positionally.
 - `TopLevelDestination` — the 5 destinations (Home/Compounds/Protocols/Sites/Settings): Nav3 root route
-  + `StaxIcons` outlined/`Filled` icon + label (§4.0).
+  + `StaxIcons` outlined/`Filled` icon + label (§4.0). Item labels are `maxLines = 1` +
+  `TextAutoSize.StepBased(min = 9.sp, max = LocalTextStyle.current.fontSize)` + `Ellipsis`: the item's
+  label slot imposes no line limit of its own, and `ShortNavigationBar` gives each item `barWidth / 5`,
+  so on a very narrow window (a folded cover screen is ~330dp) "Compounds" wrapped to a second line.
+  Taking the max from `LocalTextStyle` keeps each nav suite type's own token size as the ceiling — only
+  labels that do not fit shrink, and only below 9.sp do they ellipsize.
 - `res/values/themes.xml` — `Theme.Stax`, the window theme declared on `<application>`: DeviceDefault
   DayNight with **no title / no action bar**. The window is pure Compose and edge-to-edge, so a
   platform ActionBar would overlay pane content (it claims no inset of its own, §2.3.6).

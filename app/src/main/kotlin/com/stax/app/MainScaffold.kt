@@ -1,5 +1,8 @@
 package com.stax.app
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import androidx.annotation.StringRes
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.fadeIn
@@ -7,19 +10,26 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.ExperimentalMaterial3AdaptiveNavigationSuiteApi
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldValue
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -38,6 +48,8 @@ import com.stax.feature.dashboard.presentation.navigation.DashboardSupportingRou
 import com.stax.feature.dashboard.presentation.navigation.dashboardEntries
 import com.stax.feature.logging.presentation.navigation.loggingEntries
 import com.stax.feature.onboarding.presentation.completion.rememberOnboardingCompletion
+import com.stax.feature.onboarding.presentation.navigation.NotificationGateRoute
+import com.stax.feature.onboarding.presentation.navigation.OnboardingRoute
 import com.stax.feature.onboarding.presentation.navigation.onboardingEntries
 import com.stax.feature.protocols.presentation.navigation.CreateProtocolRoute
 import com.stax.feature.protocols.presentation.navigation.ProtocolDetailRoute
@@ -73,17 +85,34 @@ enum class TopLevelDestination(val route: NavKey, @StringRes val labelRes: Int) 
  * Each destination owns its own saveable back stack ([MainNavigationState], §6.2 / §6.4.5):
  * switching destinations preserves each section's history, and re-tapping the active item pops it
  * back to its root.
+ *
+ * [onboardingCompleted] is `Settings.onboardingCompleted` (§4.14): when it is `false`, the flow is
+ * seeded on top of Home's stack so first launch opens on onboarding.
  */
 @OptIn(ExperimentalMaterial3AdaptiveNavigationSuiteApi::class)
 @Suppress("FunctionName")
 @Composable
-fun MainScaffold(modifier: Modifier = Modifier) {
+fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
     val topLevelRoutes = remember { TopLevelDestination.entries.map { it.route }.toSet() }
     val navState = rememberMainNavigationState(
         startRoute = TopLevelDestination.Home.route,
         topLevelRoutes = topLevelRoutes,
+        // Onboarding is a flow, not a top-level destination, so first run stacks it on Home rather
+        // than changing the start route (§4.14). The caller holds all content back until the flag is
+        // known, so Dashboard never renders behind it.
+        initialStackedRoute = OnboardingRoute.takeUnless { onboardingCompleted },
     )
-    val navSuiteState = rememberNavigationSuiteScaffoldState()
+
+    // The first-run flow has to be answered before the app is usable, so its screens hide the chrome:
+    // a visible nav item is a one-tap exit out of a flow the user has neither finished nor skipped
+    // (§4.14, §4.15). Seeded as the initial value too, so first launch never flashes the bar in.
+    val chromeHidden = navState.currentRoute.isFirstRunFlow()
+    val navSuiteState = rememberNavigationSuiteScaffoldState(
+        initialValue = if (chromeHidden) NavigationSuiteScaffoldValue.Hidden else NavigationSuiteScaffoldValue.Visible,
+    )
+    LaunchedEffect(chromeHidden) {
+        if (chromeHidden) navSuiteState.hide() else navSuiteState.show()
+    }
 
     val selected = TopLevelDestination.entries.firstOrNull { it.route == navState.topLevelRoute }
         ?: TopLevelDestination.Home
@@ -113,7 +142,19 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                             contentDescription = null,
                         )
                     },
-                    label = { Text(text = stringResource(destination.labelRes)) },
+                    label = {
+                        // Five items on a very narrow window (a folded cover screen is ~330dp) leave
+                        // "Compounds" too little room, and the item's label slot puts no limit on the
+                        // text: it wraps to a second line and breaks the bar's rhythm. Pin it to one
+                        // line and let the label shrink to fit instead, down to a floor below which it
+                        // ellipsizes. Only the labels that need it shrink; the rest keep the token size.
+                        Text(
+                            text = stringResource(destination.labelRes),
+                            autoSize = rememberNavLabelAutoSize(),
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1,
+                        )
+                    },
                 )
             }
         },
@@ -124,6 +165,26 @@ fun MainScaffold(modifier: Modifier = Modifier) {
         StaxNavDisplay(navState = navState, modifier = Modifier.fillMaxSize())
     }
 }
+
+/**
+ * The screens that make up the first-run flow (§4.14, §4.15): Welcome, the Create Compound / Create
+ * Protocol forms reused as steps 2 and 3, and the notification gate. Both forms are ordinary stacked
+ * screens when they are not flagged as onboarding, and keep the chrome then.
+ */
+private fun NavKey.isFirstRunFlow(): Boolean = when (this) {
+    OnboardingRoute, NotificationGateRoute -> true
+    is CreateCompoundRoute -> onboarding
+    is CreateProtocolRoute -> onboarding
+    else -> false
+}
+
+/**
+ * Whether §4.15's gate has anything left to ask for. Its trigger is "app launch AND
+ * `POST_NOTIFICATIONS` not granted", so an already-granted permission skips the screen outright —
+ * showing it would offer an Allow button for a permission the user has already given.
+ */
+private fun Context.hasNotificationPermission(): Boolean =
+    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
 /** Outlined when unselected, `Filled` when selected (§4.0). */
 @Composable
@@ -156,6 +217,18 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
     // completion write is hoisted out of that feature and handed back to onboarding from here.
     val completeOnboarding = rememberOnboardingCompletion()
 
+    // Finishing or skipping onboarding persists completion and ends the flow: the whole stepper leaves
+    // the stack first (§4.14), because pushing the gate on top of it would leave a back gesture walking
+    // right back into the forms the user just finished — with onboarding already marked complete. What
+    // is left is the notification gate sitting on Dashboard's root (§4.15) — the last thing before
+    // Dashboard, backing out to it — and nothing at all when the permission is already granted.
+    val context = LocalContext.current
+    val finishOnboarding = {
+        completeOnboarding()
+        navState.goToStartRoot()
+        if (!context.hasNotificationPermission()) navState.push(NotificationGateRoute)
+    }
+
     val entryProvider = entryProvider {
         dashboardEntries(
             onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
@@ -176,12 +249,9 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             onCreateProtocol = { navState.push(CreateProtocolRoute()) },
             onBack = { navState.goBack() },
             // §4.14 step 3 is the last step, so finishing or skipping it ends onboarding: persist
-            // the completion (onboarding's own business, hence the callback) and drop the whole
-            // stepper to land on Dashboard.
-            onFinishOnboarding = {
-                completeOnboarding()
-                navState.goToStartRoot()
-            },
+            // the completion (onboarding's own business, hence the callback) and hand off to the
+            // notification gate (§4.15) before Dashboard.
+            onFinishOnboarding = finishOnboarding,
         )
         sitesEntries()
         settingsEntries()
@@ -197,12 +267,11 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             // names the destination (§10.3).
             onContinue = { navState.push(CreateCompoundRoute(onboarding = true)) },
             // Skip on step 1 is skip-anywhere: it ends onboarding just like finishing step 3, so it
-            // persists completion and drops the whole flow to Dashboard — not a plain back-pop, or
+            // persists completion and hands off to the notification gate — not a plain back-pop, or
             // the flag stays false and onboarding returns on the next launch (§4.14).
-            onSkip = {
-                completeOnboarding()
-                navState.goToStartRoot()
-            },
+            onSkip = finishOnboarding,
+            // By now the gate is all that is left of the flow, so answering it lands on Dashboard (§4.15).
+            onNotificationGateProceed = { navState.goToStartRoot() },
         )
     }
 
@@ -218,6 +287,31 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
         onBack = { navState.goBack() },
     )
 }
+
+/**
+ * Shrink-to-fit for a nav item's label, ceilinged at whatever size the item already provides — each
+ * nav suite type styles its label slot with its own token, so reading [LocalTextStyle] keeps that
+ * size as the maximum and only ever scales down from it.
+ *
+ * `StepBased` requires `min < max` and would throw otherwise, so a token at or below the floor
+ * returns `null`: the label then simply ellipsizes at one line. Remembered because `TextAutoSize`
+ * documents itself as identity-sensitive on the text layout path.
+ */
+@Composable
+private fun rememberNavLabelAutoSize(): TextAutoSize? {
+    val labelFontSize = LocalTextStyle.current.fontSize
+    return remember(labelFontSize) {
+        labelFontSize
+            .takeIf { it.isSp && it > NAV_LABEL_MIN_FONT_SIZE }
+            ?.let { TextAutoSize.StepBased(minFontSize = NAV_LABEL_MIN_FONT_SIZE, maxFontSize = it) }
+    }
+}
+
+/**
+ * Floor for the auto-sized nav labels (§4.0). It is an `sp` value, so it still tracks the user's font
+ * scale; below it the label ellipsizes rather than shrinking further.
+ */
+private val NAV_LABEL_MIN_FONT_SIZE = 9.sp
 
 /** Outgoing scene scales down toward this fraction during a back / predictive-pop peek (§6.4.5). */
 private const val PREDICTIVE_PEEK_SCALE = 0.92f

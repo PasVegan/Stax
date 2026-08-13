@@ -1,5 +1,5 @@
 /**
- * Navigation 3 typed route (`OnboardingRoute`) and the
+ * Navigation 3 typed routes (`OnboardingRoute`, `NotificationGateRoute`) and the
  * [com.stax.feature.onboarding.presentation.navigation.onboardingEntries] entryProvider extension
  * for the Onboarding feature.
  *

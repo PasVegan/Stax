@@ -8,4 +8,10 @@
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_step_indicator">Step %1$d of %2$d</string>
 
+    <!-- Notification permission gate (§4.15) -->
+    <string name="onboarding_gate_headline">Enable dose reminders</string>
+    <string name="onboarding_gate_subtitle">Stax needs notification permission to remind you about scheduled doses. Without it, you\'ll only see reminders inside the app.</string>
+    <string name="onboarding_gate_allow">Allow notifications</string>
+    <string name="onboarding_gate_open_settings">Open system settings</string>
+
 </resources>

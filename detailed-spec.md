@@ -602,11 +602,19 @@ Layout left→right:
 
 Entry: long-press any row.
 
+Exits: the contextual bar's `close`, the system back gesture, or unticking the last selected row —
+the selection *is* the mode, so an empty selection is never multi-select with nothing in it.
+
 App bar transforms into contextual app bar:
 - Leading `close` → exits multi-select.
 - Title: "N selected" (live count).
 
-**Row visual**: outlined leading checkbox circle before avatar(shifted to the right).
+The **filter chip row (§4.2.2) is hidden** with it: narrowing the list mid-selection would hide rows
+the dock is about to act on. The **§4.2.5 FAB is hidden** too (§6.4.6) — the dock carries the mode's
+actions, and a screen with two primary actions on it has none.
+
+**Row visual**: outlined leading checkbox circle before avatar(shifted to the right). Tapping a row
+toggles it rather than opening its detail.
 
 **Selected row visual**: fill = `secondary-container`, leading checkbox filled with `primary` and `check`.
 
@@ -614,7 +622,9 @@ Bottom nav **hidden** during multi-select mode. Bottom dock appears instead:
 - **Duplicate** (tonal `secondary-container` button, equal-grow): creates copies with " (copy)" suffix, fresh IDs, no opened container, no batch number.
 - **Archive** (`error-container` button, equal-grow): opens confirmation dialog "Archive N compounds? Logged history is kept." — confirm → sets `deletedAt = now()` for all selected.
 
-After action completes, exits multi-select mode. No undo snackbar.
+After action completes, exits multi-select mode. No undo snackbar. A batch runs to the end even if one
+compound fails, and reports the **first** failure only — the list updating under the user is the
+confirmation, so only what did *not* happen needs saying.
 
 #### 4.2.5 FAB
 

@@ -19,8 +19,9 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   State/Action/Event, Root/Screen composables, history paging.
 - `list/` — `CompoundsListViewModel` + `CompoundsListState` / `Action` / `Event`, the
   `CompoundListItemUi` row model and the `CompoundStatusFilter` / `CompoundFilterMenu` enums (§4.2,
-  M7-01), rendered by `CompoundsListRoot` / `CompoundsListScreen` with the internal `CompoundRow` and
-  `CompoundsSearchOverlay` (§4.2, §4.0.1, M7-02). Multi-select lands with M7-03.
+  M7-01), rendered by `CompoundsListRoot` / `CompoundsListScreen` with the internal `CompoundRow`,
+  `CompoundsSearchOverlay` and `CompoundsSelectionMode` (§4.2, §4.0.1, §4.2.4, M7-02/M7-03).
+  `CompoundsListAction.Selection` is the multi-select family, dispatched as one branch.
 - `CreateCompoundRoute(onboarding)` — onboarding step 2 reuses this form (§4.14 step 2): same screen,
   app bar titled "Add your first compound · 2 of 3" with Skip in the trailing slot, driven by the
   route flag. `compoundsEntries(onSkipOnboardingStep = …)` carries that Skip back to `:app`, which
@@ -46,6 +47,15 @@ Compounds feature.
   `CompoundsListState.isSearchOpen` — not a nav destination, which is why it needs its own
   `BackHandler` (hence the `activity-compose` dependency). Protocols (§4.7.1) and Sites (§4.12.1)
   reuse the same pattern; hoist it into `:core:design-system` when the second caller lands, not before.
+- **Multi-select** (§4.2.4) is a mode of the list screen, not a destination: `selectedIds` *is* the
+  mode (empty = off, so unticking the last row leaves it, as `close` and the back gesture do), and
+  while it is on the contextual bar replaces the app bar **and the chip row**, the dock replaces the
+  bottom of the pane, and the FAB steps aside. Duplicate/Archive run the whole batch even after one
+  fails and report only the first failure, through `ShowError` → a `SnackbarHost` the Root owns.
+  The **bottom nav is `:app`'s chrome**, so the screen cannot hide it: `CompoundsListRoot` reports the
+  mode through `onSelectionModeChange` (also on dispose, or navigating out would leave the bar hidden)
+  and `MainScaffold` hides the nav suite. Same feature-names-intent / `:app`-acts rule as navigation
+  (§10.3).
 - **Which chip menu is open** (`openFilterMenu`) and **whether search is open** live in the state, not
   in a `remember` — app state belongs to the ViewModel (§2.3.1).
 - Reads/writes only through repository interfaces (injected); no Room here.

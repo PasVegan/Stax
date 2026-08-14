@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.paneInsets
+import com.stax.feature.compounds.presentation.list.CompoundsListRoot
 
 /**
  * Contributes the Compounds feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -40,10 +41,7 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
             detailPlaceholder = { PlaceholderScreen(title = "Select a compound") },
         ),
     ) {
-        PlaceholderScreen(title = "Compounds") {
-            Button(onClick = onCreateCompound) { Text(text = "New compound") }
-            Button(onClick = { onCompoundClick(SAMPLE_COMPOUND_ID) }) { Text(text = "Open compound") }
-        }
+        CompoundsListRoot(onCompoundClick = onCompoundClick, onCreateCompound = onCreateCompound)
     }
     entry<CompoundDetailRoute>(metadata = StaxListDetailScene.detailPane(COMPOUNDS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Compound #${key.compoundId}") {
@@ -77,9 +75,6 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
  * needs its own key or they share one `AnimatedContent` slot and crash (see `StaxListDetailScene`).
  */
 private const val COMPOUNDS_SCENE_KEY = "compounds"
-
-/** Placeholder id used to demonstrate the list → detail push until the real list lands. */
-private const val SAMPLE_COMPOUND_ID = 1L
 
 @Suppress("FunctionName")
 @Composable

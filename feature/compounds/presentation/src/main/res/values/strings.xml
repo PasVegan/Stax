@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Compounds list (§4.2) -->
+    <string name="compounds_title">Compounds</string>
+    <string name="compounds_search">Search compounds</string>
+    <string name="compounds_add">Add</string>
+    <string name="compounds_open_detail">Open</string>
+
+    <!-- Filter chip row (§4.2.2) -->
+    <string name="compounds_filter_all">All</string>
+    <string name="compounds_filter_low_stock">Low stock</string>
+    <string name="compounds_filter_expiring_soon">Expiring soon</string>
+    <string name="compounds_filter_category">Category</string>
+    <string name="compounds_filter_form">Form</string>
+    <!-- Chip label once N items of the menu are selected, e.g. "Category · 2" -->
+    <string name="compounds_filter_selected_count">%1$s · %2$d</string>
+
+    <!-- Category names (§3.1) -->
+    <string name="compounds_category_peptide">Peptide</string>
+    <string name="compounds_category_supplement">Supplement</string>
+    <string name="compounds_category_hormone">Hormone</string>
+    <string name="compounds_category_medication">Medication</string>
+
+    <!-- Form names (§3.1) -->
+    <string name="compounds_form_injectable">Injectable</string>
+    <string name="compounds_form_capsule">Capsule</string>
+    <string name="compounds_form_tablet">Tablet</string>
+    <string name="compounds_form_powder">Powder</string>
+    <string name="compounds_form_liquid">Liquid</string>
+    <string name="compounds_form_topical">Topical</string>
+
+    <!-- Compound row (§4.2.3) -->
+    <string name="compounds_row_low_stock">Low stock</string>
+    <string name="compounds_row_remaining">%1$s left</string>
+    <string name="compounds_row_expiry">Exp %1$s</string>
+    <plurals name="compounds_row_containers">
+        <item quantity="one">%1$d container</item>
+        <item quantity="other">%1$d containers</item>
+    </plurals>
+    <plurals name="compounds_row_doses_left">
+        <item quantity="one">%1$d dose left</item>
+        <item quantity="other">%1$d doses left</item>
+    </plurals>
+
+    <!-- Search overlay (§4.0.1) -->
+    <string name="compounds_search_close">Close search</string>
+    <string name="compounds_search_clear">Clear search</string>
+    <string name="compounds_search_empty_title">No matches</string>
+    <string name="compounds_search_empty_supporting">Try a different name.</string>
+
+</resources>

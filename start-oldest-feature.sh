@@ -37,7 +37,7 @@ issue_body_raw="$(
 
 issue_body="${issue_body_raw//$REPO_BLOB_PREFIX/}"
 
-prompt_prefix="Do this issue, make sure to commit like a developper(if there is a lot of work you can do multiple commit if relevant), do not in any case add you as a co-author, once you're done push the commits:"
+prompt_prefix="Do this issue, make sure to commit like a developper(if there is a lot of work you can do multiple commit if relevant), do not in any case add you as a co-author, once you're done push the commits. Make use of any relevant skills/plugins:"
 
 clipboard_text="$(cat <<EOF
 ${prompt_prefix}

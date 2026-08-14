@@ -105,7 +105,16 @@ class RoomCompoundRepository(
         val now = Clock.System.now()
 
         val newId = compoundDao.insert(
-            original.copy(id = 0, createdAt = now, updatedAt = now, deletedAt = null),
+            original.copy(
+                id = 0,
+                name = original.name + COPY_SUFFIX,
+                // A batch number identifies one physical batch, so it cannot be shared by two rows
+                // the user is meant to tell apart; the copy starts without one (§4.2.4).
+                batchNumber = null,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+            ),
         )
         val closedStock = original.amountPerContainerValue *
             Decimal.parse(original.numberOfContainers.toString())
@@ -244,4 +253,13 @@ class RoomCompoundRepository(
 
     private class NotFoundException : Exception()
     private class ConstraintException : Exception()
+
+    private companion object {
+        /**
+         * §4.2.4. Not a resource string: it is written into `name`, which is stored data — a
+         * localized suffix would freeze whichever language was active at the moment of the copy and
+         * then disagree with the app around it.
+         */
+        const val COPY_SUFFIX = " (copy)"
+    }
 }

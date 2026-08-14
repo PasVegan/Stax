@@ -23,7 +23,10 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
@@ -103,10 +106,16 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
         initialStackedRoute = OnboardingRoute.takeUnless { onboardingCompleted },
     )
 
+    // A screen in multi-select replaces the nav bar with its own bottom dock (§4.2.4), so the chrome
+    // steps aside for as long as the mode is on. Only the screen knows it is on, hence the report
+    // back; it is not saveable because the selection behind it is the ViewModel's, and the screen
+    // re-reports whatever it restores to.
+    var multiSelectActive by remember { mutableStateOf(false) }
+
     // The first-run flow has to be answered before the app is usable, so its screens hide the chrome:
     // a visible nav item is a one-tap exit out of a flow the user has neither finished nor skipped
     // (§4.14, §4.15). Seeded as the initial value too, so first launch never flashes the bar in.
-    val chromeHidden = navState.currentRoute.isFirstRunFlow()
+    val chromeHidden = navState.currentRoute.isFirstRunFlow() || multiSelectActive
     val navSuiteState = rememberNavigationSuiteScaffoldState(
         initialValue = if (chromeHidden) NavigationSuiteScaffoldValue.Hidden else NavigationSuiteScaffoldValue.Visible,
     )
@@ -116,18 +125,6 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
 
     val selected = TopLevelDestination.entries.firstOrNull { it.route == navState.topLevelRoute }
         ?: TopLevelDestination.Home
-
-    // M3 Expressive nav types, width-driven (§6.4.1): short bottom bar < 600dp · collapsed wide rail
-    // 600dp+ · expanded wide rail 840dp+. The 1.5 default never width-expands the rail, so the
-    // expanded breakpoint is selected explicitly here.
-    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    val navSuiteType = when {
-        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
-            NavigationSuiteType.WideNavigationRailExpanded
-        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
-            NavigationSuiteType.WideNavigationRailCollapsed
-        else -> NavigationSuiteType.ShortNavigationBarCompact
-    }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -159,10 +156,32 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
             }
         },
         modifier = modifier,
-        layoutType = navSuiteType,
+        layoutType = navSuiteType(),
         state = navSuiteState,
     ) {
-        StaxNavDisplay(navState = navState, modifier = Modifier.fillMaxSize())
+        StaxNavDisplay(
+            navState = navState,
+            onSelectionModeChange = { multiSelectActive = it },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * M3 Expressive nav types, width-driven (§6.4.1): short bottom bar < 600dp · collapsed wide rail
+ * 600dp+ · expanded wide rail 840dp+. The 1.5 default never width-expands the rail, so the expanded
+ * breakpoint is selected explicitly here.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3AdaptiveNavigationSuiteApi::class)
+@Composable
+private fun navSuiteType(): NavigationSuiteType {
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    return when {
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
+            NavigationSuiteType.WideNavigationRailExpanded
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
+            NavigationSuiteType.WideNavigationRailCollapsed
+        else -> NavigationSuiteType.ShortNavigationBarCompact
     }
 }
 
@@ -207,7 +226,11 @@ private fun TopLevelDestination.painter(selected: Boolean): Painter = when (this
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("FunctionName")
 @Composable
-private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = Modifier) {
+private fun StaxNavDisplay(
+    navState: MainNavigationState,
+    onSelectionModeChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // List-detail Scene (§6.4.2): Compounds / Protocols list entries pair with their detail entries.
     val listDetailSceneStrategy = StaxListDetailScene.rememberSceneStrategy<NavKey>()
     // Supporting-pane Scene (§6.4.2): Dashboard main pane + supporting pane.
@@ -243,6 +266,9 @@ private fun StaxNavDisplay(navState: MainNavigationState, modifier: Modifier = M
             // §4.14 step 2: skipping advances to step 3 — the Create Protocol form, flagged the same
             // way — and saves nothing, because the form persists nothing before its own Save (M7-04).
             onSkipOnboardingStep = { navState.push(CreateProtocolRoute(onboarding = true)) },
+            // §4.2.4 hides the bottom nav for the list's multi-select dock. The nav suite is chrome,
+            // so the screen reports the mode and the decision is made here.
+            onSelectionModeChange = onSelectionModeChange,
         )
         protocolsEntries(
             onProtocolClick = { protocolId -> navState.showDetail(ProtocolDetailRoute(protocolId)) },

@@ -2,6 +2,8 @@ package com.stax.feature.compounds.presentation.list
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +20,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +47,10 @@ import java.util.Locale as JavaLocale
  *
  * [name] is an [AnnotatedString] so the search overlay can hand in the same row with the matched
  * substring highlighted (§4.0.1); the list passes the plain name.
+ *
+ * In multi-select mode (§4.2.4) a checkbox circle takes the lead and shifts the avatar right; a
+ * selected row fills with `secondary-container`. [onLongClick] is what enters the mode, so the
+ * search overlay simply leaves it out and its rows never long-press into a selection.
  */
 @Suppress("FunctionName")
 @Composable
@@ -50,18 +59,40 @@ internal fun CompoundRow(
     name: AnnotatedString,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
 ) {
+    val shape = MaterialTheme.shapes.large
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        // Clipped before it is made clickable so the ripple follows the card's corners; `Card`'s own
+        // `onClick` overload cannot carry a long press, which is what enters multi-select (§4.2.4).
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = stringResource(R.string.compounds_row_select),
+            )
+            .semantics { if (isSelectionMode) selected = isSelected },
+        shape = shape,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        ),
     ) {
         Row(
             modifier = Modifier.padding(ROW_PADDING),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (isSelectionMode) {
+                SelectionCheckbox(isSelected = isSelected)
+            }
             CompoundAvatar(category = item.category, isLowStock = item.isLowStock)
             Column(
                 modifier = Modifier.weight(1f),
@@ -83,23 +114,70 @@ internal fun CompoundRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(COPY_GAP),
-                horizontalAlignment = Alignment.End,
-            ) {
-                item.effectiveExpiry?.let { expiry ->
-                    Text(
-                        text = stringResource(R.string.compounds_row_expiry, expiry.formatShort()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ExpiryColumn(expiry = item.effectiveExpiry)
+        }
+    }
+}
+
+/**
+ * The row's trailing meta column (§4.2.3): the effective expiry over the `chevron_right` that says
+ * the row opens something. A compound with neither a batch nor a container expiry shows the chevron
+ * alone rather than a placeholder date.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun ExpiryColumn(expiry: LocalDate?, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(COPY_GAP),
+        horizontalAlignment = Alignment.End,
+    ) {
+        expiry?.let {
+            Text(
+                text = stringResource(R.string.compounds_row_expiry, it.formatShort()),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(
+            painter = StaxIcons.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The row's leading checkbox in multi-select mode (§4.2.4): an outlined circle, filled with
+ * `primary` and a `check` once selected. Not itself clickable — the whole row is the target, and its
+ * `selected` semantics is what a screen reader announces.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun SelectionCheckbox(isSelected: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(CHECKBOX_SIZE)
+            .then(
+                if (isSelected) {
+                    Modifier.background(color = MaterialTheme.colorScheme.primary, shape = StaxShapes.Pill)
+                } else {
+                    Modifier.border(
+                        width = CHECKBOX_BORDER,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = StaxShapes.Pill,
                     )
-                }
-                Icon(
-                    painter = StaxIcons.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isSelected) {
+            Icon(
+                painter = StaxIcons.Check,
+                contentDescription = null,
+                modifier = Modifier.size(CHECKBOX_ICON_SIZE),
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
         }
     }
 }
@@ -219,3 +297,6 @@ private val ROW_GAP = 12.dp
 private val COPY_GAP = 4.dp
 private val AVATAR_SIZE = 44.dp
 private val AVATAR_ICON_SIZE = 24.dp
+private val CHECKBOX_SIZE = 24.dp
+private val CHECKBOX_BORDER = 2.dp
+private val CHECKBOX_ICON_SIZE = 16.dp

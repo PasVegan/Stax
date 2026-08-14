@@ -1,11 +1,13 @@
 package com.stax.feature.compounds.presentation.list
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -14,12 +16,19 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,9 +42,12 @@ import com.stax.core.design.system.paneInsets
 import com.stax.core.domain.CompoundCategory
 import com.stax.core.domain.CompoundForm
 import com.stax.core.presentation.ObserveAsEvents
+import com.stax.core.presentation.asString
 import com.stax.feature.compounds.presentation.R
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import org.koin.androidx.compose.koinViewModel
 
@@ -48,19 +60,40 @@ import org.koin.androidx.compose.koinViewModel
 fun CompoundsListRoot(
     onCompoundClick: (Long) -> Unit,
     onCreateCompound: () -> Unit,
+    onSelectionModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CompoundsListViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Multi-select replaces the bottom nav with its own dock (§4.2.4), and the chrome belongs to
+    // `:app` — so the screen reports the mode and `:app` hides the bar. Reported on dispose too:
+    // navigating out of the list while a selection stands must not leave the bar hidden behind it.
+    DisposableEffect(state.isSelectionMode, onSelectionModeChange) {
+        onSelectionModeChange(state.isSelectionMode)
+        onDispose { onSelectionModeChange(false) }
+    }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     ObserveAsEvents(viewModel.events, key1 = onCompoundClick, key2 = onCreateCompound) { event ->
         when (event) {
             is CompoundsListEvent.NavigateToCompoundDetail -> onCompoundClick(event.compoundId)
             CompoundsListEvent.NavigateToCreateCompound -> onCreateCompound()
+            is CompoundsListEvent.ShowError -> scope.launch {
+                snackbarHostState.showSnackbar(context.asString(event.message))
+            }
         }
     }
 
-    CompoundsListScreen(state = state, onAction = viewModel::onAction, modifier = modifier)
+    CompoundsListScreen(
+        state = state,
+        onAction = viewModel::onAction,
+        modifier = modifier,
+        snackbarHostState = snackbarHostState,
+    )
 }
 
 /**
@@ -71,6 +104,10 @@ fun CompoundsListRoot(
  * — `360dp` at Medium, `400dp` at Expanded — and the layout is the same at every breakpoint: one row
  * per line, and the extended FAB floating at the pane's bottom-end ([AdaptiveFab], §6.4.6). The search
  * overlay (§4.0.1) replaces the whole pane while it is open.
+ *
+ * Multi-select (§4.2.4) is a mode of this same pane: the contextual bar takes over the app bar and
+ * the chip row, the dock takes over the bottom, and the FAB steps aside — a screen with two primary
+ * actions on it has none.
  */
 @Suppress("FunctionName")
 @Composable
@@ -78,6 +115,7 @@ fun CompoundsListScreen(
     state: CompoundsListState,
     onAction: (CompoundsListAction) -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     Box(
         modifier = modifier
@@ -87,21 +125,54 @@ fun CompoundsListScreen(
         if (state.isSearchOpen) {
             CompoundsSearchOverlay(state = state, onAction = onAction)
         } else {
+            // Back leaves multi-select before it leaves the screen (§4.2.4) — the selection is the
+            // nearest thing the gesture can dismiss.
+            BackHandler(enabled = state.isSelectionMode) {
+                onAction(CompoundsListAction.Selection.OnDismiss)
+            }
             Column(modifier = Modifier.fillMaxSize()) {
-                CompoundsTopBar(onSearchClick = { onAction(CompoundsListAction.OnSearchClick) })
-                CompoundsFilterRow(state = state, onAction = onAction)
+                if (state.isSelectionMode) {
+                    CompoundsSelectionTopBar(
+                        selectedCount = state.selectedIds.size,
+                        onDismiss = { onAction(CompoundsListAction.Selection.OnDismiss) },
+                    )
+                } else {
+                    CompoundsTopBar(onSearchClick = { onAction(CompoundsListAction.OnSearchClick) })
+                    CompoundsFilterRow(state = state, onAction = onAction)
+                }
                 CompoundsList(
                     items = state.items,
+                    selectedIds = state.selectedIds,
+                    isSelectionMode = state.isSelectionMode,
                     onCompoundClick = { onAction(CompoundsListAction.OnCompoundClick(it)) },
+                    onCompoundLongPress = { onAction(CompoundsListAction.Selection.OnLongPress(it)) },
+                    modifier = Modifier.weight(1f),
                 )
+                if (state.isSelectionMode) {
+                    CompoundsSelectionDock(
+                        onDuplicate = { onAction(CompoundsListAction.Selection.OnDuplicate) },
+                        onArchive = { onAction(CompoundsListAction.Selection.OnArchiveClick) },
+                    )
+                }
             }
-            AdaptiveFab(
-                onClick = { onAction(CompoundsListAction.OnAddCompoundClick) },
-                label = { Text(text = stringResource(R.string.compounds_add)) },
-            ) {
-                Icon(painter = StaxIcons.Add, contentDescription = null)
+            if (!state.isSelectionMode) {
+                AdaptiveFab(
+                    onClick = { onAction(CompoundsListAction.OnAddCompoundClick) },
+                    label = { Text(text = stringResource(R.string.compounds_add)) },
+                ) {
+                    Icon(painter = StaxIcons.Add, contentDescription = null)
+                }
             }
         }
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (state.isArchiveDialogOpen) {
+        ArchiveCompoundsDialog(
+            selectedCount = state.selectedIds.size,
+            onConfirm = { onAction(CompoundsListAction.Selection.OnArchiveConfirm) },
+            onDismiss = { onAction(CompoundsListAction.Selection.OnArchiveDismiss) },
+        )
     }
 }
 
@@ -248,22 +319,26 @@ private fun FilterMenuItem(label: String, selected: Boolean, onClick: () -> Unit
     )
 }
 
-/** The rows themselves (§4.2.3). */
+/** The rows themselves (§4.2.3), with their multi-select checkboxes when the mode is on (§4.2.4). */
 @Suppress("FunctionName")
 @Composable
 private fun CompoundsList(
     items: List<CompoundListItemUi>,
+    selectedIds: ImmutableSet<Long>,
+    isSelectionMode: Boolean,
     onCompoundClick: (Long) -> Unit,
+    onCompoundLongPress: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        // Extra room at the bottom so the last row can be scrolled clear of the floating FAB.
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             start = SCREEN_PADDING,
             top = SCREEN_PADDING,
             end = SCREEN_PADDING,
-            bottom = LIST_BOTTOM_PADDING,
+            // Extra room at the bottom so the last row can be scrolled clear of the floating FAB.
+            // The dock that replaces it in multi-select is laid out, not floating, so it needs none.
+            bottom = if (isSelectionMode) SCREEN_PADDING else LIST_BOTTOM_PADDING,
         ),
         verticalArrangement = Arrangement.spacedBy(ROW_GAP),
     ) {
@@ -272,6 +347,9 @@ private fun CompoundsList(
                 item = item,
                 name = AnnotatedString(item.name),
                 onClick = { onCompoundClick(item.id) },
+                isSelectionMode = isSelectionMode,
+                isSelected = item.id in selectedIds,
+                onLongClick = { onCompoundLongPress(item.id) },
             )
         }
     }
@@ -298,6 +376,21 @@ private fun CompoundsListScreenPreview() {
     StaxTheme(dynamicColor = false) {
         Surface {
             CompoundsListScreen(state = previewState(), onAction = {})
+        }
+    }
+}
+
+@Preview(name = "Multi-select · Compact", showBackground = true, widthDp = 411, heightDp = 914)
+@Preview(name = "Multi-select · Medium list pane", showBackground = true, widthDp = 360, heightDp = 841)
+@Suppress("FunctionName", "UnusedPrivateMember")
+@Composable
+private fun CompoundsListScreenMultiSelectPreview() {
+    StaxTheme(dynamicColor = false) {
+        Surface {
+            CompoundsListScreen(
+                state = previewState().copy(selectedIds = persistentSetOf(1L, 2L)),
+                onAction = {},
+            )
         }
     }
 }

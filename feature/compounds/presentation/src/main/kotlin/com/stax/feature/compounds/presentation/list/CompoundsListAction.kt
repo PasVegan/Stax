@@ -30,9 +30,35 @@ sealed interface CompoundsListAction {
     /** Types into — or clears — the search overlay's text field (§4.0.1). */
     data class OnSearchQueryChange(val query: String) : CompoundsListAction
 
-    /** Taps a compound row (§4.2.3). */
+    /** Taps a compound row — opens its detail, or toggles it while multi-select is on (§4.2.3). */
     data class OnCompoundClick(val compoundId: Long) : CompoundsListAction
 
     /** Taps the extended "Add" FAB (§4.2.5). */
     data object OnAddCompoundClick : CompoundsListAction
+
+    /**
+     * Everything multi-select mode adds (§4.2.4). Grouped because the mode is a mode: the ViewModel
+     * dispatches the whole family to one handler, and the screen only ever raises these while the
+     * contextual bar and dock are the ones on screen.
+     */
+    sealed interface Selection : CompoundsListAction {
+
+        /** Long-presses a compound row, which enters multi-select mode (§4.2.3, §4.2.4). */
+        data class OnLongPress(val compoundId: Long) : Selection
+
+        /** Leaves multi-select through the contextual bar's `close` icon or a back gesture. */
+        data object OnDismiss : Selection
+
+        /** Taps the bottom dock's Duplicate button. */
+        data object OnDuplicate : Selection
+
+        /** Taps the bottom dock's Archive button, which asks for confirmation first. */
+        data object OnArchiveClick : Selection
+
+        /** Confirms the archive dialog. */
+        data object OnArchiveConfirm : Selection
+
+        /** Dismisses the archive dialog without archiving anything. */
+        data object OnArchiveDismiss : Selection
+    }
 }

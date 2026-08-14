@@ -43,6 +43,19 @@
         <item quantity="other">%1$d doses left</item>
     </plurals>
 
+    <!-- Multi-select mode (§4.2.4) -->
+    <string name="compounds_row_select">Select</string>
+    <string name="compounds_selection_count">%1$d selected</string>
+    <string name="compounds_selection_close">Exit selection</string>
+    <string name="compounds_selection_duplicate">Duplicate</string>
+    <string name="compounds_selection_archive">Archive</string>
+    <plurals name="compounds_archive_title">
+        <item quantity="one">Archive %1$d compound?</item>
+        <item quantity="other">Archive %1$d compounds?</item>
+    </plurals>
+    <string name="compounds_archive_supporting">Logged history is kept.</string>
+    <string name="compounds_archive_cancel">Cancel</string>
+
     <!-- Search overlay (§4.0.1) -->
     <string name="compounds_search_close">Close search</string>
     <string name="compounds_search_clear">Clear search</string>

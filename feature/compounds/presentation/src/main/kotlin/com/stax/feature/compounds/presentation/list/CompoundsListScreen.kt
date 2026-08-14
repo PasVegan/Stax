@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stax.core.design.system.AdaptiveFab
+import com.stax.core.design.system.NoWindowInsets
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
@@ -67,9 +68,9 @@ fun CompoundsListRoot(
  * rows, and the extended "Add" FAB.
  *
  * This is the **list pane** of the Compounds list-detail Scene (§6.4.2), so its width is the pane's
- * — `360dp` at Medium, `400dp` at Expanded — and the rows stay one per line at every breakpoint;
- * what the window width changes here is the FAB, which moves from floating bottom-end to the rail
- * slot ([AdaptiveFab], §6.4.6). The search overlay (§4.0.1) replaces the whole pane while it is open.
+ * — `360dp` at Medium, `400dp` at Expanded — and the layout is the same at every breakpoint: one row
+ * per line, and the extended FAB floating at the pane's bottom-end ([AdaptiveFab], §6.4.6). The search
+ * overlay (§4.0.1) replaces the whole pane while it is open.
  */
 @Suppress("FunctionName")
 @Composable
@@ -98,12 +99,7 @@ fun CompoundsListScreen(
                 onClick = { onAction(CompoundsListAction.OnAddCompoundClick) },
                 label = { Text(text = stringResource(R.string.compounds_add)) },
             ) {
-                // Described rather than decorative: in the rail slot the FAB is collapsed to this
-                // icon alone (§6.4.6), and the label that would name it is not composed.
-                Icon(
-                    painter = StaxIcons.Add,
-                    contentDescription = stringResource(R.string.compounds_add),
-                )
+                Icon(painter = StaxIcons.Add, contentDescription = null)
             }
         }
     }
@@ -116,6 +112,9 @@ private fun CompoundsTopBar(onSearchClick: () -> Unit, modifier: Modifier = Modi
     TopAppBar(
         title = { Text(text = stringResource(R.string.compounds_title)) },
         modifier = modifier,
+        // The pane already claimed the status bar via paneInsets, so the bar's own default insets
+        // would stack a second status bar's worth of padding on top of it (§2.3.6).
+        windowInsets = NoWindowInsets,
         navigationIcon = {
             IconButton(onClick = onSearchClick) {
                 Icon(
@@ -259,7 +258,13 @@ private fun CompoundsList(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(SCREEN_PADDING),
+        // Extra room at the bottom so the last row can be scrolled clear of the floating FAB.
+        contentPadding = PaddingValues(
+            start = SCREEN_PADDING,
+            top = SCREEN_PADDING,
+            end = SCREEN_PADDING,
+            bottom = LIST_BOTTOM_PADDING,
+        ),
         verticalArrangement = Arrangement.spacedBy(ROW_GAP),
     ) {
         items(items = items, key = { it.id }) { item ->
@@ -281,6 +286,9 @@ private fun CompoundStatusFilter.labelRes(): Int = when (this) {
 private val SCREEN_PADDING = 16.dp
 private val CHIP_GAP = 8.dp
 private val ROW_GAP = 8.dp
+
+/** Screen padding + the extended FAB's height + its `16dp` inset (§6.4.6). */
+private val LIST_BOTTOM_PADDING = 96.dp
 
 @Preview(name = "Compact", showBackground = true, widthDp = 411, heightDp = 914)
 @Preview(name = "Medium list pane", showBackground = true, widthDp = 360, heightDp = 841)

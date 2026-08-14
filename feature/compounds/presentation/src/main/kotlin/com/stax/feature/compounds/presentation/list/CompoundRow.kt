@@ -77,7 +77,9 @@ internal fun CompoundRow(
                     text = item.metaLine(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    // Two lines because the row also has to read inside a `360dp`/`400dp` list pane
+                    // (§6.4.2), where a three-part meta line does not fit on one.
+                    maxLines = META_MAX_LINES,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -209,6 +211,8 @@ internal fun formLabel(form: CompoundForm): String = stringResource(
 private const val EXPIRY_SKELETON = "MMMd"
 
 private const val META_SEPARATOR = " · "
+
+private const val META_MAX_LINES = 2
 
 private val ROW_PADDING = 12.dp
 private val ROW_GAP = 12.dp

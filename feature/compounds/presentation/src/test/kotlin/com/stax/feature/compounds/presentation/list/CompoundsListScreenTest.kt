@@ -14,7 +14,6 @@ import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.isEmpty
 import assertk.assertions.isGreaterThan
-import assertk.assertions.isLessThan
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.domain.CompoundCategory
 import com.stax.core.domain.CompoundForm
@@ -72,31 +71,26 @@ class CompoundsListScreenTest {
 
     @Test
     @Config(qualifiers = COMPACT)
-    fun `the Add FAB floats bottom-end and keeps its label at Compact`() {
+    fun `the Add FAB floats bottom-end with its label at Compact`() {
         setScreen(state())
 
-        composeRule.onNodeWithText(string(R.string.compounds_add)).assertIsDisplayed()
-        val fab = composeRule.onNodeWithContentDescription(string(R.string.compounds_add))
-            .getUnclippedBoundsInRoot()
-        val root = composeRule.onRoot().getUnclippedBoundsInRoot()
-        assertThat(fab.left.value).isGreaterThan(root.width.value / 2)
-        assertThat(fab.top.value).isGreaterThan(root.height.value / 2)
+        assertFabIsExtendedAtBottomEnd()
     }
 
     @Test
     @Config(qualifiers = MEDIUM)
-    fun `the Add FAB moves into the rail slot and collapses at Medium`() {
+    fun `the Add FAB floats bottom-end with its label at Medium`() {
         setScreen(state())
 
-        assertFabIsCollapsedInTheRailSlot()
+        assertFabIsExtendedAtBottomEnd()
     }
 
     @Test
     @Config(qualifiers = EXPANDED)
-    fun `the Add FAB moves into the rail slot and collapses at Expanded`() {
+    fun `the Add FAB floats bottom-end with its label at Expanded`() {
         setScreen(state())
 
-        assertFabIsCollapsedInTheRailSlot()
+        assertFabIsExtendedAtBottomEnd()
     }
 
     @Test
@@ -218,14 +212,17 @@ class CompoundsListScreenTest {
         assertThat(actions).isEmpty()
     }
 
-    /** §6.4.6: the rail FAB slot is the pane's top-start corner, and it has no room for a label. */
-    private fun assertFabIsCollapsedInTheRailSlot() {
-        composeRule.onNodeWithText(string(R.string.compounds_add)).assertDoesNotExist()
-        val fab = composeRule.onNodeWithContentDescription(string(R.string.compounds_add))
-            .getUnclippedBoundsInRoot()
+    /**
+     * §6.4.6: the FAB floats at the pane's bottom-end at every width, and it keeps the label that
+     * names it — the rail's own FAB slot belongs to the chrome, not to a screen (see `AdaptiveFab`).
+     */
+    private fun assertFabIsExtendedAtBottomEnd() {
+        val fab = composeRule.onNodeWithText(string(R.string.compounds_add))
+        fab.assertIsDisplayed()
+        val bounds = fab.getUnclippedBoundsInRoot()
         val root = composeRule.onRoot().getUnclippedBoundsInRoot()
-        assertThat(fab.right.value).isLessThan(root.width.value / 2)
-        assertThat(fab.bottom.value).isLessThan(root.height.value / 2)
+        assertThat(bounds.left.value).isGreaterThan(root.width.value / 2)
+        assertThat(bounds.top.value).isGreaterThan(root.height.value / 2)
     }
 
     private fun setScreen(state: CompoundsListState) {

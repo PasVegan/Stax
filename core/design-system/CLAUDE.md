@@ -58,11 +58,11 @@ depends on nothing — every feature consumes it.
 - `NoWindowInsets` — empty `WindowInsets` for the Material components that inset themselves
   (`SearchBar`, `TopAppBar`, `ModalBottomSheet`) when they sit inside a pane that already claimed its
   slice via `paneInsets()`; without it the status bar lands twice, as a gap.
-- `AdaptiveFab` — primary FAB that animates its position across breakpoints (§6.4.6): floating
-  bottom-end at Compact (`16dp` inset), top-start rail FAB slot at Medium+, with the move driven by
-  `StaxMotion.defaultSpatialSpec()` (animated `BiasAlignment`). Place as the last child of a
-  `fillMaxSize` overlay over screen content. Passing `label` gives the **extended** form (§4.2.5),
-  expanded at Compact and collapsed to the icon alone in the rail slot, which has no room for a label.
+- `AdaptiveFab` — the app's primary FAB (§6.4.6): floating bottom-end of its pane with a `16dp`
+  inset at **every** width, extended (icon + label, label kept at every width) when `label` is passed.
+  Place as the last child of a `fillMaxSize` overlay over screen content. Deliberately **not** the
+  navigation rail's FAB slot: that slot is `NavigationSuiteScaffold` chrome owned by `:app`, and a
+  FAB there cannot read the screen's state (multi-select hides it, §4.2.4) or reach its ViewModel.
 - `LocalFoldingFeature` / `ProvideFoldingFeature` — `WindowInfoTracker.windowLayoutInfo` collector +
   `CompositionLocal<FoldingFeature?>` (§6.4.3). `ProvideFoldingFeature` wraps the nav roots; the
   list-detail / supporting-pane Scenes read it (`verticalHingeBounds()` → directive `excludedBounds`)

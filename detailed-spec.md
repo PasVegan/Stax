@@ -2136,13 +2136,15 @@ Use `WindowInfoTracker.windowLayoutInfo` to subscribe to `FoldingFeature` update
 
 #### 6.4.6 FAB placement
 
-| Breakpoint | FAB position                                                                                  |
-|------------|-----------------------------------------------------------------------------------------------|
-| Compact    | Floating bottom-end above bottom nav (`16dp` inset)                                           |
-| Medium     | Anchored to top of NavigationRail; rail FAB slot. Stays visible across screens that have FAB. |
-| Expanded   | Same as Medium — rail FAB slot                                                                |
+| Breakpoint | FAB position                                                                     |
+|------------|----------------------------------------------------------------------------------|
+| Compact    | Floating bottom-end of its pane, above the bottom nav (`16dp` inset)             |
+| Medium     | Same — floating bottom-end of its pane (`16dp` inset)                            |
+| Expanded   | Same — floating bottom-end of its pane (`16dp` inset)                            |
 
-FAB icon and behavior unchanged across breakpoints (still §4.1.6 direct-log-or-menu).
+FAB icon, label and behavior unchanged across breakpoints (still §4.1.6 direct-log-or-menu). An extended FAB keeps its label at every width.
+
+**Why not the navigation rail's FAB slot** (M5-06's original plan): that slot belongs to `NavigationSuiteScaffold` in `:app`, so a FAB placed there is chrome. It outlives the screen, cannot read the screen's state — Compounds hides its FAB in multi-select (§4.2.4), Dashboard's FAB changes behaviour with the day's doses (§4.1.6) — and would route its action around the screen's ViewModel, against §10.1. Placing it top-start of the pane instead (the first M7-02 build) is worse still: it lands on the app bar. The FAB is the screen's, so it stays in the screen's pane at every width; `AdaptiveFab` owns the placement.
 
 #### 6.4.7 Type + density scaling
 

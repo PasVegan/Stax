@@ -2,12 +2,16 @@ package com.stax.core.design.system
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,12 +33,20 @@ import androidx.window.core.layout.WindowSizeClass
  *
  * The icon and behaviour are identical across breakpoints — only the position changes.
  *
+ * Pass [label] for the **extended** form (§4.2.5): the FAB carries icon + label at Compact and drops
+ * back to the icon alone once it moves into the rail slot, which has no room for a label.
+ *
  * Applies no insets of its own: the overlay sits inside a pane that already claimed its slice via
  * [paneInsets], which is what keeps the Compact bottom-end FAB clear of the nav bar (§2.3.6).
  */
 @Suppress("FunctionName")
 @Composable
-fun AdaptiveFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun AdaptiveFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    label: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     val railSlot = currentWindowAdaptiveInfoV2().windowSizeClass
         .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val targetBias = if (railSlot) RAIL_SLOT_BIAS else BOTTOM_END_BIAS
@@ -57,13 +69,25 @@ fun AdaptiveFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Co
             .fillMaxSize()
             .padding(16.dp), // §6.4.6 inset
     ) {
-        FloatingActionButton(
-            onClick = onClick,
-            modifier = Modifier.align(BiasAlignment(horizontalBias, verticalBias)),
-            content = content,
-        )
+        val alignment = Modifier.align(BiasAlignment(horizontalBias, verticalBias))
+        if (label == null || railSlot) {
+            FloatingActionButton(
+                onClick = onClick,
+                modifier = alignment,
+                content = content,
+            )
+        } else {
+            ExtendedFloatingActionButton(onClick = onClick, modifier = alignment) {
+                content()
+                Spacer(modifier = Modifier.width(LABEL_GAP))
+                label()
+            }
+        }
     }
 }
+
+/** Gap between the extended FAB's icon and its label. */
+private val LABEL_GAP = 12.dp
 
 /** Bottom-end corner bias (Compact). */
 private const val BOTTOM_END_BIAS = 1f
@@ -79,6 +103,20 @@ private fun AdaptiveFabPreview() {
     StaxTheme(dynamicColor = false) {
         Surface(modifier = Modifier.size(width = 700.dp, height = 360.dp)) {
             AdaptiveFab(onClick = {}) {
+                Icon(painter = StaxIcons.Add, contentDescription = null)
+            }
+        }
+    }
+}
+
+@Preview(name = "Extended · Compact", showBackground = true, widthDp = 420, heightDp = 360)
+@Preview(name = "Extended · Medium", showBackground = true, widthDp = 700, heightDp = 360)
+@Suppress("FunctionName", "UnusedPrivateMember")
+@Composable
+private fun AdaptiveExtendedFabPreview() {
+    StaxTheme(dynamicColor = false) {
+        Surface(modifier = Modifier.size(width = 700.dp, height = 360.dp)) {
+            AdaptiveFab(onClick = {}, label = { Text(text = "Add") }) {
                 Icon(painter = StaxIcons.Add, contentDescription = null)
             }
         }

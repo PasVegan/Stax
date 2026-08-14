@@ -55,10 +55,14 @@ depends on nothing — every feature consumes it.
   Applied once at the content root of every `NavDisplay` entry. Position-aware, so each pane gets only
   the slice it actually touches; idempotent, so double padding is impossible. Every other
   `WindowInsets` API is banned outside this module (`stax:NoWindowInsetsOutsideDesignSystem`).
+- `NoWindowInsets` — empty `WindowInsets` for the Material components that inset themselves
+  (`SearchBar`, `TopAppBar`, `ModalBottomSheet`) when they sit inside a pane that already claimed its
+  slice via `paneInsets()`; without it the status bar lands twice, as a gap.
 - `AdaptiveFab` — primary FAB that animates its position across breakpoints (§6.4.6): floating
   bottom-end at Compact (`16dp` inset), top-start rail FAB slot at Medium+, with the move driven by
   `StaxMotion.defaultSpatialSpec()` (animated `BiasAlignment`). Place as the last child of a
-  `fillMaxSize` overlay over screen content.
+  `fillMaxSize` overlay over screen content. Passing `label` gives the **extended** form (§4.2.5),
+  expanded at Compact and collapsed to the icon alone in the rail slot, which has no room for a label.
 - `LocalFoldingFeature` / `ProvideFoldingFeature` — `WindowInfoTracker.windowLayoutInfo` collector +
   `CompositionLocal<FoldingFeature?>` (§6.4.3). `ProvideFoldingFeature` wraps the nav roots; the
   list-detail / supporting-pane Scenes read it (`verticalHingeBounds()` → directive `excludedBounds`)

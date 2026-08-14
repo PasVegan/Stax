@@ -1,5 +1,6 @@
 package com.stax.core.design.system
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fitInside
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.WindowInsetsRulers
@@ -30,3 +31,13 @@ import androidx.compose.ui.layout.WindowInsetsRulers
  * fitted to the safe area rather than drawn behind the bars.
  */
 fun Modifier.paneInsets(): Modifier = fitInside(WindowInsetsRulers.SafeDrawing.current)
+
+/**
+ * Empty insets for a Material component that insets itself by default — `SearchBar`, `TopAppBar`,
+ * `ModalBottomSheet` — when it is nested in a pane that already claimed the window's insets with
+ * [paneInsets]. Without it the component adds the status bar a second time, as a gap.
+ *
+ * Lives here because `WindowInsets` is banned outside this module (`stax:NoWindowInsetsOutsideDesignSystem`);
+ * feature code passes this constant instead of building its own.
+ */
+val NoWindowInsets: WindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0)

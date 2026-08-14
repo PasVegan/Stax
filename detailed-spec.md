@@ -586,6 +586,7 @@ Layout left→right:
   - Peptide: `primary-container` + `colorize` icon
   - Supplement: `tertiary-container` + `medication` icon
   - Hormone: `secondary-container` + `science` icon
+  - Medication: `surface-container-highest` + `pill` icon
   - Low-stock state (any category): `error-container` + `warning` icon (overrides default)
 - **Content column**:
   - Name

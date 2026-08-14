@@ -2167,6 +2167,8 @@ Adaptive layouts must be tested on at least these device profiles via `createCom
 | Pixel Tablet portrait                   | 800      | 1280      | Medium                                            |
 | Pixel Tablet landscape                  | 1280     | 800       | Expanded (clamped to 1199 by §6.4.0)              |
 
+These profiles are driven by **Robolectric qualifiers** (`@Config(qualifiers = "w411dp-h914dp")`) on JVM Compose tests in `src/test`, not by `DeviceConfigurationOverride`: the window size class comes from `WindowMetricsCalculator` on the host Activity, which a `DeviceConfigurationOverride.ForcedSize` does not move. `DeviceConfigurationOverride` still applies to everything it does own (font scale, locale, layout direction, dark mode).
+
 Samsung Z Fold 5 cover screen (`388dp`) is the narrowest realistic Compact target — UI must not clip there. Validate every Compact layout against this profile specifically.
 
 `FoldingFeature` posture testing: parameterize hinge tests with `FoldingFeature.State.HALF_OPENED` + both `Orientation.VERTICAL` (book) and `Orientation.HORIZONTAL` (tabletop) using Jetpack `WindowLayoutInfoPublisherRule`.
@@ -2393,7 +2395,7 @@ Harness setup follows the `testing-setup` skill; ViewModel/UI patterns follow `a
 | Data       | Robolectric + Room in-memory + fakes (over mocks)                                               | DAO queries, transaction boundaries, FK rules                |
 | Migration  | Room `MigrationTestHelper`                                                                      | every version-to-latest path                                 |
 | ViewModel  | Turbine + `UnconfinedTestDispatcher` + `Dispatchers.setMain` + fake repositories                | action → state transitions, events                           |
-| UI         | Compose `createComposeRule()` + `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule` | golden-path flows per screen, Nav3 scene + breakpoint matrix |
+| UI         | Compose `createAndroidComposeRule()` on Robolectric (`@Config(qualifiers)` for the breakpoint, `DeviceConfigurationOverride` / `WindowLayoutInfoPublisherRule` for the rest) | golden-path flows per screen, Nav3 scene + breakpoint matrix |
 | Screenshot | Compose Preview Screenshot Testing (`@PreviewTest` + `@FormFactorPreviews`) / Roborazzi         | per-form-factor layout golden diffs (§6.4.9)                 |
 | E2E        | Macrobenchmark + Baseline Profile                                                               | hot paths in §2.3.3                                          |
 

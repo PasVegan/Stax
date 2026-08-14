@@ -8,4 +8,8 @@ dependencies {
     implementation(project(":core:design-system"))
     // Expiry dates are LocalDate; :core:domain does not re-export kotlinx-datetime.
     implementation(libs.kotlinx.datetime)
+
+    // The search overlay (§4.0.1) is a mode of the list screen, not a nav destination, so the back
+    // gesture has to close it before NavDisplay pops the entry: BackHandler.
+    implementation(libs.androidx.activity.compose)
 }

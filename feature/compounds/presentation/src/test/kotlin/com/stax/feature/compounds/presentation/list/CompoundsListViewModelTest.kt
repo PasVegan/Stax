@@ -243,6 +243,42 @@ class CompoundsListViewModelTest {
     }
 
     @Test
+    fun `the search icon opens the overlay and closing it drops the query`() = runTest {
+        compounds.stored.value = listOf(compound(id = 1, name = "Retatrutide"), compound(id = 2, name = "NAD+"))
+
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundsListAction.OnSearchClick)
+        viewModel.onAction(CompoundsListAction.OnSearchQueryChange("reta"))
+
+        assertThat(viewModel.state.value.isSearchOpen).isTrue()
+        assertThat(viewModel.state.value.items.map { it.name }).containsExactly("Retatrutide")
+
+        viewModel.onAction(CompoundsListAction.OnSearchDismiss)
+
+        assertThat(viewModel.state.value.isSearchOpen).isFalse()
+        assertThat(viewModel.state.value.searchQuery).isEqualTo("")
+        assertThat(viewModel.state.value.items.map { it.name }).containsExactly("Retatrutide", "NAD+")
+    }
+
+    @Test
+    fun `opening a filter menu closes the one already open and survives a toggle`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(CompoundsListAction.OnFilterMenuOpen(CompoundFilterMenu.CATEGORY))
+        viewModel.onAction(CompoundsListAction.OnCategoryToggle(CompoundCategory.PEPTIDE))
+
+        assertThat(viewModel.state.value.openFilterMenu).isEqualTo(CompoundFilterMenu.CATEGORY)
+
+        viewModel.onAction(CompoundsListAction.OnFilterMenuOpen(CompoundFilterMenu.FORM))
+
+        assertThat(viewModel.state.value.openFilterMenu).isEqualTo(CompoundFilterMenu.FORM)
+
+        viewModel.onAction(CompoundsListAction.OnFilterMenuDismiss)
+
+        assertThat(viewModel.state.value.openFilterMenu).isNull()
+    }
+
+    @Test
     fun `a filtered list reacts to a new repository emission`() = runTest {
         compounds.stored.value = listOf(compound(id = 1, name = "Retatrutide", category = CompoundCategory.PEPTIDE))
 

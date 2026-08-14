@@ -212,6 +212,9 @@ class TestingConventionPlugin : Plugin<Project> {
         pluginManager.withPlugin("com.android.library") {
             extensions.configure<LibraryExtension> {
                 testOptions.unitTests.all { it.useJUnitPlatform() }
+                // Robolectric (and the Compose UI tests running on it) resolve real resources —
+                // string resources, vector drawables, the merged manifest (§10.5).
+                testOptions.unitTests.isIncludeAndroidResources = true
                 defaultConfig {
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                 }
@@ -221,6 +224,7 @@ class TestingConventionPlugin : Plugin<Project> {
         pluginManager.withPlugin("com.android.application") {
             extensions.configure<ApplicationExtension> {
                 testOptions.unitTests.all { it.useJUnitPlatform() }
+                testOptions.unitTests.isIncludeAndroidResources = true
                 defaultConfig {
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                 }
@@ -260,10 +264,14 @@ class TestingConventionPlugin : Plugin<Project> {
             addAndroidTestImplementation("androidx-test-ext-junit")
             addAndroidTestImplementation("androidx-test-runner")
         }
-        // Compose UI test deps — only when compose plugin is also applied
+        // Compose UI test deps — only when compose plugin is also applied.
+        // They go on the unit-test source set too: screen tests run on Robolectric so the
+        // breakpoint matrix of §6.4.8 stays part of `./gradlew test`, no device required (§10.5).
         pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") {
             addAndroidTestImplementationPlatform("androidx-compose-bom")
             addAndroidTestImplementation("androidx-compose-ui-test-junit4")
+            addTestImplementationPlatform("androidx-compose-bom")
+            addTestImplementation("androidx-compose-ui-test-junit4")
             addDebugImplementation("androidx-compose-ui-test-manifest")
         }
     }

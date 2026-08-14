@@ -586,6 +586,7 @@ Layout left→right:
   - Peptide: `primary-container` + `colorize` icon
   - Supplement: `tertiary-container` + `medication` icon
   - Hormone: `secondary-container` + `science` icon
+  - Medication: `surface-container-highest` + `pill` icon
   - Low-stock state (any category): `error-container` + `warning` icon (overrides default)
 - **Content column**:
   - Name
@@ -2135,13 +2136,15 @@ Use `WindowInfoTracker.windowLayoutInfo` to subscribe to `FoldingFeature` update
 
 #### 6.4.6 FAB placement
 
-| Breakpoint | FAB position                                                                                  |
-|------------|-----------------------------------------------------------------------------------------------|
-| Compact    | Floating bottom-end above bottom nav (`16dp` inset)                                           |
-| Medium     | Anchored to top of NavigationRail; rail FAB slot. Stays visible across screens that have FAB. |
-| Expanded   | Same as Medium — rail FAB slot                                                                |
+| Breakpoint | FAB position                                                                     |
+|------------|----------------------------------------------------------------------------------|
+| Compact    | Floating bottom-end of its pane, above the bottom nav (`16dp` inset)             |
+| Medium     | Same — floating bottom-end of its pane (`16dp` inset)                            |
+| Expanded   | Same — floating bottom-end of its pane (`16dp` inset)                            |
 
-FAB icon and behavior unchanged across breakpoints (still §4.1.6 direct-log-or-menu).
+FAB icon, label and behavior unchanged across breakpoints (still §4.1.6 direct-log-or-menu). An extended FAB keeps its label at every width.
+
+**Why not the navigation rail's FAB slot** (M5-06's original plan): that slot belongs to `NavigationSuiteScaffold` in `:app`, so a FAB placed there is chrome. It outlives the screen, cannot read the screen's state — Compounds hides its FAB in multi-select (§4.2.4), Dashboard's FAB changes behaviour with the day's doses (§4.1.6) — and would route its action around the screen's ViewModel, against §10.1. Placing it top-start of the pane instead (the first M7-02 build) is worse still: it lands on the app bar. The FAB is the screen's, so it stays in the screen's pane at every width; `AdaptiveFab` owns the placement.
 
 #### 6.4.7 Type + density scaling
 
@@ -2165,6 +2168,8 @@ Adaptive layouts must be tested on at least these device profiles via `createCom
 | Samsung Galaxy Z Fold 5 inner landscape | 841      | 673       | Expanded, horizontal hinge (tabletop posture)     |
 | Pixel Tablet portrait                   | 800      | 1280      | Medium                                            |
 | Pixel Tablet landscape                  | 1280     | 800       | Expanded (clamped to 1199 by §6.4.0)              |
+
+These profiles are driven by **Robolectric qualifiers** (`@Config(qualifiers = "w411dp-h914dp")`) on JVM Compose tests in `src/test`, not by `DeviceConfigurationOverride`: the window size class comes from `WindowMetricsCalculator` on the host Activity, which a `DeviceConfigurationOverride.ForcedSize` does not move. `DeviceConfigurationOverride` still applies to everything it does own (font scale, locale, layout direction, dark mode).
 
 Samsung Z Fold 5 cover screen (`388dp`) is the narrowest realistic Compact target — UI must not clip there. Validate every Compact layout against this profile specifically.
 
@@ -2392,7 +2397,7 @@ Harness setup follows the `testing-setup` skill; ViewModel/UI patterns follow `a
 | Data       | Robolectric + Room in-memory + fakes (over mocks)                                               | DAO queries, transaction boundaries, FK rules                |
 | Migration  | Room `MigrationTestHelper`                                                                      | every version-to-latest path                                 |
 | ViewModel  | Turbine + `UnconfinedTestDispatcher` + `Dispatchers.setMain` + fake repositories                | action → state transitions, events                           |
-| UI         | Compose `createComposeRule()` + `DeviceConfigurationOverride` + `WindowLayoutInfoPublisherRule` | golden-path flows per screen, Nav3 scene + breakpoint matrix |
+| UI         | Compose `createAndroidComposeRule()` on Robolectric (`@Config(qualifiers)` for the breakpoint, `DeviceConfigurationOverride` / `WindowLayoutInfoPublisherRule` for the rest) | golden-path flows per screen, Nav3 scene + breakpoint matrix |
 | Screenshot | Compose Preview Screenshot Testing (`@PreviewTest` + `@FormFactorPreviews`) / Roborazzi         | per-form-factor layout golden diffs (§6.4.9)                 |
 | E2E        | Macrobenchmark + Baseline Profile                                                               | hot paths in §2.3.3                                          |
 

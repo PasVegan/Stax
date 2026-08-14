@@ -16,6 +16,13 @@ import kotlinx.datetime.LocalDate
 enum class CompoundStatusFilter { ALL, LOW_STOCK, EXPIRING_SOON }
 
 /**
+ * The right, multi-select half of the filter chip row (§4.2.2) — the two chips that open a menu.
+ * At most one menu is open at a time, which is why the open one is a nullable enum in state rather
+ * than a boolean per chip.
+ */
+enum class CompoundFilterMenu { CATEGORY, FORM }
+
+/**
  * One compound row (§4.2.3).
  *
  * [category] + [form] drive the avatar (category-colored fill + form icon), [isLowStock] overrides
@@ -47,6 +54,9 @@ data class CompoundListItemUi(
  * [selectedForms] and [searchQuery] have all been applied. The three filter groups AND together;
  * within Category and Form an empty selection means "no constraint", not "match nothing" (§4.2.2).
  * The unfiltered source stays inside the ViewModel so the screen only ever sees what it renders.
+ *
+ * [openFilterMenu] and [isSearchOpen] are here rather than in a `remember` because which chip menu is
+ * open and whether the search overlay (§4.0.1) is showing are app state, not Compose-internal state.
  */
 data class CompoundsListState(
     val items: ImmutableList<CompoundListItemUi> = persistentListOf(),
@@ -54,5 +64,7 @@ data class CompoundsListState(
     val selectedCategories: ImmutableSet<CompoundCategory> = persistentSetOf(),
     val selectedForms: ImmutableSet<CompoundForm> = persistentSetOf(),
     val searchQuery: String = "",
+    val openFilterMenu: CompoundFilterMenu? = null,
+    val isSearchOpen: Boolean = false,
     val isLoading: Boolean = true,
 )

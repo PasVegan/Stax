@@ -34,4 +34,8 @@ Shared (build infra).
   Runtime min/target stay 36 (Android 16). Change SDK levels here only.
 - Plugin ids are registered in `build-logic/build.gradle.kts` (both `com.stax.*` and `stax*` aliases).
 - Compose compiler metrics are emitted to `build/compose_metrics/` per module (§2.3.1).
+- **Compose UI tests run on Robolectric**, in `src/test` (§10.5): `TestingConventionPlugin` puts
+  `ui-test-junit4` on the unit-test source set as well as `androidTest`, and turns on
+  `unitTests.isIncludeAndroidResources`. The breakpoint matrix of §6.4.8 is therefore part of
+  `./gradlew test` and needs no device.
 - See spec §10.4, ISSUES M0-01/M0-02.

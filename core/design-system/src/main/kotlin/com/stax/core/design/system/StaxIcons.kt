@@ -49,6 +49,7 @@ object StaxIcons {
     val Notifications: Painter @Composable get() = painterResource(R.drawable.ic_notifications)
     val Pause: Painter @Composable get() = painterResource(R.drawable.ic_pause)
     val PersonPinCircle: Painter @Composable get() = painterResource(R.drawable.ic_person_pin_circle)
+    val Pill: Painter @Composable get() = painterResource(R.drawable.ic_pill)
     val PlayArrow: Painter @Composable get() = painterResource(R.drawable.ic_play_arrow)
     val RestartAlt: Painter @Composable get() = painterResource(R.drawable.ic_restart_alt)
     val Schedule: Painter @Composable get() = painterResource(R.drawable.ic_schedule)

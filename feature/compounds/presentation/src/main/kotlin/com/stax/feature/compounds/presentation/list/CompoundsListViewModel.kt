@@ -78,6 +78,21 @@ class CompoundsListViewModel(
             is CompoundsListAction.OnFormToggle ->
                 updateFilters { it.copy(selectedForms = it.selectedForms.toggle(action.form)) }
 
+            is CompoundsListAction.OnFilterMenuOpen ->
+                _state.update { it.copy(openFilterMenu = action.menu) }
+
+            CompoundsListAction.OnFilterMenuDismiss ->
+                _state.update { it.copy(openFilterMenu = null) }
+
+            CompoundsListAction.OnSearchClick ->
+                _state.update { it.copy(isSearchOpen = true, openFilterMenu = null) }
+
+            // Leaving the overlay drops the query with it: the list underneath is filtered by the
+            // chips alone, so a query left behind would keep narrowing a list with nothing on screen
+            // to explain why (§4.0.1).
+            CompoundsListAction.OnSearchDismiss ->
+                updateFilters { it.copy(isSearchOpen = false, searchQuery = "") }
+
             is CompoundsListAction.OnSearchQueryChange ->
                 updateFilters { it.copy(searchQuery = action.query) }
 

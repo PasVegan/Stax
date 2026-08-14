@@ -66,6 +66,7 @@ private fun StaxIconsCatalogPreview() {
                 IconCell("Notifications", StaxIcons.Notifications)
                 IconCell("Pause", StaxIcons.Pause)
                 IconCell("PersonPinCircle", StaxIcons.PersonPinCircle)
+                IconCell("Pill", StaxIcons.Pill)
                 IconCell("PlayArrow", StaxIcons.PlayArrow)
                 IconCell("RestartAlt", StaxIcons.RestartAlt)
                 IconCell("Schedule", StaxIcons.Schedule)

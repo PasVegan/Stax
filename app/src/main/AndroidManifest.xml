@@ -4,6 +4,16 @@
     <!-- Runtime-requested from the notification permission gate (§4.15, M6-04). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+        Exact dose reminders (§5.1, M6-05). Denied by default on targetSdk 33+: the user grants it
+        under "Alarms & reminders", which the Settings warning row (§4.13.3) links to. Without it the
+        app degrades to inexact reminders rather than failing.
+
+        Deliberately not USE_EXACT_ALARM — that one is auto-granted but reserved for alarm-clock and
+        calendar apps, and Play enforces the restriction.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <application
         android:name=".StaxApplication"
         android:enableOnBackInvokedCallback="true"
@@ -20,8 +30,9 @@
 
             Deferred (do real work on Lifecycle.STARTED, not at startup):
               3. RoomDatabaseInitializer  — warms DB connection (stub until M2)
-              4. WorkManagerInitializer   — WorkManager config + periodic jobs (stub until M0-13)
-              5. FontPreloadInitializer   — measures bundled font load cost
+              4. ExactAlarmInitializer    — mirrors exact-alarm permission into Settings (§5.1)
+              5. WorkManagerInitializer   — WorkManager config + periodic jobs (stub until M0-13)
+              6. FontPreloadInitializer   — measures bundled font load cost
 
             All deferred initializers declare KoinInitializer as a dependency so
             the DI graph is always available before they run.
@@ -50,6 +61,9 @@
                 android:value="androidx.startup" />
             <meta-data
                 android:name="com.stax.app.initializer.RoomDatabaseInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.stax.app.initializer.ExactAlarmInitializer"
                 android:value="androidx.startup" />
             <meta-data
                 android:name="com.stax.app.initializer.WorkManagerInitializer"

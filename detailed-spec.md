@@ -1366,6 +1366,7 @@ No "Use this site" CTA here (that's on Site picker / Take Dose context). This sh
 - **Notification style** (Silent / Normal / Persistent) — single-choice dialog.
 - **Time zone** — opens searchable time zone list dialog. Default = device zone.
 - **Missed dose window** (5–60 min, default 60) — numeric input sheet. After elapsed, Pending → Missed via WorkManager job.
+- **Exact alarm degraded warning row** — shown only while `Settings.exactAlarmDegraded` is true. `error-container` fill, leading `warning` icon, "Exact reminders are off" + "Dose reminders may be delayed.", CTA "Enable exact reminders" → system Alarms & reminders screen for this app. Reads the persisted flag, never `AlarmManager` directly; see §5.1 for the flag's lifecycle.
 
 #### 4.13.4 Section: Data
 - **Export JSON** → file picker save → produces `stax-export-YYYY-MM-DD.json`.

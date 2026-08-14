@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings (§4.13) -->
+    <string name="settings_title">Settings</string>
+
+    <!-- Exact alarm degraded warning (§5.1, §4.13.3) -->
+    <string name="settings_exact_alarm_warning_title">Exact reminders are off</string>
+    <string name="settings_exact_alarm_warning_supporting">Dose reminders may be delayed.</string>
+    <string name="settings_exact_alarm_enable">Enable exact reminders</string>
+
+</resources>

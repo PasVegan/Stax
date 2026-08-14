@@ -11,6 +11,7 @@ import com.stax.feature.protocols.presentation.di.protocolsPresentationModule
 import com.stax.feature.reconstitution.presentation.di.reconstitutionPresentationModule
 import com.stax.feature.settings.presentation.di.settingsPresentationModule
 import com.stax.feature.sites.presentation.di.sitesPresentationModule
+import com.stax.notification.di.notificationModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -22,6 +23,8 @@ class KoinInitializer : Initializer<Unit> {
             modules(
                 // core
                 coreDataModule,
+                // out-of-app surfaces
+                notificationModule,
                 // features
                 onboardingPresentationModule,
                 compoundsPresentationModule,

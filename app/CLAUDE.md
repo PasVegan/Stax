@@ -69,7 +69,13 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   DayNight with **no title / no action bar**. The window is pure Compose and edge-to-edge, so a
   platform ActionBar would overlay pane content (it claims no inset of its own, §2.3.6).
 - `initializer/` — `KoinInitializer` (starts Koin, eager), `ThemeInitializer` (eager, DataStore theme cache),
-  `RoomDatabaseInitializer`, `WorkManagerInitializer`, `FontPreloadInitializer` (deferred, `Lifecycle.STARTED`).
+  `RoomDatabaseInitializer`, `ExactAlarmInitializer`, `WorkManagerInitializer`, `FontPreloadInitializer`
+  (deferred, `Lifecycle.STARTED`). `ExactAlarmInitializer` starts `:notification`'s
+  `ExactAlarmPermissionMonitor` on a process-lifetime scope, mirroring the "Alarms & reminders"
+  permission into `Settings.exactAlarmDegraded` (§5.1, M6-05). The scope is deliberately unscoped to any
+  Activity: the permission-change broadcast reaches only a runtime-registered receiver, so the
+  subscription has to outlive every screen. It declares `RoomDatabaseInitializer` as a dependency —
+  resolving the monitor pulls `SettingsRepository`, hence the `StaxDatabase` singleton that binds there.
 
 ## Applicable skills
 `navigation-3` (NavDisplay/entryProvider wiring), `adaptive` (NavigationSuiteScaffold chrome),

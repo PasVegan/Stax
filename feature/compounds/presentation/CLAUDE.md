@@ -77,8 +77,21 @@ Compounds feature.
   owned `3` with one opened stores `2`.
 - **The form's Stock section sizes itself from its own width**, not the window's (`BoxWithConstraints`,
   360dp): the left column of §6.4.2's two-column layout is narrower than a Compact phone, so a
-  breakpoint check would put two fields side by side exactly where they do not fit. Verified on
-  device at all three breakpoints.
+  breakpoint check would put two fields side by side exactly where they do not fit. Below the
+  threshold the two counts stack, the Helper button leaves the concentration row and that row drops
+  its leading icon — all three buy the labels the width they need. Verified on device at all three
+  breakpoints.
+- **Concentration units follow the Form** (§4.4.3): `concentrationUnitOptions()` offers whole ratios
+  (`ConcentrationUnits`), per mL for an injectable or a liquid, per g/scoop for a powder, per pill for
+  a capsule or tablet. Changing the Form re-picks them under the same rule as the other smart
+  defaults, and the Stock preview's "per container once mixed" line only appears when the denominator
+  is a volume.
+- **Field-row details that came from real devices, not the emulator**: the `Optional` badge is
+  `surface-container-highest` (on `surface-container` it is invisible under a dynamic scheme — it
+  vanished on a Samsung), never wraps, and the label ellipsises before it does; the unit suffix waives
+  `LocalMinimumInteractiveComponentSize` (enforced at 48dp it is taller than the line it suffixes, and
+  the field grew to fit it, stranding the value at the top); and a picker's `DropdownMenu` is anchored
+  to its chevron, not to the row, or it opens a full field-width away from the control that summoned it.
 - The list pane takes `paneInsets(claimTop = false)` (§2.3.6): every branch of it opens with a bar of
   its own — app bar, contextual bar, search bar — so the status bar is theirs to claim and draw their
   container behind. None of them passes `windowInsets`; the Material defaults are what does the work.

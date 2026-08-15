@@ -38,6 +38,28 @@ data class StockForecastUi(
 )
 
 /**
+ * The §4.4.4 Edit-case prompt: the new container size no longer holds what is left in the opened one.
+ *
+ * Both amounts arrive already carrying their unit ("3.2 mg"), because the same edit that shrank the
+ * container may also have changed the unit — "3.2 / 2 mg" would then be two different measurements
+ * printed as one.
+ */
+@Immutable
+data class ContainerShrinkPromptUi(val remaining: String, val newAmount: String)
+
+/** §4.4.4: what the user chose to do about a container that shrank below its opened contents. */
+enum class ContainerShrinkDecision {
+    /** Leave the opened container as it is — remaining above the new size is allowed. */
+    KEEP,
+
+    /** Clamp the remaining amount to the new size and book the difference in the ledger. */
+    CAP,
+
+    /** Put the amount back to what it was and save nothing. */
+    CANCEL,
+}
+
+/**
  * UI state of the Create / Edit Compound form (§4.4).
  *
  * Split in two on purpose: [draft] is what the user typed and is the part that is auto-saved
@@ -69,6 +91,8 @@ data class CompoundFormState(
      */
     val isOpenedContainerSheetOpen: Boolean = false,
     val isDiscardDialogOpen: Boolean = false,
+    /** §4.4.4 Edit case: non-null while Save is waiting to be told what to do about the opened container. */
+    val shrinkPrompt: ContainerShrinkPromptUi? = null,
     val isSaving: Boolean = false,
     val isLoading: Boolean = false,
     /** Whether the form differs from what it was loaded with — the discard dialog's trigger (§4.4.5). */

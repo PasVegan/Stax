@@ -158,6 +158,12 @@
     <string name="compound_form_discard">Discard</string>
     <string name="compound_form_keep_editing">Keep editing</string>
 
+    <!-- Container shrunk below the opened container's remaining (§4.4.4 Edit case) -->
+    <string name="compound_form_shrink_title">Container size smaller than remaining</string>
+    <string name="compound_form_shrink_body">Opened container remaining = %1$s, new container size = %2$s.</string>
+    <string name="compound_form_shrink_keep">Keep remaining</string>
+    <string name="compound_form_shrink_cap">Cap to new size</string>
+
     <!-- Search overlay (§4.0.1) -->
     <string name="compounds_search_close">Close search</string>
     <string name="compounds_search_clear">Clear search</string>

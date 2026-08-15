@@ -110,6 +110,8 @@ class CompoundFormViewModel(
 
             CompoundFormAction.OnSaveClick -> save()
 
+            is CompoundFormAction.OnContainerShrinkDecision -> onContainerShrinkDecision(action.decision)
+
             // §4.4.5: leaving a form the user has changed confirms first; an untouched one just closes.
             CompoundFormAction.OnCancelClick -> if (_state.value.isDirty) {
                 _state.update { it.copy(isDiscardDialogOpen = true) }
@@ -254,6 +256,9 @@ class CompoundFormViewModel(
     /**
      * Validates, then writes (§4.4.4). A failure marks every offending field at once but scrolls to
      * the first: the user is told everything that is wrong and taken to the first thing to fix.
+     *
+     * A container that has been shrunk below what is still open in it is not a validation failure —
+     * both answers are legal — so it stops the write to ask rather than to complain.
      */
     private fun save() {
         val current = _state.value
@@ -268,13 +273,58 @@ class CompoundFormViewModel(
             return
         }
 
-        val compound = current.draft.toCompound()
+        val shrink = shrinkPromptFor(current.draft)
+        if (shrink != null) {
+            _state.update { it.copy(shrinkPrompt = shrink, errors = persistentMapOf()) }
+            return
+        }
+        persist(current.draft, capOpenedContainer = false)
+    }
+
+    /**
+     * §4.4.4 Edit case: the prompt to raise when the new container size no longer holds what is left
+     * in the opened one.
+     *
+     * Null whenever there is nothing to ask about — no opened container, an amount that is not a
+     * number yet, or a container that still fits. Also null when the two cannot be compared at all: a
+     * tub of grams has no millilitres, so an edit that changed the family has not "shrunk" anything
+     * this dialog could offer to cap.
+     */
+    private fun shrinkPromptFor(draft: CompoundFormDraft): ContainerShrinkPromptUi? {
+        val remaining = openedContainer?.remainingAmount ?: return null
+        val newAmount = draft.amountPerContainerOrNull() ?: return null
+        val comparable = remaining.convertedTo(newAmount.unit) ?: return null
+        if (comparable.value <= newAmount.value) return null
+        return ContainerShrinkPromptUi(remaining = remaining.toString(), newAmount = newAmount.toString())
+    }
+
+    /**
+     * §4.4.4 Edit case. Keep and Cap both go on to save — they differ only in what happens to the
+     * opened container — while Cancel puts the amount back where it was and writes nothing.
+     */
+    private fun onContainerShrinkDecision(decision: ContainerShrinkDecision) {
+        val draft = _state.value.draft
+        _state.update { it.copy(shrinkPrompt = null) }
+        when (decision) {
+            ContainerShrinkDecision.KEEP -> persist(draft, capOpenedContainer = false)
+            ContainerShrinkDecision.CAP -> persist(draft, capOpenedContainer = true)
+            // The unit comes back too: the amount alone is meaningless without the unit it was typed
+            // against, and either of the two may be what shrank the container.
+            ContainerShrinkDecision.CANCEL -> updateDraft {
+                it.copy(amountPerContainer = baseline.amountPerContainer, primaryUnit = baseline.primaryUnit)
+            }
+        }
+    }
+
+    /** The write itself, once §4.4.4 has nothing left to ask. */
+    private fun persist(draft: CompoundFormDraft, capOpenedContainer: Boolean) {
+        val compound = draft.toCompound()
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, errors = persistentMapOf()) }
             val result: Result<*, DataError.Local> = if (args.compoundId == null) {
                 compoundRepository.create(compound)
             } else {
-                compoundRepository.update(compound)
+                compoundRepository.update(compound, capOpenedContainer)
             }
             when (result) {
                 is Result.Success -> finish()

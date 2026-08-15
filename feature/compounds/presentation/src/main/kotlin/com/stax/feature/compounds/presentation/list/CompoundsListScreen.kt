@@ -35,7 +35,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stax.core.design.system.AdaptiveFab
-import com.stax.core.design.system.NoWindowInsets
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
@@ -120,7 +119,10 @@ fun CompoundsListScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .paneInsets(),
+            // Every branch below opens with a bar of its own — the app bar, the contextual bar, the
+            // search bar — so the status bar is theirs to claim and draw their container behind
+            // (§2.3.6). The pane still takes the sides and the bottom.
+            .paneInsets(claimTop = false),
     ) {
         if (state.isSearchOpen) {
             CompoundsSearchOverlay(state = state, onAction = onAction)
@@ -183,9 +185,6 @@ private fun CompoundsTopBar(onSearchClick: () -> Unit, modifier: Modifier = Modi
     TopAppBar(
         title = { Text(text = stringResource(R.string.compounds_title)) },
         modifier = modifier,
-        // The pane already claimed the status bar via paneInsets, so the bar's own default insets
-        // would stack a second status bar's worth of padding on top of it (§2.3.6).
-        windowInsets = NoWindowInsets,
         navigationIcon = {
             IconButton(onClick = onSearchClick) {
                 Icon(

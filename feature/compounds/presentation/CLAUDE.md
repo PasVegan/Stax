@@ -58,5 +58,8 @@ Compounds feature.
   (§10.3).
 - **Which chip menu is open** (`openFilterMenu`) and **whether search is open** live in the state, not
   in a `remember` — app state belongs to the ViewModel (§2.3.1).
+- The list pane takes `paneInsets(claimTop = false)` (§2.3.6): every branch of it opens with a bar of
+  its own — app bar, contextual bar, search bar — so the status bar is theirs to claim and draw their
+  container behind. None of them passes `windowInsets`; the Material defaults are what does the work.
 - Reads/writes only through repository interfaces (injected); no Room here.
 - See spec §4.2–§4.5, §6.4.2 Compounds; ISSUES M7-*.

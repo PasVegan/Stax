@@ -28,7 +28,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.stax.core.design.system.NoWindowInsets
 import com.stax.core.design.system.StaxIcons
 import com.stax.feature.compounds.presentation.R
 
@@ -87,9 +86,6 @@ internal fun CompoundsSearchOverlay(
         expanded = true,
         onExpandedChange = { expanded -> if (!expanded) dismiss() },
         modifier = modifier,
-        // The pane already claimed the status bar via paneInsets; the bar's own default insets
-        // would add it a second time as a gap above the field (§2.3.6).
-        windowInsets = NoWindowInsets,
     ) {
         if (state.items.isEmpty()) {
             NoMatches()

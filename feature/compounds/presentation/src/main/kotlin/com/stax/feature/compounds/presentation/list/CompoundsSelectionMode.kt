@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.stax.core.design.system.NoWindowInsets
 import com.stax.core.design.system.StaxIcons
 import com.stax.feature.compounds.presentation.R
 
@@ -39,8 +38,6 @@ internal fun CompoundsSelectionTopBar(selectedCount: Int, onDismiss: () -> Unit,
     TopAppBar(
         title = { Text(text = stringResource(R.string.compounds_selection_count, selectedCount)) },
         modifier = modifier,
-        // The pane already claimed the status bar via paneInsets (§2.3.6).
-        windowInsets = NoWindowInsets,
         navigationIcon = {
             IconButton(onClick = onDismiss) {
                 Icon(

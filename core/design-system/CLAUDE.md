@@ -50,14 +50,19 @@ depends on nothing — every feature consumes it.
   fills ≈60%, 1dp divider) + `mainPane(sceneKey)` / `supportingPane(sceneKey)` metadata (`sceneKey`
   mandatory, same reason as above — it builds the same `ThreePaneScaffoldScene` class). **Not**
   `SupportingPaneScaffold` (§6.4). Used by the Dashboard Medium layout.
-- `Modifier.paneInsets()` — the **single** inset method a Scene pane may use (§2.3.6, M5-09): ruler
-  alignment (`fitInside(WindowInsetsRulers.SafeDrawing.current)`) covering system bars + cutout + IME.
-  Applied once at the content root of every `NavDisplay` entry. Position-aware, so each pane gets only
-  the slice it actually touches; idempotent, so double padding is impossible. Every other
-  `WindowInsets` API is banned outside this module (`stax:NoWindowInsetsOutsideDesignSystem`).
-- `NoWindowInsets` — empty `WindowInsets` for the Material components that inset themselves
-  (`SearchBar`, `TopAppBar`, `ModalBottomSheet`) when they sit inside a pane that already claimed its
-  slice via `paneInsets()`; without it the status bar lands twice, as a gap.
+- `Modifier.paneInsets(claimTop: Boolean = true)` — the **single** inset method a Scene pane may use
+  (§2.3.6, M5-09): `safeDrawingPadding()`, covering system bars + cutout + IME. Applied once at the
+  content root of every `NavDisplay` entry; it consumes what it applies, so double padding is
+  impossible. `@Composable` because `WindowInsets.safeDrawing` is a composable getter.
+  **`claimTop = false`** leaves the top edge to a pane that opens with its own `TopAppBar` /
+  `SearchBar`: the bar takes the status bar through its own `windowInsets`, which Material applies
+  inside the bar's `Surface`, so the bar's container colour draws behind the status bar instead of
+  stopping short and stranding a strip of page background under the status icons. Deliberately **not**
+  the ruler alignment `fitInside(WindowInsetsRulers.SafeDrawing.current)`: rulers resolve through
+  `localPositionOf`, which includes the `graphicsLayer` scale of `NavDisplay`'s entry transitions
+  (§6.4.5) — a pane read its rulers mid-animation, and since a layer settling back to 1.0 triggers no
+  relayout the wrong inset stuck permanently. Every other `WindowInsets` API is banned outside this
+  module (`stax:NoWindowInsetsOutsideDesignSystem`).
 - `AdaptiveFab` — the app's primary FAB (§6.4.6): floating bottom-end of its pane with a `16dp`
   inset at **every** width, extended (icon + label, label kept at every width) when `label` is passed.
   Place as the last child of a `fillMaxSize` overlay over screen content. Deliberately **not** the

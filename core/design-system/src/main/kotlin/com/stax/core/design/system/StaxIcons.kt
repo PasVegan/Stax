@@ -43,6 +43,8 @@ object StaxIcons {
     val Flag: Painter @Composable get() = painterResource(R.drawable.ic_flag)
     val History: Painter @Composable get() = painterResource(R.drawable.ic_history)
     val Home: Painter @Composable get() = painterResource(R.drawable.ic_home)
+    val Inventory: Painter @Composable get() = painterResource(R.drawable.ic_inventory)
+    val Inventory2: Painter @Composable get() = painterResource(R.drawable.ic_inventory_2)
     val LightMode: Painter @Composable get() = painterResource(R.drawable.ic_light_mode)
     val Medication: Painter @Composable get() = painterResource(R.drawable.ic_medication)
     val MoreVert: Painter @Composable get() = painterResource(R.drawable.ic_more_vert)
@@ -59,6 +61,7 @@ object StaxIcons {
     val Settings: Painter @Composable get() = painterResource(R.drawable.ic_settings)
     val Straighten: Painter @Composable get() = painterResource(R.drawable.ic_straighten)
     val Today: Painter @Composable get() = painterResource(R.drawable.ic_today)
+    val Tune: Painter @Composable get() = painterResource(R.drawable.ic_tune)
     val Vaccines: Painter @Composable get() = painterResource(R.drawable.ic_vaccines)
     val Warning: Painter @Composable get() = painterResource(R.drawable.ic_warning)
 

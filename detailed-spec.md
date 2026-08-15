@@ -735,10 +735,12 @@ Section labels = `primary` color. No card wrap.
 - Liquid → Bottle · mL · oral · 30 mL
 - Topical → Tub · g · topical · 50 g
 
+Only container type, unit and amount are this form's to fill — **route belongs to a Protocol** (§4.9), not to a `CompoundSupply`, so this screen has no route field to default. A default never overwrites a field the user has set by hand; the exception is the unit, which is replaced when the new Form does not offer it (the picker's options are per-form — a tablet has no millilitres — so keeping it would show a selection that is not in its own list).
+
 **Stock**:
 1. **# of containers** — numeric total owned, side-by-side w/ next. Persistence stores this as unopened count: if no opened container is added, `numberOfContainers = total`; if an opened container is added, `numberOfContainers = total - 1`.
 2. **Amount per container** + unit picker.
-3. **Concentration** (Optional) — numeric + unit picker inline. **Trailing "Helper" tonal button** (`secondary-container`, `calculate` icon) → §4.6 Reconstitution Helper. Required only when `Form == Injectable AND ContainerType != Ampoule` (pre-mixed).
+3. **Concentration** (Optional) — numeric + unit picker inline ("{amount} / 1 {per}"). **The picker offers whole ratios, and which ones depends on the Form**: a concentration answers "how much active is in one of these", so the denominator is a millilitre for an Injectable or a Liquid, a gram or a scoop for a Powder, a gram or a millilitre for a Topical, and the pill itself for a Capsule or a Tablet — "mg/mL" on a blister of tablets is not a unit. Changing the Form re-picks it under the same rule as the other smart defaults. **Trailing "Helper" tonal button** (`secondary-container`, `calculate` icon) → §4.6 Reconstitution Helper — on Create there is no compound to pre-select yet, so it opens the standalone calculator. Required only when `Form == Injectable AND ContainerType != Ampoule` (pre-mixed); the `Optional` badge disappears exactly when that rule makes it required.
 
 **Storage & batch**:
 1. **Storage location** — dropdown: Fridge (4°C) / Room temp / Freezer.
@@ -776,8 +778,8 @@ On Save, if user reduced `amountPerContainer` below the current opened container
 Returns to caller: Compounds list (default) or Onboarding step 2 progresses to step 3.
 
 #### 4.4.5 Behaviors
-- Auto-save draft on backgrounding (resume restores form state).
-- Discard confirmation dialog when X pressed w/ dirty form: "Discard changes?" + Discard / Keep editing.
+- Auto-save draft on backgrounding (resume restores form state). The ViewModel already survives backgrounding, so the draft is written to its `SavedStateHandle` on every edit — that is what makes it survive the **process death** that can follow. In Edit mode a restored draft wins over the stored compound (the unsaved edits are the newer truth); it is dropped once the form is saved, discarded or skipped, so the next Create opens clean.
+- Discard confirmation dialog when X pressed w/ dirty form: "Discard changes?" + Discard / Keep editing. Same for Cancel and the back gesture. "Dirty" means the fields differ from what the form was loaded with — typing and deleting back is not a change, and a failed validation is not one either.
 
 ---
 
@@ -2076,9 +2078,10 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 - **Compact**: single-column form.
 - **Medium**: two-column form.
   - **Left column**: Basics + Stock + Storage & batch.
-  - **Right column**: Opened container section + Notes + Forecast preview (live).
+  - **Right column**: Opened container section + Notes + Forecast preview (live) — "Stock preview": total stock entered (unopened containers × amount per container, plus whatever is left in the opened one), the container count, and the volume one container makes up to at the entered concentration. Derived from the form's own fields only; hidden while any of them is missing or half-typed. The volume line is shown **only when the concentration is per volume** — "once mixed" is reconstitution talk, and dividing a tablet count by a per-tablet strength answers a question nobody asked.
   - Section headers (§4.4.2) stay aligned across columns via shared grid.
-- **Expanded**: same two-column layout but inputs wider — numeric + unit picker fits inline on a single row (not wrapped). Concentration row + "Helper" button fit on one line.
+- **Expanded**: same two-column layout but inputs wider — numeric + unit picker fits inline on a single row (not wrapped). Concentration row + "Helper" button fit on one line. The left column takes the extra width (roughly 55/45), since that is where the fields are.
+- **The Stock row reflows on the width it is given, not on the breakpoint.** The Medium left column is *narrower than a Compact phone*, so the two counts stack there and sit side by side at Compact and Expanded; the "Helper" button leaves the concentration row on the same rule. Threshold: `360dp` of available column width.
 
 ##### Create / Edit Protocol (§4.9)
 

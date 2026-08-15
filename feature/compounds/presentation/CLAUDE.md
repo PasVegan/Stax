@@ -7,7 +7,7 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
 
 ## Module coordinates
 - Gradle: `:feature:compounds:presentation` · plugin `com.stax.android.feature`.
-- Package: `com.stax.feature.compounds.presentation` (`.di`, `.list`, `.navigation`).
+- Package: `com.stax.feature.compounds.presentation` (`.di`, `.form`, `.list`, `.navigation`).
 - Deps: `:core:domain`, `:core:presentation`, `:core:design-system`.
 
 ## Allowed dependencies
@@ -22,10 +22,17 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   M7-01), rendered by `CompoundsListRoot` / `CompoundsListScreen` with the internal `CompoundRow`,
   `CompoundsSearchOverlay` and `CompoundsSelectionMode` (§4.2, §4.0.1, §4.2.4, M7-02/M7-03).
   `CompoundsListAction.Selection` is the multi-select family, dispatched as one branch.
+- `form/` — the Create / Edit Compound form (§4.4, M7-04). `CompoundFormViewModel` +
+  `CompoundFormState` / `Action` / `Event` / `CompoundFormArgs`, rendered by `CompoundFormRoot` /
+  `CompoundFormScreen` over the field primitives of `CompoundFormFields.kt` (`FormTextField`,
+  `FormPickerField`, `UnitSuffix`) and the sections of `CompoundFormSections.kt`.
+  `CompoundFormDraft` is the editable half of the state; `CompoundFormAction.Overlay` is the
+  menus/pickers/prompts family, dispatched as one branch.
 - `CreateCompoundRoute(onboarding)` — onboarding step 2 reuses this form (§4.14 step 2): same screen,
   app bar titled "Add your first compound · 2 of 3" with Skip in the trailing slot, driven by the
-  route flag. `compoundsEntries(onSkipOnboardingStep = …)` carries that Skip back to `:app`, which
-  owns the flow — this module still knows nothing about the onboarding feature (§10.3).
+  route flag. `compoundsEntries(onOnboardingStepDone = …)` carries the end of that step back to
+  `:app`, which owns the flow — this module still knows nothing about the onboarding feature (§10.3).
+  Both Skip and a successful Save reach it: from here they are the same statement.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui`, `navigation-3`, `adaptive`, `android-di-koin`.
@@ -57,7 +64,34 @@ Compounds feature.
   and `MainScaffold` hides the nav suite. Same feature-names-intent / `:app`-acts rule as navigation
   (§10.3).
 - **Which chip menu is open** (`openFilterMenu`) and **whether search is open** live in the state, not
-  in a `remember` — app state belongs to the ViewModel (§2.3.1).
+  in a `remember` — app state belongs to the ViewModel (§2.3.1). The form says the same of
+  `openPicker`, `isDatePickerOpen` and `isDiscardDialogOpen`.
+- **The form's "auto-save draft on backgrounding"** (§4.4.5) is `CompoundFormDraft` mirrored into the
+  ViewModel's `SavedStateHandle` on every edit (`androidx.lifecycle.serialization.saved`). A
+  ViewModel already survives backgrounding, so only the handle makes the form survive the process
+  death that can follow it — and a restored draft always beats the stored compound in Edit mode, or
+  resuming would revert the user's unsaved edits. Round-tripped in `CompoundFormDraftPersistenceTest`,
+  which runs on Robolectric because the draft serializes into a real `Bundle`.
+- **`numberOfContainers` is stored as the unopened count** (§4.4.4): the form's "# of containers"
+  field is the *total owned*, so Save subtracts the opened container and load adds it back. Total
+  owned `3` with one opened stores `2`.
+- **The form's Stock section sizes itself from its own width**, not the window's (`BoxWithConstraints`,
+  360dp): the left column of §6.4.2's two-column layout is narrower than a Compact phone, so a
+  breakpoint check would put two fields side by side exactly where they do not fit. Below the
+  threshold the two counts stack, the Helper button leaves the concentration row and that row drops
+  its leading icon — all three buy the labels the width they need. Verified on device at all three
+  breakpoints.
+- **Concentration units follow the Form** (§4.4.3): `concentrationUnitOptions()` offers whole ratios
+  (`ConcentrationUnits`), per mL for an injectable or a liquid, per g/scoop for a powder, per pill for
+  a capsule or tablet. Changing the Form re-picks them under the same rule as the other smart
+  defaults, and the Stock preview's "per container once mixed" line only appears when the denominator
+  is a volume.
+- **Field-row details that came from real devices, not the emulator**: the `Optional` badge is
+  `surface-container-highest` (on `surface-container` it is invisible under a dynamic scheme — it
+  vanished on a Samsung), never wraps, and the label ellipsises before it does; the unit suffix waives
+  `LocalMinimumInteractiveComponentSize` (enforced at 48dp it is taller than the line it suffixes, and
+  the field grew to fit it, stranding the value at the top); and a picker's `DropdownMenu` is anchored
+  to its chevron, not to the row, or it opens a full field-width away from the control that summoned it.
 - The list pane takes `paneInsets(claimTop = false)` (§2.3.6): every branch of it opens with a bar of
   its own — app bar, contextual bar, search bar — so the status bar is theirs to claim and draw their
   container behind. None of them passes `windowInsets`; the Material defaults are what does the work.

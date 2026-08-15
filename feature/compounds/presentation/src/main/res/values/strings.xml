@@ -56,6 +56,108 @@
     <string name="compounds_archive_supporting">Logged history is kept.</string>
     <string name="compounds_archive_cancel">Cancel</string>
 
+    <!-- Create / Edit Compound form (§4.4) -->
+    <string name="compound_form_title_create">New compound</string>
+    <string name="compound_form_title_edit">Editing %1$s</string>
+    <string name="compound_form_title_onboarding">Add your first compound · 2 of 3</string>
+    <string name="compound_form_close">Close</string>
+    <string name="compound_form_skip">Skip</string>
+    <string name="compound_form_cancel">Cancel</string>
+    <string name="compound_form_save">Save compound</string>
+    <string name="compound_form_optional">Optional</string>
+    <string name="compound_form_tap_to_set">Tap to set</string>
+
+    <!-- Sections (§4.4.3) -->
+    <string name="compound_form_section_basics">Basics</string>
+    <string name="compound_form_section_stock">Stock</string>
+    <string name="compound_form_section_storage">Storage &amp; batch</string>
+    <string name="compound_form_section_opened">Opened container</string>
+    <string name="compound_form_section_notes">Notes</string>
+    <string name="compound_form_section_forecast">Stock preview</string>
+
+    <!-- Fields (§4.4.3) -->
+    <string name="compound_form_name">Name</string>
+    <string name="compound_form_category">Category</string>
+    <string name="compound_form_form">Form</string>
+    <string name="compound_form_container_type">Container type</string>
+    <string name="compound_form_containers"># of containers</string>
+    <string name="compound_form_amount_per_container">Amount per container</string>
+    <string name="compound_form_concentration">Concentration</string>
+    <string name="compound_form_helper">Helper</string>
+    <string name="compound_form_storage_location">Storage location</string>
+    <string name="compound_form_batch_expiry">Batch expiry date</string>
+    <string name="compound_form_batch_number">Batch number</string>
+    <string name="compound_form_supplier">Supplier</string>
+    <string name="compound_form_expiry_after_opening">Expiry after opening</string>
+    <string name="compound_form_expiry_after_opening_supporting">Used to predict expiry once a container is opened</string>
+    <string name="compound_form_days">days</string>
+    <string name="compound_form_notes">Notes</string>
+    <string name="compound_form_notes_placeholder">Any handling, dosing or sourcing notes…</string>
+    <string name="compound_form_date_confirm">Set date</string>
+
+    <!-- Container types (§3.1) -->
+    <string name="compound_form_container_vial">Vial</string>
+    <string name="compound_form_container_bottle">Bottle</string>
+    <string name="compound_form_container_blister">Blister</string>
+    <string name="compound_form_container_packet">Packet</string>
+    <string name="compound_form_container_tub">Tub</string>
+    <string name="compound_form_container_ampoule">Ampoule</string>
+
+    <!-- Storage locations (§3.1) -->
+    <string name="compound_form_storage_fridge">Fridge (4°C)</string>
+    <string name="compound_form_storage_room_temp">Room temp</string>
+    <string name="compound_form_storage_freezer">Freezer</string>
+
+    <!-- Units (§3.0.1) -->
+    <string name="compound_form_unit_mcg">mcg</string>
+    <string name="compound_form_unit_mg">mg</string>
+    <string name="compound_form_unit_g">g</string>
+    <string name="compound_form_unit_iu">IU</string>
+    <string name="compound_form_unit_ml">mL</string>
+    <string name="compound_form_unit_capsule">capsule</string>
+    <string name="compound_form_unit_tablet">tablet</string>
+    <string name="compound_form_unit_scoop">scoop</string>
+    <string name="compound_form_unit_drop">drop</string>
+    <!-- Concentration unit, e.g. "mg/mL" -->
+    <string name="compound_form_unit_per_ml">%1$s/mL</string>
+
+    <!-- Opened container section (§4.4.3) -->
+    <string name="compound_form_opened_empty_title">No container opened yet</string>
+    <string name="compound_form_opened_empty_supporting">Auto-opens on first dose, or add one now.</string>
+    <string name="compound_form_opened_add">Add already opened</string>
+    <!-- e.g. "Opened vial" -->
+    <string name="compound_form_opened_title">Opened %1$s</string>
+    <string name="compound_form_opened_edit">Edit</string>
+    <!-- e.g. "3.2 / 5 mg remaining" -->
+    <string name="compound_form_opened_remaining">%1$s / %2$s %3$s remaining</string>
+    <plurals name="compound_form_opened_days_ago">
+        <item quantity="one">Opened %1$d day ago</item>
+        <item quantity="other">Opened %1$d days ago</item>
+    </plurals>
+
+    <!-- Stock preview (§6.4.2) -->
+    <string name="compound_form_forecast_total">Total stock entered</string>
+    <plurals name="compound_form_forecast_containers">
+        <item quantity="one">Across %1$d container</item>
+        <item quantity="other">Across %1$d containers</item>
+    </plurals>
+    <!-- e.g. "2 ml per container once mixed" -->
+    <string name="compound_form_forecast_volume">%1$s per container once mixed</string>
+
+    <!-- Validation (§4.4.4) -->
+    <string name="compound_form_error_name_required">Name is required</string>
+    <string name="compound_form_error_name_too_long">Name is too long</string>
+    <string name="compound_form_error_containers_invalid">Enter a whole number of containers</string>
+    <string name="compound_form_error_containers_below_opened">An opened container needs at least 1 in total</string>
+    <string name="compound_form_error_amount_not_positive">Enter an amount above zero</string>
+    <string name="compound_form_error_concentration_required">Concentration is required for injectables</string>
+    <string name="compound_form_error_concentration_not_positive">Enter a concentration above zero</string>
+
+    <!-- Discard confirmation (§4.4.5) -->
+    <string name="compound_form_discard_title">Discard changes?</string>
+    <string name="compound_form_discard">Discard</string>
+    <string name="compound_form_keep_editing">Keep editing</string>
+
     <!-- Search overlay (§4.0.1) -->
     <string name="compounds_search_close">Close search</string>
     <string name="compounds_search_clear">Clear search</string>

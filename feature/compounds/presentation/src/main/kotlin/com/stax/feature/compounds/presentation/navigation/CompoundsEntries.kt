@@ -15,6 +15,8 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.paneInsets
+import com.stax.feature.compounds.presentation.form.CompoundFormArgs
+import com.stax.feature.compounds.presentation.form.CompoundFormRoot
 import com.stax.feature.compounds.presentation.list.CompoundsListRoot
 
 /**
@@ -30,14 +32,20 @@ import com.stax.feature.compounds.presentation.list.CompoundsListRoot
  * [onSelectionModeChange] is the same arrangement applied to chrome: the list hides the bottom nav
  * while multi-select is on (§4.2.4), but the nav suite is `:app`'s, so the screen reports the mode
  * and `:app` decides what to do about it.
+ *
+ * [onOnboardingStepDone] ends onboarding step 2 (§4.14) — the Create form reaches it both by Skip and
+ * by a successful Save (§4.4.4, "Onboarding step 2 progresses to step 3"), because from this module's
+ * side both are the same statement: the step is over. Which step follows is `:app`'s to know.
  */
 fun EntryProviderScope<NavKey>.compoundsEntries(
     onCompoundClick: (Long) -> Unit,
     onCreateCompound: () -> Unit,
     onEditCompound: (Long) -> Unit,
-    onReconstitute: (Long) -> Unit,
+    // Nullable: the Helper button on the Create form (§4.4.3) has no compound to pre-select yet, and
+    // §4.6's standalone calculator is exactly what that case wants.
+    onReconstitute: (Long?) -> Unit,
     onBack: () -> Unit,
-    onSkipOnboardingStep: () -> Unit,
+    onOnboardingStepDone: () -> Unit,
     onSelectionModeChange: (Boolean) -> Unit,
 ) {
     entry<CompoundsRoute>(
@@ -61,21 +69,20 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
     }
     entry<CreateCompoundRoute> { key ->
         // Onboarding step 2 reuses this form (§4.14 step 2): same screen, app bar titled
-        // "Add your first compound · 2 of 3" with Skip in its trailing slot. The real app bar
-        // arrives with the form itself (M7-04) — until then the placeholder carries the actions.
-        val title = if (key.onboarding) "Add your first compound · 2 of 3" else "New compound"
-        PlaceholderScreen(title = title) {
-            if (key.onboarding) {
-                Button(onClick = onSkipOnboardingStep) { Text(text = "Skip") }
-            } else {
-                Button(onClick = onBack) { Text(text = "Cancel") }
-            }
-        }
+        // "Add your first compound · 2 of 3" with Skip in its trailing slot, driven by the flag.
+        // Both Skip and a saved compound end the step, so both leave through the same callback.
+        CompoundFormRoot(
+            args = CompoundFormArgs(compoundId = null, isOnboarding = key.onboarding),
+            onDone = if (key.onboarding) onOnboardingStepDone else onBack,
+            onReconstitute = onReconstitute,
+        )
     }
     entry<EditCompoundRoute> { key ->
-        PlaceholderScreen(title = "Edit compound #${key.compoundId}") {
-            Button(onClick = onBack) { Text(text = "Done") }
-        }
+        CompoundFormRoot(
+            args = CompoundFormArgs(compoundId = key.compoundId),
+            onDone = onBack,
+            onReconstitute = onReconstitute,
+        )
     }
 }
 

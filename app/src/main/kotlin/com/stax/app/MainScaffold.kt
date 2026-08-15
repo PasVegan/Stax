@@ -263,9 +263,9 @@ private fun StaxNavDisplay(
             onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
             onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
             onBack = { navState.goBack() },
-            // §4.14 step 2: skipping advances to step 3 — the Create Protocol form, flagged the same
-            // way — and saves nothing, because the form persists nothing before its own Save (M7-04).
-            onSkipOnboardingStep = { navState.push(CreateProtocolRoute(onboarding = true)) },
+            // §4.14 step 2 ends by advancing to step 3 — the Create Protocol form, flagged the same
+            // way — whether the user saved a compound (§4.4.4) or skipped the step.
+            onOnboardingStepDone = { navState.push(CreateProtocolRoute(onboarding = true)) },
             // §4.2.4 hides the bottom nav for the list's multi-select dock. The nav suite is chrome,
             // so the screen reports the mode and the decision is made here.
             onSelectionModeChange = onSelectionModeChange,

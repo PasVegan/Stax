@@ -221,8 +221,9 @@ private fun ConcentrationField(
         suffix = {
             UnitPicker(
                 picker = CompoundFormPicker.CONCENTRATION_UNIT,
-                options = CONCENTRATION_UNIT_OPTIONS,
-                selected = state.draft.concentrationUnit,
+                // Per the Form, not per the app: a tablet's strength is per tablet, not per mL.
+                options = state.draft.form.concentrationUnitOptions(),
+                selected = ConcentrationUnits(state.draft.concentrationUnit, state.draft.concentrationPerUnit),
                 labelOf = { concentrationUnitLabel(it) },
                 openPicker = state.openPicker,
                 onAction = onAction,
@@ -588,10 +589,10 @@ internal fun unitLabel(unit: UnitCode): String = stringResource(
     },
 )
 
-/** "mg/mL" — the concentration picker names the ratio, not just its numerator (§4.4.3). */
+/** "mg/mL", "mg/tablet" — the concentration picker names the whole ratio (§4.4.3). */
 @Composable
-internal fun concentrationUnitLabel(unit: UnitCode): String =
-    stringResource(R.string.compound_form_unit_per_ml, unitLabel(unit))
+internal fun concentrationUnitLabel(units: ConcentrationUnits): String =
+    stringResource(R.string.compound_form_unit_per, unitLabel(units.amount), unitLabel(units.per))
 
 /** The message §4.4.4 shows under a rejected field. */
 internal fun CompoundFormError.messageRes(): Int = when (this) {

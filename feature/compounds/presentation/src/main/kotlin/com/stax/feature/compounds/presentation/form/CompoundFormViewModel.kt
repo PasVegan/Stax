@@ -13,6 +13,7 @@ import com.stax.core.domain.OpenedContainer
 import com.stax.core.domain.Quantity
 import com.stax.core.domain.Result
 import com.stax.core.domain.UnitCode
+import com.stax.core.domain.UnitFamily
 import com.stax.core.domain.ValidationError
 import com.stax.core.domain.repository.CompoundRepository
 import com.stax.core.domain.validateCompoundSupplyAmountPerContainer
@@ -191,8 +192,9 @@ class CompoundFormViewModel(
             is CompoundFormAction.Pick.OnPrimaryUnitSelected ->
                 updateDraft(CompoundFormField.AMOUNT_PER_CONTAINER) { it.copy(primaryUnit = action.unit) }
 
-            is CompoundFormAction.Pick.OnConcentrationUnitSelected ->
-                updateDraft(CompoundFormField.CONCENTRATION) { it.copy(concentrationUnit = action.unit) }
+            is CompoundFormAction.Pick.OnConcentrationUnitSelected -> updateDraft(CompoundFormField.CONCENTRATION) {
+                it.copy(concentrationUnit = action.units.amount, concentrationPerUnit = action.units.per)
+            }
         }
     }
 
@@ -393,7 +395,8 @@ class CompoundFormViewModel(
         amountPerContainer = amountPerContainer.value.toPlainString(),
         primaryUnit = primaryUnit,
         concentrationAmount = concentration?.amount?.value?.toPlainString().orEmpty(),
-        concentrationUnit = concentration?.amount?.unit ?: UnitCode.MG,
+        concentrationUnit = concentration?.amount?.unit ?: form.concentrationUnitOptions().first().amount,
+        concentrationPerUnit = concentration?.per?.unit ?: form.concentrationUnitOptions().first().per,
         storageLocation = storageLocation,
         batchExpiryDate = batchExpiryDate,
         batchNumber = batchNumber.orEmpty(),
@@ -432,7 +435,12 @@ class CompoundFormViewModel(
         return StockForecastUi(
             totalStock = stock.toString(),
             containers = total,
-            volumePerContainer = draft.concentrationOrNull()?.let { perContainer.dividedBy(it)?.toString() },
+            // "…once mixed" is reconstitution talk, so it is only asked when the concentration is
+            // actually per volume. Per tablet or per gram, dividing by it answers a question nobody
+            // asked — how many tablets the container's mass fills — and would answer it wrongly.
+            volumePerContainer = draft.concentrationOrNull()
+                ?.takeIf { it.per.unit.family == UnitFamily.VOLUME }
+                ?.let { perContainer.dividedBy(it)?.toString() },
         )
     }
 

@@ -29,7 +29,9 @@ sealed interface CompoundFormAction {
         data class OnContainerTypeSelected(val containerType: ContainerType) : Pick
         data class OnStorageLocationSelected(val storageLocation: StorageLocation) : Pick
         data class OnPrimaryUnitSelected(val unit: UnitCode) : Pick
-        data class OnConcentrationUnitSelected(val unit: UnitCode) : Pick
+
+        /** Both halves at once: the picker offers whole concentrations ("mg/mL"), not two units. */
+        data class OnConcentrationUnitSelected(val units: ConcentrationUnits) : Pick
     }
 
     /**

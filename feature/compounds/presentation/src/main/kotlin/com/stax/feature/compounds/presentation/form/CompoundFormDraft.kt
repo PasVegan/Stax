@@ -41,8 +41,14 @@ data class CompoundFormDraft(
     val amountPerContainer: String = "",
     val primaryUnit: UnitCode = UnitCode.MG,
     val concentrationAmount: String = "",
-    /** Numerator unit of the "{amount} per 1 mL" concentration the form edits (§4.4.3). */
+    /** Numerator unit of the "{amount} per 1 {per}" concentration the form edits (§4.4.3). */
     val concentrationUnit: UnitCode = UnitCode.MG,
+    /**
+     * Denominator unit of that concentration — what one of *these* holds. It follows the Form: a
+     * millilitre for anything mixed or poured, but a tablet's strength is per tablet and a powder's
+     * is per gram or scoop. "mg/mL" on a blister of tablets is not a unit, it is a typo.
+     */
+    val concentrationPerUnit: UnitCode = UnitCode.ML,
     val storageLocation: StorageLocation = StorageLocation.FRIDGE,
     val batchExpiryDate: LocalDate? = null,
     val batchNumber: String = "",
@@ -80,7 +86,7 @@ enum class CompoundFormPicker { CATEGORY, FORM, CONTAINER_TYPE, STORAGE_LOCATION
 // Smart defaults (§4.4.3)
 // ---------------------------------------------------------------------------
 
-/** The three [CompoundFormDraft] fields a Form selection fills in (§4.4.3). */
+/** The [CompoundFormDraft] fields a Form selection fills in (§4.4.3). */
 internal data class SmartDefaults(
     val containerType: ContainerType,
     val primaryUnit: UnitCode,
@@ -115,6 +121,16 @@ internal fun CompoundFormDraft.applySmartDefaults(form: CompoundForm): CompoundF
     val defaults = form.smartDefaults()
     val keepUnit = primaryUnit in form.primaryUnitOptions() &&
         CompoundFormField.AMOUNT_PER_CONTAINER in touched
+    val units = form.concentrationUnitOptions()
+    // Same rule for the concentration's two units, and for the same reason: "mg/mL" has to stop
+    // being the answer the moment the Form stops being something that is mixed or poured.
+    val keepConcentrationUnits = ConcentrationUnits(concentrationUnit, concentrationPerUnit) in units &&
+        CompoundFormField.CONCENTRATION in touched
+    val concentration = if (keepConcentrationUnits) {
+        ConcentrationUnits(concentrationUnit, concentrationPerUnit)
+    } else {
+        units.first()
+    }
     return copy(
         form = form,
         containerType = if (CompoundFormField.CONTAINER_TYPE in touched) containerType else defaults.containerType,
@@ -124,6 +140,8 @@ internal fun CompoundFormDraft.applySmartDefaults(form: CompoundForm): CompoundF
         } else {
             defaults.amountPerContainer
         },
+        concentrationUnit = concentration.amount,
+        concentrationPerUnit = concentration.per,
     )
 }
 
@@ -141,9 +159,28 @@ internal fun CompoundForm.primaryUnitOptions(): List<UnitCode> = when (this) {
     CompoundForm.TOPICAL -> listOf(UnitCode.G, UnitCode.ML)
 }
 
-/** Numerator units of a concentration — what one millilitre holds once the vial is mixed (§4.4.3). */
-internal val CONCENTRATION_UNIT_OPTIONS: List<UnitCode> =
-    listOf(UnitCode.MG, UnitCode.MCG, UnitCode.IU, UnitCode.G)
+/** One concentration the picker offers, e.g. `mg` per `mL` or `mg` per `tablet` (§4.4.3). */
+data class ConcentrationUnits(val amount: UnitCode, val per: UnitCode)
+
+/**
+ * The concentrations offered for a compound of this form, strongest-selling first.
+ *
+ * A concentration answers "how much active is in one of these", so the denominator is whatever "one
+ * of these" is for the form: a millilitre once an injectable or a liquid is mixed or poured, a
+ * gram or a scoop of a powder, and the pill itself for a capsule or a tablet.
+ */
+internal fun CompoundForm.concentrationUnitOptions(): List<ConcentrationUnits> = when (this) {
+    CompoundForm.INJECTABLE, CompoundForm.LIQUID -> ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.ML) }
+    CompoundForm.POWDER -> ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.G) } +
+        ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.SCOOP) }
+    CompoundForm.CAPSULE -> ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.CAPSULE) }
+    CompoundForm.TABLET -> ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.TABLET) }
+    CompoundForm.TOPICAL -> ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.G) } +
+        ACTIVE_UNITS.map { ConcentrationUnits(it, UnitCode.ML) }
+}
+
+/** What the active ingredient itself is measured in — the numerator of every concentration above. */
+private val ACTIVE_UNITS = listOf(UnitCode.MG, UnitCode.MCG, UnitCode.IU, UnitCode.G)
 
 // ---------------------------------------------------------------------------
 // Reading the draft's numbers (§4.4.4)
@@ -155,10 +192,10 @@ internal fun CompoundFormDraft.differsFrom(other: CompoundFormDraft): Boolean =
 
 internal fun CompoundFormDraft.amountPerContainerOrNull(): Quantity? = amountPerContainer.toQuantityOrNull(primaryUnit)
 
-/** §4.4.3 edits "{amount} per 1 mL"; the `per` side of a concentration is not a field on this form. */
+/** §4.4.3 edits "{amount} per 1 {per}"; the `per` side is always one of whatever the Form is sold as. */
 internal fun CompoundFormDraft.concentrationOrNull(): Concentration? =
     concentrationAmount.toQuantityOrNull(concentrationUnit)?.let {
-        Concentration(amount = it, per = Quantity(ONE, UnitCode.ML))
+        Concentration(amount = it, per = Quantity(ONE, concentrationPerUnit))
     }
 
 private fun String.toQuantityOrNull(unit: UnitCode): Quantity? = toDecimalOrNull()?.let { Quantity(it, unit) }

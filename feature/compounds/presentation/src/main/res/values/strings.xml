@@ -118,8 +118,8 @@
     <string name="compound_form_unit_tablet">tablet</string>
     <string name="compound_form_unit_scoop">scoop</string>
     <string name="compound_form_unit_drop">drop</string>
-    <!-- Concentration unit, e.g. "mg/mL" -->
-    <string name="compound_form_unit_per_ml">%1$s/mL</string>
+    <!-- Concentration unit, e.g. "mg/mL" or "mg/tablet" -->
+    <string name="compound_form_unit_per">%1$s/%2$s</string>
 
     <!-- Opened container section (§4.4.3) -->
     <string name="compound_form_opened_empty_title">No container opened yet</string>

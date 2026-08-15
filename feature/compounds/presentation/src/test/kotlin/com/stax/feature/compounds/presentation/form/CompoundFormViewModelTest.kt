@@ -93,6 +93,61 @@ class CompoundFormViewModelTest {
         assertThat(viewModel.state.value.draft.primaryUnit).isEqualTo(UnitCode.TABLET)
     }
 
+    /** A tablet's strength is per tablet; "mg/mL" on a blister is not a unit (§4.4.3). */
+    @Test
+    fun `the concentration denominator follows the Form`() = runTest {
+        val viewModel = viewModel()
+
+        assertThat(viewModel.state.value.draft.concentrationPerUnit).isEqualTo(UnitCode.ML)
+
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.TABLET))
+        assertThat(viewModel.state.value.draft.concentrationPerUnit).isEqualTo(UnitCode.TABLET)
+
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.CAPSULE))
+        assertThat(viewModel.state.value.draft.concentrationPerUnit).isEqualTo(UnitCode.CAPSULE)
+
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.POWDER))
+        assertThat(viewModel.state.value.draft.concentrationPerUnit).isEqualTo(UnitCode.G)
+    }
+
+    @Test
+    fun `a concentration the user picked survives a Form that still offers it`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(
+            CompoundFormAction.Pick.OnConcentrationUnitSelected(ConcentrationUnits(UnitCode.IU, UnitCode.ML)),
+        )
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.LIQUID))
+
+        assertThat(viewModel.state.value.draft.concentrationUnit).isEqualTo(UnitCode.IU)
+        assertThat(viewModel.state.value.draft.concentrationPerUnit).isEqualTo(UnitCode.ML)
+    }
+
+    @Test
+    fun `a concentration the new Form cannot express is replaced even when the user picked it`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(
+            CompoundFormAction.Pick.OnConcentrationUnitSelected(ConcentrationUnits(UnitCode.IU, UnitCode.ML)),
+        )
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.TABLET))
+
+        assertThat(viewModel.state.value.draft.concentrationPerUnit).isEqualTo(UnitCode.TABLET)
+    }
+
+    @Test
+    fun `Save stores the concentration against the unit the Form asked for`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.TABLET))
+        viewModel.onAction(CompoundFormAction.Edit.OnNameChange("Anastrozole"))
+        viewModel.onAction(CompoundFormAction.Edit.OnConcentrationChange("1"))
+
+        viewModel.onAction(CompoundFormAction.OnSaveClick)
+
+        assertThat(compounds.created?.concentration?.per)
+            .isEqualTo(Quantity(Decimal.parse("1"), UnitCode.TABLET))
+    }
+
     // -----------------------------------------------------------------------
     // Validation (§4.4.4)
     // -----------------------------------------------------------------------
@@ -393,6 +448,22 @@ class CompoundFormViewModelTest {
 
         // Two sealed 5 mg vials plus 1.5 mg left in the opened one.
         assertThat(viewModel.state.value.forecast?.totalStock).isEqualTo("11.5 mg")
+    }
+
+    /**
+     * "…once mixed" is reconstitution talk. Dividing a tablet count by a per-tablet strength answers
+     * a question nobody asked, so the line is simply absent for a Form that is not mixed or poured.
+     */
+    @Test
+    fun `the preview leaves out the mixed volume when the concentration is not per volume`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundFormAction.Pick.OnFormSelected(CompoundForm.TABLET))
+        viewModel.onAction(CompoundFormAction.Edit.OnTotalContainersChange("2"))
+        viewModel.onAction(CompoundFormAction.Edit.OnConcentrationChange("1"))
+
+        val forecast = requireNotNull(viewModel.state.value.forecast)
+        assertThat(forecast.totalStock).isEqualTo("60 tablet")
+        assertThat(forecast.volumePerContainer).isNull()
     }
 
     @Test

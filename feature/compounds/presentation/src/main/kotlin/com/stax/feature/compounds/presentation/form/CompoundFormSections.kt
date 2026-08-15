@@ -211,7 +211,9 @@ private fun ConcentrationField(
         label = stringResource(R.string.compound_form_concentration),
         value = state.draft.concentrationAmount,
         onValueChange = { onAction(CompoundFormAction.Edit.OnConcentrationChange(it)) },
-        icon = StaxIcons.Straighten,
+        // Dropped in a narrow column for the same reason as on the two counts above: between the
+        // icon, the `Optional` badge and a "mg/tablet" suffix, the label is what gets truncated.
+        icon = StaxIcons.Straighten.takeIf { isHelperInline },
         // §4.4.3 marks the field Optional, but a non-ampoule injectable has no usable dose without
         // it — so the badge disappears exactly when the rule makes it required.
         isOptional = !state.isConcentrationRequired,

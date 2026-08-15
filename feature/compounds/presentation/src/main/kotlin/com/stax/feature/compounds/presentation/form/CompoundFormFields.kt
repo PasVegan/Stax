@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,6 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -26,6 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stax.core.design.system.StaxIcons
 import com.stax.feature.compounds.presentation.R
@@ -82,7 +87,7 @@ internal fun FormTextField(
                 .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
                 .errorOutline(isError = error != null),
             textStyle = MaterialTheme.typography.titleMedium,
-            label = { FieldLabel(label = label, isOptional = isOptional) },
+            label = { FieldLabelRow(label = label, isOptional = isOptional) },
             placeholder = placeholder?.let { { Text(text = it) } },
             leadingIcon = icon?.let { { Icon(painter = it, contentDescription = null) } },
             trailingIcon = trailing,
@@ -126,43 +131,44 @@ internal fun FormPickerField(
     supporting: String? = null,
     menu: @Composable () -> Unit = {},
 ) {
-    Box(modifier = modifier) {
-        Surface(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainer,
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = FIELD_INSET, vertical = ROW_VERTICAL_PADDING),
+            horizontalArrangement = Arrangement.spacedBy(FIELD_INSET),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = FIELD_INSET, vertical = ROW_VERTICAL_PADDING),
-                horizontalArrangement = Arrangement.spacedBy(FIELD_INSET),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    FieldLabel(label = label, isOptional = isOptional)
-                    Text(text = value, style = MaterialTheme.typography.titleMedium)
-                    supporting?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+            Icon(
+                painter = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                FieldLabelRow(label = label, isOptional = isOptional)
+                Text(text = value, style = MaterialTheme.typography.titleMedium)
+                supporting?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+            }
+            // The menu hangs off the chevron, not off the row: anchored to the row it opened at the
+            // far start edge, a whole field's width from the control that summoned it.
+            Box {
                 Icon(
                     painter = trailingIcon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                menu()
             }
         }
-        // Nested in the row's own Box so the menu anchors to the row it belongs to.
-        menu()
     }
 }
 
@@ -183,8 +189,13 @@ internal fun FormPickerItem(label: String, isSelected: Boolean, onClick: () -> U
 
 /**
  * The unit picker that sits inline after a numeric value (§4.4.3, "+ unit picker"). It is the field's
- * `suffix`, so at every width it stays on the value's own line — which is what §6.4.2 asks the wider
+ * `suffix`, so it stays on the value's own line at every width — which is what §6.4.2 asks the wider
  * layouts for and what the narrow one gets for free.
+ *
+ * The minimum interactive size is waived for the button on purpose: enforced, it is `48dp` tall,
+ * which is taller than the line it is a suffix of — the field grew to fit it and left the value
+ * stranded at the top with the unit alone at the bottom. The row itself is well past `48dp` and the
+ * whole of it focuses the same field, so the target that matters is not the one being waived.
  */
 @Suppress("FunctionName")
 @Composable
@@ -197,32 +208,60 @@ internal fun UnitSuffix(
     menu: @Composable () -> Unit,
 ) {
     Box(modifier = modifier) {
-        TextButton(onClick = onClick, contentPadding = UNIT_BUTTON_PADDING) {
-            Text(text = unit, style = MaterialTheme.typography.bodyMedium)
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+            TextButton(onClick = onClick, contentPadding = UNIT_BUTTON_PADDING) {
+                Text(text = unit, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            }
         }
         DropdownMenu(expanded = isMenuOpen, onDismissRequest = onMenuDismiss, content = { menu() })
     }
 }
 
-/** "Label" plus the `Optional` badge §4.4.3 marks the non-required fields with. */
+/**
+ * "Label" plus the `Optional` badge §4.4.3 marks the non-required fields with.
+ *
+ * The badge is `surface-container-highest` rather than `surface-variant`: the field it sits on is
+ * `surface-container`, and under a dynamic scheme those two land on the same tone — the badge was
+ * invisible on a Samsung device, which is exactly where a "pill" that is only a colour disappears.
+ * The tonal palette guarantees `highest` a step above the container it is on.
+ *
+ * The badge never wraps and the label yields room before it does: with both free to wrap, a narrow
+ * column broke "Optional" across two lines mid-word.
+ */
 @Suppress("FunctionName")
 @Composable
-private fun FieldLabel(label: String, isOptional: Boolean) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(LABEL_GAP),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall)
-        if (isOptional) {
-            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Text(
-                    text = stringResource(R.string.compound_form_optional),
-                    modifier = Modifier.padding(horizontal = BADGE_PADDING, vertical = BADGE_PADDING / 2),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+private fun RowScope.FieldLabel(label: String, isOptional: Boolean) {
+    Text(
+        text = label,
+        modifier = Modifier.weight(1f, fill = false),
+        style = MaterialTheme.typography.bodySmall,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+    if (isOptional) {
+        Surface(
+            modifier = Modifier.padding(start = LABEL_GAP),
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        ) {
+            Text(
+                text = stringResource(R.string.compound_form_optional),
+                modifier = Modifier.padding(horizontal = BADGE_PADDING, vertical = BADGE_PADDING / 2),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+            )
         }
+    }
+}
+
+/** [FieldLabel] in the `Row` it needs to hand the badge its space. */
+@Suppress("FunctionName")
+@Composable
+private fun FieldLabelRow(label: String, isOptional: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FieldLabel(label = label, isOptional = isOptional)
     }
 }
 

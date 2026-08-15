@@ -26,6 +26,10 @@ import com.stax.feature.compounds.presentation.list.CompoundsListRoot
  *
  * Compounds list + detail are tagged as the list-detail Scene's panes (§6.4.2): two panes at 600dp+,
  * single-pane push below.
+ *
+ * [onSelectionModeChange] is the same arrangement applied to chrome: the list hides the bottom nav
+ * while multi-select is on (§4.2.4), but the nav suite is `:app`'s, so the screen reports the mode
+ * and `:app` decides what to do about it.
  */
 fun EntryProviderScope<NavKey>.compoundsEntries(
     onCompoundClick: (Long) -> Unit,
@@ -34,6 +38,7 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
     onReconstitute: (Long) -> Unit,
     onBack: () -> Unit,
     onSkipOnboardingStep: () -> Unit,
+    onSelectionModeChange: (Boolean) -> Unit,
 ) {
     entry<CompoundsRoute>(
         metadata = StaxListDetailScene.listPane(
@@ -41,7 +46,11 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
             detailPlaceholder = { PlaceholderScreen(title = "Select a compound") },
         ),
     ) {
-        CompoundsListRoot(onCompoundClick = onCompoundClick, onCreateCompound = onCreateCompound)
+        CompoundsListRoot(
+            onCompoundClick = onCompoundClick,
+            onCreateCompound = onCreateCompound,
+            onSelectionModeChange = onSelectionModeChange,
+        )
     }
     entry<CompoundDetailRoute>(metadata = StaxListDetailScene.detailPane(COMPOUNDS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Compound #${key.compoundId}") {

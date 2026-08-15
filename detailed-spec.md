@@ -89,9 +89,11 @@ Follow the `edge-to-edge` skill.
 - `android:windowSoftInputMode="adjustResize"` in the manifest for every Activity that shows a soft keyboard (text fields).
 - All padding derived from the framework insets (status bars, navigation bars, display cutout, IME). No hardcoded inset dimensions anywhere.
 - Apply insets with exactly **one** method per surface (inset-padding OR ruler-alignment) — never both, to avoid double padding. Lists + FAB must not be obscured by the nav bar; text fields must stay visible above the IME.
-- **Per-pane insets (§6.4, M5-09).** A `NavDisplay` entry *is* a Scene pane, and the adaptive Scene strategies propagate no insets of their own — so each pane claims its own slice, exactly once, at its content root via `Modifier.paneInsets()` from `:core:design-system` (ruler alignment: `fitInside(WindowInsetsRulers.SafeDrawing.current)`, which covers system bars + cutout + IME in one method).
-  - Ruler alignment, not `windowInsetsPadding`, because rulers resolve in the pane's own coordinate space: only the pane that actually touches a system bar is inset by it (nav bar on the bottom-most pane of a tabletop split; a landscape cutout / three-button bar on the outer pane of a side-by-side split). Consumption-based padding would give the whole window inset to both panes and open a gap down the middle.
-  - Double padding is structurally impossible: a node already inside the safe area resolves its rulers to its own edges, so nesting `paneInsets` — or composing it with the padding `NavigationSuiteScaffold` applies for its chrome — adds nothing.
+- **Per-pane insets (§6.4, M5-09).** A `NavDisplay` entry *is* a Scene pane, and the adaptive Scene strategies propagate no insets of their own — so each pane claims its own, exactly once, at its content root via `Modifier.paneInsets()` from `:core:design-system` (inset padding: `safeDrawingPadding()`, which covers system bars + cutout + IME in one method).
+  - Inset padding, **not** ruler alignment. `fitInside(WindowInsetsRulers.SafeDrawing.current)` resolves by *position* — `Ruler.calculateCoordinate` maps the value through `localPositionOf`, which includes every `graphicsLayer` transform between the window root and the pane. §6.4.5's entry transitions are `graphicsLayer` scale animations, so a pane reads its rulers through a `0.92` scale and lands short of the status bar; and because a layer property settling back to `1.0` triggers no relayout, the stale value is never re-read and the pane keeps the wrong inset for the rest of its life. Inset values are transform-independent, so they survive any entry animation.
+  - Double padding is still structurally impossible: `safeDrawingPadding` **consumes** what it applies, so a nested `paneInsets`, the padding `NavigationSuiteScaffold` already consumed for its chrome, and a self-insetting Material component (`TopAppBar`, `SearchBar`, `ModalBottomSheet`) underneath a pane all resolve to zero.
+  - **A pane that opens with its own top app bar passes `paneInsets(claimTop = false)`** and lets the bar take the status bar through its own `windowInsets`. Material applies those insets *inside* the bar's `Surface`, so the bar's container colour draws behind the status bar — which is what edge-to-edge is meant to look like. Claiming the top at the pane instead stops the bar short and strands a strip of page background under the status icons; invisible wherever `surface` happens to equal the page, obvious on any dark or dynamic-colour scheme where it does not. The pane still claims the sides and the bottom, so the bar's own horizontal insets resolve to zero underneath it.
+  - The trade-off accepted here: consumption-based padding gives each pane the whole window inset, so in a side-by-side split with a landscape cutout both panes inset their inner edge. That is a few dp of dead space on the divider, against a class of frozen-inset bugs that rulers make unavoidable under animated panes.
   - Every other `WindowInsets` API is banned outside `:core:design-system`, enforced by the `stax:NoWindowInsetsOutsideDesignSystem` detekt rule (`:detekt-rules`).
 - System-bar legibility: rely on the framework's adaptive bar-icon contrast; do not hardcode bar colors.
 
@@ -602,11 +604,19 @@ Layout left→right:
 
 Entry: long-press any row.
 
+Exits: the contextual bar's `close`, the system back gesture, or unticking the last selected row —
+the selection *is* the mode, so an empty selection is never multi-select with nothing in it.
+
 App bar transforms into contextual app bar:
 - Leading `close` → exits multi-select.
 - Title: "N selected" (live count).
 
-**Row visual**: outlined leading checkbox circle before avatar(shifted to the right).
+The **filter chip row (§4.2.2) is hidden** with it: narrowing the list mid-selection would hide rows
+the dock is about to act on. The **§4.2.5 FAB is hidden** too (§6.4.6) — the dock carries the mode's
+actions, and a screen with two primary actions on it has none.
+
+**Row visual**: outlined leading checkbox circle before avatar(shifted to the right). Tapping a row
+toggles it rather than opening its detail.
 
 **Selected row visual**: fill = `secondary-container`, leading checkbox filled with `primary` and `check`.
 
@@ -614,7 +624,9 @@ Bottom nav **hidden** during multi-select mode. Bottom dock appears instead:
 - **Duplicate** (tonal `secondary-container` button, equal-grow): creates copies with " (copy)" suffix, fresh IDs, no opened container, no batch number.
 - **Archive** (`error-container` button, equal-grow): opens confirmation dialog "Archive N compounds? Logged history is kept." — confirm → sets `deletedAt = now()` for all selected.
 
-After action completes, exits multi-select mode. No undo snackbar.
+After action completes, exits multi-select mode. No undo snackbar. A batch runs to the end even if one
+compound fails, and reports the **first** failure only — the list updating under the user is the
+confirmation, so only what did *not* happen needs saying.
 
 #### 4.2.5 FAB
 

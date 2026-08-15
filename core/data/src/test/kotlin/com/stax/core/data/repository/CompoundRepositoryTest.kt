@@ -207,14 +207,22 @@ class CompoundRepositoryTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `duplicate creates new compound with same fields`() = runTest {
+    fun `duplicate creates new compound with same fields under a copy name`() = runTest {
         val origId = (repository.create(minimalCompound(numberOfContainers = 2)) as Result.Success).data
         val newId = (repository.duplicate(origId) as Result.Success).data
 
         assertThat(newId != origId).isEqualTo(true)
         val copy = repository.observeById(newId).first()!!
-        assertThat(copy.name).isEqualTo("BPC-157")
+        assertThat(copy.name).isEqualTo("BPC-157 (copy)")
         assertThat(copy.numberOfContainers).isEqualTo(2)
+    }
+
+    @Test
+    fun `duplicate does not copy the batch number`() = runTest {
+        val origId = (repository.create(minimalCompound(batchNumber = "LOT-42")) as Result.Success).data
+        val newId = (repository.duplicate(origId) as Result.Success).data
+
+        assertThat(repository.observeById(newId).first()!!.batchNumber).isNull()
     }
 
     @Test
@@ -392,25 +400,26 @@ class CompoundRepositoryTest {
 
     private val now = Instant.parse("2026-06-06T00:00:00Z")
 
-    private fun minimalCompound(numberOfContainers: Int = 1): CompoundSupply = CompoundSupply(
-        id = 0L,
-        name = "BPC-157",
-        category = CompoundCategory.PEPTIDE,
-        form = CompoundForm.INJECTABLE,
-        containerType = ContainerType.VIAL,
-        primaryUnit = UnitCode.MG,
-        amountPerContainer = Quantity(Decimal.parse("5"), UnitCode.MG),
-        concentration = null,
-        numberOfContainers = numberOfContainers,
-        currentOpened = null,
-        batchExpiryDate = null,
-        expiryAfterOpeningDays = null,
-        storageLocation = StorageLocation.FRIDGE,
-        batchNumber = null,
-        supplier = null,
-        notes = null,
-        deletedAt = null,
-        createdAt = now,
-        updatedAt = now,
-    )
+    private fun minimalCompound(numberOfContainers: Int = 1, batchNumber: String? = null): CompoundSupply =
+        CompoundSupply(
+            id = 0L,
+            name = "BPC-157",
+            category = CompoundCategory.PEPTIDE,
+            form = CompoundForm.INJECTABLE,
+            containerType = ContainerType.VIAL,
+            primaryUnit = UnitCode.MG,
+            amountPerContainer = Quantity(Decimal.parse("5"), UnitCode.MG),
+            concentration = null,
+            numberOfContainers = numberOfContainers,
+            currentOpened = null,
+            batchExpiryDate = null,
+            expiryAfterOpeningDays = null,
+            storageLocation = StorageLocation.FRIDGE,
+            batchNumber = batchNumber,
+            supplier = null,
+            notes = null,
+            deletedAt = null,
+            createdAt = now,
+            updatedAt = now,
+        )
 }

@@ -37,8 +37,9 @@ interface CompoundRepository {
     suspend fun archive(id: Long): EmptyResult<DataError.Local>
 
     /**
-     * Creates a copy of the compound with a fresh ID, new timestamps, no opened container,
-     * and an [InitialStock] transaction matching the copied container count (§5.3).
+     * Creates a copy of the compound with a fresh ID, a `" (copy)"` name suffix, new timestamps,
+     * no opened container, no batch number, and an [InitialStock] transaction matching the copied
+     * container count (§4.2.4, §5.3).
      *
      * @return the auto-generated ID of the duplicate.
      */

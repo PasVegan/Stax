@@ -57,6 +57,9 @@ data class CompoundListItemUi(
  *
  * [openFilterMenu] and [isSearchOpen] are here rather than in a `remember` because which chip menu is
  * open and whether the search overlay (§4.0.1) is showing are app state, not Compose-internal state.
+ *
+ * [selectedIds] carries multi-select mode (§4.2.4): the selection *is* the mode, so emptying it by
+ * unticking the last row leaves multi-select exactly as the contextual bar's `close` does.
  */
 data class CompoundsListState(
     val items: ImmutableList<CompoundListItemUi> = persistentListOf(),
@@ -66,5 +69,10 @@ data class CompoundsListState(
     val searchQuery: String = "",
     val openFilterMenu: CompoundFilterMenu? = null,
     val isSearchOpen: Boolean = false,
+    val selectedIds: ImmutableSet<Long> = persistentSetOf(),
+    val isArchiveDialogOpen: Boolean = false,
     val isLoading: Boolean = true,
-)
+) {
+    /** Multi-select mode is on for exactly as long as something is selected (§4.2.4). */
+    val isSelectionMode: Boolean get() = selectedIds.isNotEmpty()
+}

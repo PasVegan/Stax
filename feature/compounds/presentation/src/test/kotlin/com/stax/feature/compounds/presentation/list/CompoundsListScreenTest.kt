@@ -2,12 +2,16 @@ package com.stax.feature.compounds.presentation.list
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import assertk.assertThat
@@ -202,6 +206,101 @@ class CompoundsListScreenTest {
         )
     }
 
+    // -----------------------------------------------------------------------
+    // Multi-select (§4.2.4)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `long-pressing a row enters multi-select`() {
+        setScreen(state())
+
+        composeRule.onNodeWithText("Semaglutide").performTouchInput { longClick() }
+
+        assertThat(actions).containsExactly(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `multi-select swaps the app bar and chips for the contextual bar and dock at Compact`() {
+        setScreen(state(selectedIds = persistentSetOf(1L)))
+
+        assertSelectionModeIsRendered(selectedCount = 1)
+    }
+
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `multi-select swaps the app bar and chips for the contextual bar and dock at Medium`() {
+        setScreen(state(selectedIds = persistentSetOf(1L, 2L)))
+
+        assertSelectionModeIsRendered(selectedCount = 2)
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `multi-select swaps the app bar and chips for the contextual bar and dock at Expanded`() {
+        setScreen(state(selectedIds = persistentSetOf(1L, 2L)))
+
+        assertSelectionModeIsRendered(selectedCount = 2)
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `only the selected rows read as selected`() {
+        setScreen(state(selectedIds = persistentSetOf(1L)))
+
+        composeRule.onNodeWithText("Semaglutide").assertIsSelected()
+        composeRule.onNodeWithText("Vitamin D3").assertIsNotSelected()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the contextual bar's close icon leaves multi-select`() {
+        setScreen(state(selectedIds = persistentSetOf(1L)))
+
+        composeRule.onNodeWithContentDescription(string(R.string.compounds_selection_close)).performClick()
+
+        assertThat(actions).containsExactly(CompoundsListAction.Selection.OnDismiss)
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the dock files Duplicate directly and Archive through its dialog`() {
+        setScreen(state(selectedIds = persistentSetOf(1L)))
+
+        composeRule.onNodeWithText(string(R.string.compounds_selection_duplicate)).performClick()
+        composeRule.onNodeWithText(string(R.string.compounds_selection_archive)).performClick()
+
+        assertThat(actions).containsExactly(
+            CompoundsListAction.Selection.OnDuplicate,
+            CompoundsListAction.Selection.OnArchiveClick,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the archive dialog names the count and confirms the archive`() {
+        setScreen(state(selectedIds = persistentSetOf(1L, 2L), isArchiveDialogOpen = true))
+
+        composeRule.onNodeWithText(plural(R.plurals.compounds_archive_title, 2)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compounds_archive_supporting)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compounds_archive_cancel)).performClick()
+
+        assertThat(actions).containsExactly(CompoundsListAction.Selection.OnArchiveDismiss)
+    }
+
+    /** §4.2.4: contextual bar + dock in, ordinary app bar + chip row + FAB out. */
+    private fun assertSelectionModeIsRendered(selectedCount: Int) {
+        composeRule.onNodeWithText(string(R.string.compounds_selection_count, selectedCount))
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compounds_selection_duplicate)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compounds_selection_archive)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compounds_title)).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.compounds_filter_all)).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.compounds_add)).assertDoesNotExist()
+        assertThat(actions).isEmpty()
+    }
+
     private fun assertListIsRendered() {
         composeRule.onNodeWithText(string(R.string.compounds_title)).assertIsDisplayed()
         composeRule.onNodeWithContentDescription(string(R.string.compounds_search)).assertIsDisplayed()
@@ -235,18 +334,25 @@ class CompoundsListScreenTest {
 
     private fun string(resId: Int, vararg args: Any): String = composeRule.activity.getString(resId, *args)
 
+    private fun plural(resId: Int, count: Int): String =
+        composeRule.activity.resources.getQuantityString(resId, count, count)
+
     private fun state(
         items: List<CompoundListItemUi> = listOf(SEMAGLUTIDE, VITAMIN_D3),
         selectedCategories: ImmutableSet<CompoundCategory> = persistentSetOf(),
         openFilterMenu: CompoundFilterMenu? = null,
         isSearchOpen: Boolean = false,
         searchQuery: String = "",
+        selectedIds: ImmutableSet<Long> = persistentSetOf(),
+        isArchiveDialogOpen: Boolean = false,
     ) = CompoundsListState(
         items = items.toPersistentList(),
         selectedCategories = selectedCategories,
         openFilterMenu = openFilterMenu,
         isSearchOpen = isSearchOpen,
         searchQuery = searchQuery,
+        selectedIds = selectedIds,
+        isArchiveDialogOpen = isArchiveDialogOpen,
         isLoading = false,
     )
 

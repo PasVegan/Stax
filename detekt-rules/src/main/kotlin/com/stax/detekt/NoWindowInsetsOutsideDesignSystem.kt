@@ -45,7 +45,7 @@ class NoWindowInsetsOutsideDesignSystem(config: Config = Config.empty) : Rule(co
         super.visitDotQualifiedExpression(expression)
 
         // `WindowInsets.safeDrawing`, `WindowInsets.ime`, … — the receiver must be the bare type
-        // name, so `WindowInsetsRulers.SafeDrawing` (which paneInsets() is built on) is untouched.
+        // name, so a different type that merely starts with it (`WindowInsetsRulers`) is untouched.
         val receiver = expression.receiverExpression
         if (receiver !is KtNameReferenceExpression || receiver.getReferencedName() != "WindowInsets") return
 

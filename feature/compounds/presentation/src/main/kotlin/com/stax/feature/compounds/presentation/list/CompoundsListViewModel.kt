@@ -4,10 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stax.core.domain.CompoundDosesLeft
 import com.stax.core.domain.CompoundSupply
+import com.stax.core.domain.DataError
+import com.stax.core.domain.Result
 import com.stax.core.domain.repository.CompoundRepository
 import com.stax.core.domain.repository.InventoryRepository
+import com.stax.core.presentation.toUiText
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.channels.Channel
@@ -39,7 +43,7 @@ import kotlin.time.Clock
  * production resolves the default.
  */
 class CompoundsListViewModel(
-    compoundRepository: CompoundRepository,
+    private val compoundRepository: CompoundRepository,
     inventoryRepository: InventoryRepository,
     private val today: () -> LocalDate = {
         Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
@@ -96,13 +100,74 @@ class CompoundsListViewModel(
             is CompoundsListAction.OnSearchQueryChange ->
                 updateFilters { it.copy(searchQuery = action.query) }
 
-            is CompoundsListAction.OnCompoundClick -> viewModelScope.launch {
-                _events.send(CompoundsListEvent.NavigateToCompoundDetail(action.compoundId))
+            // While multi-select is on the row tap is the toggle (§4.2.4) — navigating away instead
+            // would abandon a selection the user is still building.
+            is CompoundsListAction.OnCompoundClick -> if (_state.value.isSelectionMode) {
+                toggleSelection(action.compoundId)
+            } else {
+                viewModelScope.launch {
+                    _events.send(CompoundsListEvent.NavigateToCompoundDetail(action.compoundId))
+                }
             }
 
             CompoundsListAction.OnAddCompoundClick -> viewModelScope.launch {
                 _events.send(CompoundsListEvent.NavigateToCreateCompound)
             }
+
+            is CompoundsListAction.Selection -> onSelectionAction(action)
+        }
+    }
+
+    /** Multi-select mode (§4.2.4). */
+    private fun onSelectionAction(action: CompoundsListAction.Selection) {
+        when (action) {
+            is CompoundsListAction.Selection.OnLongPress -> toggleSelection(action.compoundId)
+
+            CompoundsListAction.Selection.OnDismiss -> exitSelection()
+
+            CompoundsListAction.Selection.OnDuplicate -> runOnSelection(compoundRepository::duplicate)
+
+            CompoundsListAction.Selection.OnArchiveClick ->
+                _state.update { it.copy(isArchiveDialogOpen = true) }
+
+            CompoundsListAction.Selection.OnArchiveDismiss ->
+                _state.update { it.copy(isArchiveDialogOpen = false) }
+
+            CompoundsListAction.Selection.OnArchiveConfirm -> runOnSelection(compoundRepository::archive)
+        }
+    }
+
+    private fun toggleSelection(compoundId: Long) {
+        _state.update { it.copy(selectedIds = it.selectedIds.toggle(compoundId)) }
+    }
+
+    /** Clears the selection, which is what multi-select mode is, and any dialog it was showing. */
+    private fun exitSelection() {
+        _state.update { it.copy(selectedIds = persistentSetOf(), isArchiveDialogOpen = false) }
+    }
+
+    /**
+     * Applies [operation] to every selected compound, then leaves multi-select whatever happened
+     * (§4.2.4). The selection is snapshotted first because the repository emits as it goes and the
+     * whole batch has to run against what the user actually ticked.
+     *
+     * Every compound is attempted even after one fails — a batch that stopped half-way would leave
+     * the user guessing which rows it got to — but only the first failure is reported, because one
+     * message per compound in a batch of ten is noise.
+     */
+    private fun runOnSelection(operation: suspend (Long) -> Result<*, DataError.Local>) {
+        val selected = _state.value.selectedIds
+        exitSelection()
+        viewModelScope.launch {
+            selected
+                .mapNotNull { id ->
+                    when (val result = operation(id)) {
+                        is Result.Error -> result.error
+                        is Result.Success -> null
+                    }
+                }
+                .firstOrNull()
+                ?.let { _events.send(CompoundsListEvent.ShowError(it.toUiText())) }
         }
     }
 

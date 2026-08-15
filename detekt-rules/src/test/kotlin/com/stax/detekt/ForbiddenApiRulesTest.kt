@@ -112,7 +112,7 @@ class ForbiddenApiRulesTest {
     }
 
     @Test
-    fun `allows paneInsets and the WindowInsetsRulers it is built on`() {
+    fun `allows paneInsets and types that merely start with WindowInsets`() {
         val findings = NoWindowInsetsOutsideDesignSystem(Config.empty).lint(
             """
             fun a() = Modifier.paneInsets()

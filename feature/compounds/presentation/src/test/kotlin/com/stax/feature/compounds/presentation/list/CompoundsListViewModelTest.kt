@@ -24,6 +24,8 @@ import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.CompoundRepository
 import com.stax.core.domain.repository.InventoryRepository
+import com.stax.core.presentation.UiText
+import com.stax.core.presentation.toUiText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -336,10 +338,126 @@ class CompoundsListViewModelTest {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Multi-select (§4.2.4)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `a long press enters multi-select with that row selected`() = runTest {
+        val viewModel = viewModel()
+
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+
+        assertThat(viewModel.state.value.isSelectionMode).isTrue()
+        assertThat(viewModel.state.value.selectedIds.toList()).containsExactly(1L)
+    }
+
+    @Test
+    fun `a tap toggles the row while multi-select is on instead of navigating`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.events.test {
+            viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+            viewModel.onAction(CompoundsListAction.OnCompoundClick(compoundId = 2))
+
+            assertThat(viewModel.state.value.selectedIds.toList()).containsExactly(1L, 2L)
+
+            viewModel.onAction(CompoundsListAction.OnCompoundClick(compoundId = 2))
+
+            assertThat(viewModel.state.value.selectedIds.toList()).containsExactly(1L)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `unticking the last row leaves multi-select`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+        viewModel.onAction(CompoundsListAction.OnCompoundClick(compoundId = 1))
+
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+    }
+
+    @Test
+    fun `close leaves multi-select and drops the selection`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 2))
+        viewModel.onAction(CompoundsListAction.Selection.OnDismiss)
+
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+        assertThat(viewModel.state.value.selectedIds).isEmpty()
+    }
+
+    @Test
+    fun `Duplicate copies every selected compound and leaves multi-select`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 3))
+        viewModel.onAction(CompoundsListAction.Selection.OnDuplicate)
+
+        assertThat(compounds.duplicated).containsExactly(1L, 3L)
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+    }
+
+    @Test
+    fun `Archive asks first and only writes once confirmed`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+        viewModel.onAction(CompoundsListAction.Selection.OnArchiveClick)
+
+        assertThat(viewModel.state.value.isArchiveDialogOpen).isTrue()
+        assertThat(compounds.archived).isEmpty()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnArchiveDismiss)
+
+        assertThat(viewModel.state.value.isArchiveDialogOpen).isFalse()
+        assertThat(viewModel.state.value.isSelectionMode).isTrue()
+        assertThat(compounds.archived).isEmpty()
+
+        viewModel.onAction(CompoundsListAction.Selection.OnArchiveClick)
+        viewModel.onAction(CompoundsListAction.Selection.OnArchiveConfirm)
+
+        assertThat(compounds.archived).containsExactly(1L)
+        assertThat(viewModel.state.value.isArchiveDialogOpen).isFalse()
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+    }
+
+    @Test
+    fun `a failure part-way still runs the rest of the batch and reports once`() = runTest {
+        compounds.archiveError = DataError.Local.DISK_FULL
+
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 1))
+        viewModel.onAction(CompoundsListAction.Selection.OnLongPress(compoundId = 2))
+
+        viewModel.events.test {
+            viewModel.onAction(CompoundsListAction.Selection.OnArchiveConfirm)
+
+            val shown = (awaitItem() as CompoundsListEvent.ShowError).message
+            // `UiText.StringResource` is not a data class, so the resource id is the comparison.
+            assertThat((shown as UiText.StringResource).id)
+                .isEqualTo((DataError.Local.DISK_FULL.toUiText() as UiText.StringResource).id)
+            expectNoEvents()
+        }
+        assertThat(compounds.archived).containsExactly(1L, 2L)
+    }
+
     private fun viewModel() = CompoundsListViewModel(compounds, inventory, today = { TODAY })
 
     private class FakeCompoundRepository : CompoundRepository {
         val stored = MutableStateFlow<List<CompoundSupply>>(emptyList())
+        val archived = mutableListOf<Long>()
+        val duplicated = mutableListOf<Long>()
+
+        /** When set, every `archive` call records the id and then fails with this error. */
+        var archiveError: DataError.Local? = null
 
         override fun observeAll(): Flow<List<CompoundSupply>> = stored
 
@@ -351,9 +469,15 @@ class CompoundsListViewModelTest {
         override suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local> =
             throw NotImplementedError()
 
-        override suspend fun archive(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
+        override suspend fun archive(id: Long): EmptyResult<DataError.Local> {
+            archived += id
+            return archiveError?.let { Result.Error(it) } ?: Result.Success(Unit)
+        }
 
-        override suspend fun duplicate(id: Long): Result<Long, DataError.Local> = throw NotImplementedError()
+        override suspend fun duplicate(id: Long): Result<Long, DataError.Local> {
+            duplicated += id
+            return Result.Success(id + DUPLICATE_ID_OFFSET)
+        }
 
         override suspend fun openContainer(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
 
@@ -381,6 +505,9 @@ class CompoundsListViewModelTest {
     private companion object {
         val TODAY: LocalDate = LocalDate.parse("2026-08-14")
         val EPOCH: Instant = Instant.fromEpochMilliseconds(0)
+
+        /** Keeps a fake duplicate's id distinct from the original it was copied from. */
+        const val DUPLICATE_ID_OFFSET = 100L
 
         fun LocalDate.plusDays(days: Int): LocalDate = plus(days, DateTimeUnit.DAY)
 

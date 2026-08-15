@@ -184,6 +184,77 @@ class CompoundRepositoryTest {
     }
 
     // -----------------------------------------------------------------------
+    // update — capping the opened container (§4.4.4 Edit case)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `update caps the opened container and books the difference as a Manual transaction`() = runTest {
+        // A 5 mg vial, opened and untouched, shrunk to a 2 mg one.
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+        val shrunk = repository.observeById(id).first()!!
+            .copy(amountPerContainer = Quantity(Decimal.parse("2"), UnitCode.MG))
+
+        val result = repository.update(shrunk, capOpenedContainer = true)
+
+        assertThat(result).isInstanceOf(Result.Success::class)
+        val opened = database.openedContainerDao().getByCompoundSupplyId(id)!!
+        assertThat(opened.remainingAmountValue).isEqualTo(Decimal.parse("2"))
+
+        val manual = manualTransactionsFor(id).single()
+        assertThat(manual.deltaValue).isEqualTo(Decimal.parse("-3"))
+        assertThat(manual.deltaUnit).isEqualTo(UnitCode.MG)
+        assertThat(manual.reason).isEqualTo("Compound size reduced")
+    }
+
+    /** §4.4.4 "Keep remaining": the container is allowed to hold more than the compound's new size. */
+    @Test
+    fun `update leaves the opened container alone when not asked to cap`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+        val shrunk = repository.observeById(id).first()!!
+            .copy(amountPerContainer = Quantity(Decimal.parse("2"), UnitCode.MG))
+
+        repository.update(shrunk)
+
+        val opened = database.openedContainerDao().getByCompoundSupplyId(id)!!
+        assertThat(opened.remainingAmountValue).isEqualTo(Decimal.parse("5"))
+        assertThat(manualTransactionsFor(id)).isEmpty()
+    }
+
+    /** The cap converts before it subtracts: 5 mg capped to 2000 mcg loses 3000 mcg, not 3. */
+    @Test
+    fun `update caps across a unit change`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+        val shrunk = repository.observeById(id).first()!!
+            .copy(primaryUnit = UnitCode.MCG, amountPerContainer = Quantity(Decimal.parse("2000"), UnitCode.MCG))
+
+        repository.update(shrunk, capOpenedContainer = true)
+
+        val opened = database.openedContainerDao().getByCompoundSupplyId(id)!!
+        assertThat(opened.remainingAmountValue).isEqualTo(Decimal.parse("2000"))
+        assertThat(opened.remainingAmountUnit).isEqualTo(UnitCode.MCG)
+
+        val manual = manualTransactionsFor(id).single()
+        assertThat(manual.deltaValue).isEqualTo(Decimal.parse("-3000"))
+        assertThat(manual.deltaUnit).isEqualTo(UnitCode.MCG)
+    }
+
+    /** Nothing to cap is not a failure — the compound's own edit still stands. */
+    @Test
+    fun `update asked to cap without an opened container still saves the compound`() = runTest {
+        val id = (repository.create(minimalCompound()) as Result.Success).data
+        val renamed = repository.observeById(id).first()!!.copy(name = "Semaglutide")
+
+        val result = repository.update(renamed, capOpenedContainer = true)
+
+        assertThat(result).isInstanceOf(Result.Success::class)
+        assertThat(repository.observeById(id).first()!!.name).isEqualTo("Semaglutide")
+        assertThat(manualTransactionsFor(id)).isEmpty()
+    }
+
+    // -----------------------------------------------------------------------
     // archive
     // -----------------------------------------------------------------------
 
@@ -399,6 +470,11 @@ class CompoundRepositoryTest {
     // -----------------------------------------------------------------------
 
     private val now = Instant.parse("2026-06-06T00:00:00Z")
+
+    /** The ledger rows §4.4.4's cap writes, and the ones the other paths must not. */
+    private suspend fun manualTransactionsFor(compoundId: Long) =
+        database.inventoryTransactionDao().observeByCompound(compoundId).first()
+            .filter { it.type == InventoryTransactionType.MANUAL }
 
     private fun minimalCompound(numberOfContainers: Int = 1, batchNumber: String? = null): CompoundSupply =
         CompoundSupply(

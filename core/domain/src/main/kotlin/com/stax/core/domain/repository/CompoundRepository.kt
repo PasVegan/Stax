@@ -30,8 +30,18 @@ interface CompoundRepository {
      */
     suspend fun create(compound: CompoundSupply): Result<Long, DataError.Local>
 
-    /** Updates the compound's own fields. Does not modify the opened container. */
-    suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local>
+    /**
+     * Updates the compound's own fields. Does not modify the opened container unless
+     * [capOpenedContainer] is set.
+     *
+     * [capOpenedContainer] is §4.4.4's "Cap to new size": when the edit shrinks
+     * `amountPerContainer` below what is left in the opened container, the caller may clamp the
+     * remaining amount down to the new size, which records the difference as a `Manual` inventory
+     * transaction so the ledger still sums to the physical stock (§5.8.0). Whether the container
+     * actually holds more than the new size is the caller's question — this only does as told, and
+     * does nothing at all when there is no opened container to cap.
+     */
+    suspend fun update(compound: CompoundSupply, capOpenedContainer: Boolean = false): EmptyResult<DataError.Local>
 
     /** Soft-deletes the compound by setting `deletedAt` (§5.5). */
     suspend fun archive(id: Long): EmptyResult<DataError.Local>

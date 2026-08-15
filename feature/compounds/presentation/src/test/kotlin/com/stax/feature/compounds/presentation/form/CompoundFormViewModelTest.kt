@@ -540,7 +540,10 @@ class CompoundFormViewModelTest {
             return Result.Success(COMPOUND_ID)
         }
 
-        override suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local> {
+        override suspend fun update(
+            compound: CompoundSupply,
+            capOpenedContainer: Boolean,
+        ): EmptyResult<DataError.Local> {
             updated = compound
             return Result.Success(Unit)
         }

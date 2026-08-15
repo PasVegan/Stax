@@ -34,4 +34,11 @@ Shared.
   are single-source by the skill's strict definition (most aggregate ≥2 tables). See §10.2.
 - Mutating ops return `Result<_, DataError.Local>` / `EmptyResult`; never throw on expected failures.
 - Each repository method needs a Robolectric DAO test (one happy + one failure path).
+- **`CompoundRepository.update(compound, capOpenedContainer)`** is §4.4.4's Edit case: the flag clamps
+  the opened container to the compound's new `amountPerContainer` and books the difference as a
+  `Manual` transaction (`reason = "Compound size reduced"`, a stored string and so deliberately not a
+  resource, like `COPY_SUFFIX`). It converts before it subtracts, since the same edit may have changed
+  the unit. Whether the container actually overflows is the caller's question; no opened container is
+  a no-op, not a failure. The flag exists rather than a second method so the compound row and the
+  clamped container are one transaction (§5.8.5).
 - See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M9-01.

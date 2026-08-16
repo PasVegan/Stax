@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -22,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxAdaptiveSheet
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxTheme
@@ -93,16 +97,51 @@ private fun OpenedContainerSheetContent(
     onAction: (OpenedContainerSheetAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = SHEET_PADDING),
-    ) {
-        SheetHeader(state = state, onAction = onAction)
-        OpenedDateField(state = state, onAction = onAction)
-        RemainingField(state = state, onAction = onAction)
-        ExpiryField(state = state, onAction = onAction)
+    Column(modifier = modifier.padding(horizontal = SHEET_PADDING)) {
+        // Only the fields scroll, so Delete and Save stay where they are. At Expanded the side sheet
+        // is as tall as a landscape phone — 411dp — and the fields alone are taller than that, which
+        // put the primary action of the sheet below the fold until it was pulled out of the scroll.
+        // `fill = false` keeps the bottom sheet sized to its content when there is room to spare.
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            SheetHeader(state = state, onAction = onAction)
+            OpenedDateField(state = state, onAction = onAction)
+            RemainingField(state = state, onAction = onAction)
+            ExpiryField(state = state, onAction = onAction)
+        }
+        state.saveError?.let { SaveError(error = it) }
         SheetActions(state = state, onAction = onAction)
+    }
+}
+
+/**
+ * Why the last Save did not go through, stated in the sheet.
+ *
+ * Not a snackbar: the sheet is its own window and the screen's `SnackbarHost` draws behind it, so a
+ * failure reported that way is a failure reported where nobody is looking.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun SaveError(error: OpenedContainerSaveError) {
+    Row(
+        modifier = Modifier.padding(top = SHEET_PADDING),
+        horizontalArrangement = Arrangement.spacedBy(LABEL_GAP),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painter = StaxIcons.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+        Text(
+            text = stringResource(
+                when (error) {
+                    OpenedContainerSaveError.NO_UNOPENED_STOCK -> R.string.container_sheet_error_no_stock
+                    OpenedContainerSaveError.WRITE_FAILED -> R.string.container_sheet_error_write_failed
+                },
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 
@@ -245,15 +284,25 @@ private fun SheetActions(state: OpenedContainerSheetState, onAction: (OpenedCont
     }
 }
 
-/** The Material date picker behind both date fields of §4.5.3. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The Material date picker behind both date fields of §4.5.3.
+ *
+ * It opens as a calendar where there is room for one and as a text field where there is not: the
+ * calendar needs about `500dp` of height, and a phone in landscape — the very orientation the
+ * Expanded side sheet is for — has `411dp`. Below that the grid overlaps its own header and action
+ * row, so the picker's other display mode is the only one that can be used at all.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("FunctionName")
 @Composable
 private fun SheetDatePicker(initialDate: LocalDate?, onAction: (OpenedContainerSheetAction) -> Unit) {
+    val hasRoomForCalendar = currentWindowAdaptiveInfoV2().windowSizeClass
+        .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     val pickerState = rememberDatePickerState(
         // The picker counts in UTC milliseconds, so the day the user is looking at has to be handed
         // over as that same UTC midnight or it opens on the day before.
         initialSelectedDateMillis = initialDate?.atStartOfDayIn(TimeZone.UTC)?.toEpochMilliseconds(),
+        initialDisplayMode = if (hasRoomForCalendar) DisplayMode.Picker else DisplayMode.Input,
     )
     DatePickerDialog(
         onDismissRequest = { onAction(OpenedContainerSheetAction.OnDatePickerDismiss) },

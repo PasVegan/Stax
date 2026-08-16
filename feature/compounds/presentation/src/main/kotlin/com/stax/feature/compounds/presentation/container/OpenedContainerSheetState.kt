@@ -44,11 +44,30 @@ data class OpenedContainerSheetState(
     val openDatePicker: OpenedContainerDateField? = null,
     /** §4.5.3: what was typed into Remaining is not a number at or above zero. */
     val hasRemainingError: Boolean = false,
+    /**
+     * Why the last Save did not go through.
+     *
+     * It belongs to the sheet rather than to a snackbar because a modal sheet is a window of its own
+     * and the screen's `SnackbarHost` is behind it — a save that failed would say so out of sight.
+     */
+    val saveError: OpenedContainerSaveError? = null,
     val isSaving: Boolean = false,
 )
 
 /** The two date fields of §4.5.3. At most one picker is open, so the open one is a nullable enum. */
 enum class OpenedContainerDateField { OPENED, EXPIRY }
+
+/** Why §4.5.5's write was refused. The sheet owns the wording; whoever owns the sheet owns the rule. */
+enum class OpenedContainerSaveError {
+    /**
+     * There is no sealed container left to open (§5.3). Reached from Create Already Opened on a
+     * compound whose stock is all already open or gone.
+     */
+    NO_UNOPENED_STOCK,
+
+    /** The write itself failed — a full disk, a row that vanished under us. */
+    WRITE_FAILED,
+}
 
 /** Everything the user can do on the opened-container sheet (§4.5). */
 sealed interface OpenedContainerSheetAction {

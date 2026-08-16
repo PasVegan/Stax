@@ -25,6 +25,7 @@ import com.stax.core.presentation.UiText
 import com.stax.core.presentation.toUiText
 import com.stax.feature.compounds.presentation.R
 import com.stax.feature.compounds.presentation.container.OpenedContainerDateField
+import com.stax.feature.compounds.presentation.container.OpenedContainerSaveError
 import com.stax.feature.compounds.presentation.container.OpenedContainerSheetAction
 import com.stax.feature.compounds.presentation.container.OpenedContainerSheetState
 import kotlinx.collections.immutable.persistentMapOf
@@ -405,7 +406,7 @@ class CompoundFormViewModel(
             is OpenedContainerSheetAction.OnDateSelected -> onSheetDateSelected(sheet, action.date)
 
             is OpenedContainerSheetAction.OnRemainingChange ->
-                updateSheet { it.copy(remaining = action.value, hasRemainingError = false) }
+                updateSheet { it.copy(remaining = action.value, hasRemainingError = false, saveError = null) }
 
             OpenedContainerSheetAction.OnDeleteClick -> deleteOpenedContainer()
 
@@ -610,9 +611,12 @@ class CompoundFormViewModel(
                     if (promptOnEmpty) promptForNewContainer()
                 }
 
-                is Result.Error -> {
-                    updateSheet { it.copy(isSaving = false) }
-                    _events.send(CompoundFormEvent.ShowError(result.error.toUiText()))
+                // Reported in the sheet, not through the screen's snackbar: the sheet is a window of
+                // its own and the `SnackbarHost` draws behind it, so a failure said that way is said
+                // where the user cannot see it. Closing the sheet to make room would throw away what
+                // they typed, which is worse.
+                is Result.Error -> updateSheet {
+                    it.copy(isSaving = false, saveError = result.error.toSaveError())
                 }
             }
         }
@@ -640,6 +644,18 @@ class CompoundFormViewModel(
     private fun updateSheet(transform: (OpenedContainerSheetState) -> OpenedContainerSheetState) {
         _state.update { it.copy(openedSheet = it.openedSheet?.let(transform)) }
     }
+
+    /**
+     * §5.3: the one refusal the sheet can explain in its own terms is "there is nothing left to
+     * open" — every other failure is the write itself going wrong, which nothing the user types will
+     * fix.
+     */
+    private fun DataError.Local.toSaveError(): OpenedContainerSaveError =
+        if (this == DataError.Local.CONSTRAINT_VIOLATION) {
+            OpenedContainerSaveError.NO_UNOPENED_STOCK
+        } else {
+            OpenedContainerSaveError.WRITE_FAILED
+        }
 
     private fun today(): LocalDate = now().toLocalDateTime(timeZone).date
 

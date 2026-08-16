@@ -179,6 +179,8 @@
     <string name="container_sheet_delete">Delete</string>
     <string name="container_sheet_save">Save</string>
     <string name="container_sheet_removed">Opened container removed</string>
+    <string name="container_sheet_error_no_stock">No unopened container left to open</string>
+    <string name="container_sheet_error_write_failed">Could not save — try again</string>
     <plurals name="container_sheet_days_ago">
         <item quantity="one">%1$d day ago</item>
         <item quantity="other">%1$d days ago</item>

@@ -82,6 +82,17 @@ class OpenedContainerSheetTest {
         composeRule.onNodeWithText(string(R.string.container_sheet_remaining_error)).assertIsDisplayed()
     }
 
+    /** The screen's snackbar draws behind the sheet, so a refused save has to say so inside it. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a refused save states its reason in the sheet`() {
+        setSheet(state().copy(saveError = OpenedContainerSaveError.NO_UNOPENED_STOCK))
+
+        // Existence, like Save above it: both sit in the action row, which a partially-expanded
+        // bottom sheet keeps just below the fold until the user drags it up.
+        composeRule.onNodeWithText(string(R.string.container_sheet_error_no_stock)).assertExists()
+    }
+
     // -----------------------------------------------------------------------
     // §4.5.4 actions
     // -----------------------------------------------------------------------

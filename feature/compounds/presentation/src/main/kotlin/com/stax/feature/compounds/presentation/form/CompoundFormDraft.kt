@@ -192,6 +192,20 @@ internal fun CompoundFormDraft.differsFrom(other: CompoundFormDraft): Boolean =
 
 internal fun CompoundFormDraft.amountPerContainerOrNull(): Quantity? = amountPerContainer.toQuantityOrNull(primaryUnit)
 
+internal fun CompoundFormDraft.expiryAfterOpeningDaysOrNull(): Int? = expiryAfterOpeningDays.trim().toIntOrNull()
+
+/**
+ * The total-owned count after a container has left the stock (§4.5.4, §4.5.5).
+ *
+ * Discarding an opened container, and emptying one, both remove a container the user had without
+ * touching the unopened count — so the field that counts *all* of them is the one that has to drop.
+ * A count that is not a number yet is left alone: Save will reject it on its own terms (§4.4.4).
+ */
+internal fun CompoundFormDraft.withOneFewerContainer(): CompoundFormDraft {
+    val total = totalContainers.trim().toIntOrNull() ?: return this
+    return copy(totalContainers = (total - 1).coerceAtLeast(0).toString())
+}
+
 /** §4.4.3 edits "{amount} per 1 {per}"; the `per` side is always one of whatever the Form is sold as. */
 internal fun CompoundFormDraft.concentrationOrNull(): Concentration? =
     concentrationAmount.toQuantityOrNull(concentrationUnit)?.let {

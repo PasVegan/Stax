@@ -28,4 +28,11 @@ object StaxShapes {
 
     /** Fully-rounded pill (≈999r) — chips, status badges, the selected nav indicator (§9). */
     val Pill: Shape = RoundedCornerShape(999.dp)
+
+    /**
+     * The Expanded side sheet of §6.4.2: a bottom sheet's `extraLarge` corners, but only on the two
+     * edges that are not against the window — a full-height sheet flush with the end edge has no
+     * outside corner there to round.
+     */
+    val SideSheet: Shape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp, topEnd = 0.dp, bottomEnd = 0.dp)
 }

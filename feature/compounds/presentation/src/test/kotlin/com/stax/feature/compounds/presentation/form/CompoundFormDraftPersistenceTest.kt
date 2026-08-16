@@ -163,8 +163,17 @@ class CompoundFormDraftPersistenceTest {
         override suspend fun closeContainer(id: Long, reason: String?): EmptyResult<DataError.Local> =
             throw NotImplementedError()
 
+        override suspend fun addOpenedContainer(
+            compoundSupplyId: Long,
+            openedAt: Instant,
+            remainingAmount: Quantity,
+            expiryAfterOpeningDays: Int?,
+            userDefinedExpiryDate: LocalDate?,
+        ): EmptyResult<DataError.Local> = throw NotImplementedError()
+
         override suspend fun editOpenedContainer(
             compoundSupplyId: Long,
+            openedAt: Instant?,
             remainingAmount: Quantity?,
             expiryAfterOpeningDays: Int?,
             userDefinedExpiryDate: LocalDate?,

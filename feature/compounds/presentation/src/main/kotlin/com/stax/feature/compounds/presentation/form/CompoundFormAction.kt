@@ -5,6 +5,7 @@ import com.stax.core.domain.CompoundForm
 import com.stax.core.domain.ContainerType
 import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
+import com.stax.feature.compounds.presentation.container.OpenedContainerSheetAction
 import kotlinx.datetime.LocalDate
 
 /** Everything the user can do on the Create / Edit Compound form (§4.4). */
@@ -55,6 +56,12 @@ sealed interface CompoundFormAction {
 
     /** §4.4.3: the trailing "Helper" button on the concentration row → the Reconstitution Helper (§4.6). */
     data object OnReconstitutionHelperClick : CompoundFormAction
+
+    /** §4.5: everything the opened-container sheet reports, forwarded whole so the sheet stays its own. */
+    data class OpenedContainerSheet(val action: OpenedContainerSheetAction) : CompoundFormAction
+
+    /** §4.5.5: "Open new" / "Leave closed" after the opened container was saved empty. */
+    data class OnNaturalDepletionDecision(val openNew: Boolean) : CompoundFormAction
 
     /** Consumed once the screen has focused the first failing field, scrolling it into view (§4.4.4). */
     data object OnErrorScrollHandled : CompoundFormAction

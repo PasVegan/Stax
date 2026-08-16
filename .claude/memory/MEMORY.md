@@ -1,0 +1,1 @@
+- [Figma design must use library components/variables/styles](feedback_figma_design.md) — never hand-build M3 lookalikes; use M3 Design Kit instances + variables + text styles so plugins (Material Theme Builder) can re-theme

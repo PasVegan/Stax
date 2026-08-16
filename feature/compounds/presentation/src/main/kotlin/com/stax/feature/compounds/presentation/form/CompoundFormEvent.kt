@@ -15,4 +15,7 @@ sealed interface CompoundFormEvent {
     data class OpenReconstitutionHelper(val compoundId: Long?) : CompoundFormEvent
 
     data class ShowError(val message: UiText) : CompoundFormEvent
+
+    /** §4.5.4: something happened and cannot be undone — the snackbar states it and offers nothing. */
+    data class ShowMessage(val message: UiText) : CompoundFormEvent
 }

@@ -620,7 +620,7 @@ internal fun CompoundFormError.messageRes(): Int = when (this) {
 
 /** "Jul 29, 2027" — a batch expiry is years out, so unlike the list row (§4.2.3) it carries its year. */
 @Composable
-private fun LocalDate.formatLong(): String {
+internal fun LocalDate.formatLong(): String {
     val languageTag = Locale.current.toLanguageTag()
     val formatter = remember(languageTag) {
         val locale = JavaLocale.forLanguageTag(languageTag)

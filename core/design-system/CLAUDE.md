@@ -29,7 +29,7 @@ depends on nothing — every feature consumes it.
 - `StaxIcons` — hand-picked Material Symbols Rounded vector drawables (`res/drawable/ic_*.xml`);
   **no icon font / no `material-icons-extended`** — missing icon = request it, never invent (spec §9).
 - `StaxShapes` — M3 Expressive shape scale (`material: Shapes` wired to `MaterialTheme.shapes`) + the
-  `Pill` (≈999r) token (§9). **Inline `RoundedCornerShape(...)` is banned outside `:core:design-system`**
+  `Pill` (≈999r) and `SideSheet` (start corners only) tokens (§9). **Inline `RoundedCornerShape(...)` is banned outside `:core:design-system`**
   — features use `MaterialTheme.shapes.<slot>` / `StaxShapes.Pill` (enforced by the
   `stax:NoInlineRoundedCornerShape` detekt rule).
 - `Tokens.kt` / `StaxColors` — **semantic** color tokens (dose status, site status, low-stock, heat
@@ -63,6 +63,15 @@ depends on nothing — every feature consumes it.
   (§6.4.5) — a pane read its rulers mid-animation, and since a layer settling back to 1.0 triggers no
   relayout the wrong inset stuck permanently. Every other `WindowInsets` API is banned outside this
   module (`stax:NoWindowInsetsOutsideDesignSystem`).
+- `StaxAdaptiveSheet` — the app's one modal sheet (§6.3), in §6.4.2's three shapes: full-width bottom
+  sheet at Compact, `ModalBottomSheet` clamped to `560dp` at Medium, and at Expanded an **end-edge
+  side sheet** `420dp` wide and as tall as the window (`sideSheetWidth` overridable — the §4.0.2
+  picker sheets take `360dp`). Material has no side-sheet component, so that branch is a `Dialog`
+  filling the window (`usePlatformDefaultWidth = false`, `decorFitsSystemWindows = false`) with its
+  own scrim, `StaxShapes.SideSheet` corners and a `StaxMotion` slide; it holds the dialog open until
+  the exit animation has run, so dismissing looks the same at every width. Callers pass content only.
+  Insets: the bottom-sheet branch takes Material's `modalWindowInsets`, the side sheet
+  `safeDrawingPadding()` inside its own surface — both include the IME.
 - `AdaptiveFab` — the app's primary FAB (§6.4.6): floating bottom-end of its pane with a `16dp`
   inset at **every** width, extended (icon + label, label kept at every width) when `label` is passed.
   Place as the last child of a `fillMaxSize` overlay over screen content. Deliberately **not** the

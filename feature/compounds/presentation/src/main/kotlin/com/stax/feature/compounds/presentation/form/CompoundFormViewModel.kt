@@ -85,9 +85,10 @@ class CompoundFormViewModel(
     private var baseline = CompoundFormDraft()
 
     /**
-     * The compound's opened container, kept in domain form because Save needs it twice: to take one
-     * off the total-owned count (§4.4.4) and to pass through untouched. Editing it is the bottom
-     * sheet's job (§4.5), not this form's.
+     * The compound's opened container, kept in domain form because it is read from three sides: Save
+     * takes one off the total-owned count (§4.4.4) and passes it through, and the §4.5 sheet both
+     * opens on it and replaces it. During the New Compound flow this is the staged container — the
+     * one with nowhere to be written yet (§4.5.5).
      */
     private var openedContainer: OpenedContainer? = null
 

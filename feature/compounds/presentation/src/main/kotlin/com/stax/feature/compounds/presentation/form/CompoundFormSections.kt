@@ -308,7 +308,7 @@ internal fun ColumnScope.StorageSection(state: CompoundFormState, onAction: (Com
 
 /**
  * §4.4.3 Opened container: the empty state and its "Add already opened" CTA until one exists, then
- * the summary card of §4.3.3 with the pencil that edits it. Both open the §4.5 sheet, which is M7-06.
+ * the summary card of §4.3.3 with the pencil that edits it. Both open the §4.5 sheet.
  */
 @Suppress("FunctionName")
 @Composable

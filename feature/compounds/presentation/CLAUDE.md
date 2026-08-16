@@ -7,7 +7,8 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
 
 ## Module coordinates
 - Gradle: `:feature:compounds:presentation` · plugin `com.stax.android.feature`.
-- Package: `com.stax.feature.compounds.presentation` (`.di`, `.form`, `.list`, `.navigation`).
+- Package: `com.stax.feature.compounds.presentation` (`.container`, `.di`, `.form`, `.list`,
+  `.navigation`).
 - Deps: `:core:domain`, `:core:presentation`, `:core:design-system`.
 
 ## Allowed dependencies
@@ -29,6 +30,10 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   `CompoundFormDraft` is the editable half of the state; `CompoundFormAction.Overlay` is the
   menus/pickers/prompts family, dispatched as one branch. `ContainerShrinkPromptUi` /
   `ContainerShrinkDecision` are the §4.4.4 Edit-case dialog (M7-05).
+- `container/` — the §4.5 opened-container sheets (M7-06): `OpenedContainerSheet` +
+  `OpenedContainerSheetState` / `Action`, `OpenedContainerDateField`, `OpenedContainerSaveError`, and
+  `NaturalDepletionDialog` (§4.5.5). Stateless and ViewModel-free — the screen that opens the sheet
+  owns its state and does its writes.
 - `CreateCompoundRoute(onboarding)` — onboarding step 2 reuses this form (§4.14 step 2): same screen,
   app bar titled "Add your first compound · 2 of 3" with Skip in the trailing slot, driven by the
   route flag. `compoundsEntries(onOnboardingStepDone = …)` carries the end of that step back to
@@ -107,5 +112,29 @@ Compounds feature.
 - The list pane takes `paneInsets(claimTop = false)` (§2.3.6): every branch of it opens with a bar of
   its own — app bar, contextual bar, search bar — so the status bar is theirs to claim and draw their
   container behind. None of them passes `windowInsets`; the Material defaults are what does the work.
+- **The opened-container sheet is a mode of whichever screen opened it** (§4.5, §10.3, M7-06), not a
+  destination: `container/` holds the composable and its state/action types, and
+  `CompoundFormViewModel` holds one `OpenedContainerSheetState` and performs §4.5.5's writes. Compound
+  Detail (M7-07) hosts the same composable with its own copy; hoist the write logic when that lands,
+  not before. One state for both variants — §4.5 defines Create Already Opened as the Edit sheet
+  "minus Delete", so `isEdit` *is* the difference.
+- **Which of §4.5.5's three writes runs depends on what the form is**: during New Compound there is no
+  compound to write to, so the container is staged in the ViewModel and stored by "Save compound";
+  for an existing compound the sheet writes on its own and the form then **re-reads** the compound,
+  taking the total-owned count from the row that was written rather than computing it. That is what
+  keeps §4.4.3's field and `numberOfContainers` in step across a container that was opened
+  (count unchanged, one moves into the opened slot), discarded or emptied (count drops by one, the
+  unopened tally untouched). The re-read updates the discard baseline too — a write that already
+  happened is not an unsaved change to offer to discard.
+- **A refused sheet write is shown in the sheet, never in a snackbar**: a modal sheet is its own
+  window and the screen's `SnackbarHost` draws behind it, so a failure sent there is invisible.
+  `CONSTRAINT_VIOLATION` is the one the user can act on ("no unopened container left to open"), since
+  §5.3 requires `numberOfContainers > 0`; the rest read as a failed write. Found on device, not in a
+  test — the test harness renders both windows at once.
+- **The sheet's action row does not scroll and its date picker changes mode with the window height**:
+  at Expanded the side sheet is as tall as a landscape phone (`411dp`), which is less than the three
+  fields need and far less than the Material calendar's ≈`500dp`. Only the fields scroll, and below
+  the Medium height breakpoint the picker opens in its text-input mode. The form's own batch-expiry
+  picker (§4.4.3) still opens as a calendar at every height and has the same overlap there.
 - Reads/writes only through repository interfaces (injected); no Room here.
 - See spec §4.2–§4.5, §6.4.2 Compounds; ISSUES M7-*.

@@ -41,4 +41,17 @@ Shared.
   the unit. Whether the container actually overflows is the caller's question; no opened container is
   a no-op, not a failure. The flag exists rather than a second method so the compound row and the
   clamped container are one transaction (§5.8.5).
-- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M9-01.
+- **The opened-container operations are one operation** (§5.3, M7-06): `openContainer` and
+  `addOpenedContainer` share a body, so a container the user opened before the app knew about it
+  decrements `numberOfContainers`, writes the delta-0 `ContainerOpen` marker and derives
+  `predictedExpiryDate` exactly as a fresh one does — only `openedAt`, the remaining amount and the
+  expiry come from the user. `editOpenedContainer` takes an `openedAt` too and re-derives
+  `predictedExpiryDate` from it, because §3.1.1 makes that field derived and a moved opened date has
+  to move it.
+- **Every one of them books the stock it moves as a `Manual` transaction** (§5.8.0): a part-used
+  container arriving (`remaining − amountPerContainer`), a corrected remaining (`new − old`, read in
+  the new unit), a half-full container discarded (`−remaining`). `ContainerOpen` / `ContainerClose`
+  stay the delta-0 audit markers §5.3 defines — they cannot carry it. Closing an already-empty
+  container books nothing: the deduction that emptied it is in the ledger already, and booking it
+  twice is exactly the drift §5.8.0's reconcile worker exists to catch.
+- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01.

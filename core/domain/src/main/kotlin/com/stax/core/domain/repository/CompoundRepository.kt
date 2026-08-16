@@ -8,6 +8,7 @@ import com.stax.core.domain.Quantity
 import com.stax.core.domain.Result
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 /**
  * Owns all reads and writes for [CompoundSupply] and its nested [OpenedContainer] (§3.1).
@@ -68,18 +69,45 @@ interface CompoundRepository {
     suspend fun openContainer(id: Long): EmptyResult<DataError.Local>
 
     /**
+     * §4.5.5 "Create Already Opened": the same operation as [openContainer], but for a container the
+     * user opened before the app knew about it — so the opened date, what is left in it and its
+     * expiry are theirs to state rather than derived from now and a full container.
+     *
+     * Books the difference between [remainingAmount] and a full container as a `Manual` transaction,
+     * because §5.8.0 requires the ledger to sum to the physical stock and a part-used container
+     * brings in less than a sealed one. `predictedExpiryDate` is derived here (§3.1.1), never passed.
+     *
+     * Same failure modes as [openContainer].
+     */
+    suspend fun addOpenedContainer(
+        compoundSupplyId: Long,
+        openedAt: Instant,
+        remainingAmount: Quantity,
+        expiryAfterOpeningDays: Int?,
+        userDefinedExpiryDate: LocalDate?,
+    ): EmptyResult<DataError.Local>
+
+    /**
      * Discards / closes the current opened container (§3.1.1 lost/discarded path):
      * - Deletes the `OpenedContainer` row without changing `numberOfContainers`.
+     * - Books whatever was still in it as a `Manual` transaction, so the ledger loses the stock that
+     *   physically left with the container (§5.8.0). Nothing is booked for an empty container, which
+     *   is the natural-depletion path — the deduction that emptied it is already in the ledger.
      * - Inserts a `ContainerClose` (delta = 0) audit transaction.
      */
     suspend fun closeContainer(id: Long, reason: String?): EmptyResult<DataError.Local>
 
     /**
-     * Edits mutable fields of the current opened container.
+     * Edits mutable fields of the current opened container (§4.5.5 Edit).
      * Only non-null parameters are applied; null means "leave unchanged".
+     *
+     * `predictedExpiryDate` is re-derived from the resulting `openedAt + expiryAfterOpeningDays`
+     * (§3.1.1), and a changed [remainingAmount] books the difference as a `Manual` transaction so
+     * the ledger keeps summing to the physical stock (§5.8.0).
      */
     suspend fun editOpenedContainer(
         compoundSupplyId: Long,
+        openedAt: Instant?,
         remainingAmount: Quantity?,
         expiryAfterOpeningDays: Int?,
         userDefinedExpiryDate: LocalDate?,

@@ -23,6 +23,7 @@ import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -409,9 +410,141 @@ class CompoundRepositoryTest {
     }
 
     @Test
+    fun `closeContainer books what was left in the discarded container`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id) // 5 mg open
+        repository.closeContainer(id, "lost")
+
+        val manual = manualTransactionsFor(id).single()
+        assertThat(manual.deltaValue).isEqualTo(Decimal.parse("-5"))
+        assertThat(manual.reason).isEqualTo("lost")
+    }
+
+    @Test
+    fun `closeContainer books nothing for an already-empty container`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+        repository.editOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = null,
+            remainingAmount = Quantity(Decimal.parse("0"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+        repository.closeContainer(id, null)
+
+        // Only the edit that emptied it — the close must not book the same 5 mg twice.
+        assertThat(manualTransactionsFor(id).map { it.deltaValue }).isEqualTo(listOf(Decimal.parse("-5")))
+    }
+
+    @Test
     fun `closeContainer returns NOT_FOUND when no open container`() = runTest {
         val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
         val result = repository.closeContainer(id, null)
+        assertThat((result as Result.Error).error).isEqualTo(DataError.Local.NOT_FOUND)
+    }
+
+    // -----------------------------------------------------------------------
+    // addOpenedContainer (§4.5.5 Create Already Opened)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `addOpenedContainer stores the user's opened date and remaining amount`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 3)) as Result.Success).data
+        val openedAt = Instant.parse("2026-05-14T09:00:00Z")
+
+        repository.addOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = openedAt,
+            remainingAmount = Quantity(Decimal.parse("3.2"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+
+        val opened = database.openedContainerDao().getByCompoundSupplyId(id)!!
+        assertThat(opened.openedAt).isEqualTo(openedAt)
+        assertThat(opened.remainingAmountValue).isEqualTo(Decimal.parse("3.2"))
+    }
+
+    @Test
+    fun `addOpenedContainer decrements numberOfContainers`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 3)) as Result.Success).data
+        repository.addOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = now,
+            remainingAmount = Quantity(Decimal.parse("3.2"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+        assertThat(repository.observeById(id).first()!!.numberOfContainers).isEqualTo(2)
+    }
+
+    @Test
+    fun `addOpenedContainer books the part already used as a Manual transaction`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 3)) as Result.Success).data
+        repository.addOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = now,
+            remainingAmount = Quantity(Decimal.parse("3.2"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+
+        // 3.2 mg left of a 5 mg container: the 1.8 mg already gone never reached the ledger.
+        val manual = manualTransactionsFor(id).single()
+        assertThat(manual.deltaValue).isEqualTo(Decimal.parse("-1.8"))
+    }
+
+    @Test
+    fun `addOpenedContainer books nothing when the container is still full`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 3)) as Result.Success).data
+        repository.addOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = now,
+            remainingAmount = Quantity(Decimal.parse("5"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+        assertThat(manualTransactionsFor(id)).isEmpty()
+    }
+
+    @Test
+    fun `addOpenedContainer derives predictedExpiryDate from the opened date`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 3)) as Result.Success).data
+        repository.addOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = Instant.parse("2026-05-14T09:00:00Z"),
+            remainingAmount = Quantity(Decimal.parse("5"), UnitCode.MG),
+            expiryAfterOpeningDays = 28,
+            userDefinedExpiryDate = null,
+        )
+        val opened = database.openedContainerDao().getByCompoundSupplyId(id)!!
+        assertThat(opened.predictedExpiryDate).isEqualTo(LocalDate.parse("2026-06-11"))
+    }
+
+    @Test
+    fun `addOpenedContainer returns CONSTRAINT_VIOLATION when one is already open`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 3)) as Result.Success).data
+        repository.openContainer(id)
+        val result = repository.addOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = now,
+            remainingAmount = Quantity(Decimal.parse("1"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+        assertThat((result as Result.Error).error).isEqualTo(DataError.Local.CONSTRAINT_VIOLATION)
+    }
+
+    @Test
+    fun `addOpenedContainer returns NOT_FOUND for unknown id`() = runTest {
+        val result = repository.addOpenedContainer(
+            compoundSupplyId = 999L,
+            openedAt = now,
+            remainingAmount = Quantity(Decimal.parse("1"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
         assertThat((result as Result.Error).error).isEqualTo(DataError.Local.NOT_FOUND)
     }
 
@@ -426,6 +559,7 @@ class CompoundRepositoryTest {
 
         repository.editOpenedContainer(
             compoundSupplyId = id,
+            openedAt = null,
             remainingAmount = Quantity(Decimal.parse("2.5"), UnitCode.MG),
             expiryAfterOpeningDays = null,
             userDefinedExpiryDate = null,
@@ -436,12 +570,63 @@ class CompoundRepositoryTest {
     }
 
     @Test
+    fun `editOpenedContainer books the corrected remaining as a Manual transaction`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+
+        repository.editOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = null,
+            remainingAmount = Quantity(Decimal.parse("2.5"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+
+        assertThat(manualTransactionsFor(id).single().deltaValue).isEqualTo(Decimal.parse("-2.5"))
+    }
+
+    @Test
+    fun `editOpenedContainer books nothing when the remaining amount did not move`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+
+        repository.editOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = null,
+            remainingAmount = Quantity(Decimal.parse("5.00"), UnitCode.MG),
+            expiryAfterOpeningDays = null,
+            userDefinedExpiryDate = null,
+        )
+
+        assertThat(manualTransactionsFor(id)).isEmpty()
+    }
+
+    @Test
+    fun `editOpenedContainer moves the predicted expiry with the opened date`() = runTest {
+        val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
+        repository.openContainer(id)
+
+        repository.editOpenedContainer(
+            compoundSupplyId = id,
+            openedAt = Instant.parse("2026-05-14T09:00:00Z"),
+            remainingAmount = null,
+            expiryAfterOpeningDays = 28,
+            userDefinedExpiryDate = null,
+        )
+
+        val opened = database.openedContainerDao().getByCompoundSupplyId(id)!!
+        assertThat(opened.openedAt).isEqualTo(Instant.parse("2026-05-14T09:00:00Z"))
+        assertThat(opened.predictedExpiryDate).isEqualTo(LocalDate.parse("2026-06-11"))
+    }
+
+    @Test
     fun `editOpenedContainer preserves unchanged fields`() = runTest {
         val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
         repository.openContainer(id)
 
         repository.editOpenedContainer(
             compoundSupplyId = id,
+            openedAt = null,
             remainingAmount = null,
             expiryAfterOpeningDays = 60,
             userDefinedExpiryDate = null,
@@ -458,6 +643,7 @@ class CompoundRepositoryTest {
         val id = (repository.create(minimalCompound(numberOfContainers = 1)) as Result.Success).data
         val result = repository.editOpenedContainer(
             compoundSupplyId = id,
+            openedAt = null,
             remainingAmount = Quantity(Decimal.parse("1"), UnitCode.MG),
             expiryAfterOpeningDays = null,
             userDefinedExpiryDate = null,

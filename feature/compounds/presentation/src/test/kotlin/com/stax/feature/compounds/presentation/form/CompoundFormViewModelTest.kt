@@ -344,6 +344,115 @@ class CompoundFormViewModelTest {
     }
 
     // -----------------------------------------------------------------------
+    // Container shrunk below the opened container (§4.4.4 Edit case)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `shrinking the container below what is open asks before saving`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+
+        val viewModel = shrunkTo("2")
+
+        val prompt = requireNotNull(viewModel.state.value.shrinkPrompt)
+        assertThat(prompt.remaining).isEqualTo("3.2 mg")
+        assertThat(prompt.newAmount).isEqualTo("2 mg")
+        assertThat(compounds.updated).isNull()
+    }
+
+    @Test
+    fun `Keep remaining saves the compound and leaves the opened container alone`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+        val viewModel = shrunkTo("2")
+
+        viewModel.onAction(CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.KEEP))
+
+        assertThat(viewModel.state.value.shrinkPrompt).isNull()
+        assertThat(compounds.updated?.amountPerContainer).isEqualTo(mg("2"))
+        assertThat(compounds.capped).isEqualTo(false)
+    }
+
+    @Test
+    fun `Cap to new size saves the compound and clamps the opened container`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+        val viewModel = shrunkTo("2")
+
+        viewModel.onAction(CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.CAP))
+
+        assertThat(viewModel.state.value.shrinkPrompt).isNull()
+        assertThat(compounds.updated?.amountPerContainer).isEqualTo(mg("2"))
+        assertThat(compounds.capped).isEqualTo(true)
+    }
+
+    @Test
+    fun `Cancel puts the amount back and saves nothing`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+        val viewModel = shrunkTo("2")
+
+        viewModel.onAction(CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.CANCEL))
+
+        assertThat(viewModel.state.value.shrinkPrompt).isNull()
+        // Back to the stored 5 mg, which also puts the form back to not being dirty.
+        assertThat(viewModel.state.value.draft.amountPerContainer).isEqualTo("5")
+        assertThat(viewModel.state.value.isDirty).isFalse()
+        assertThat(compounds.updated).isNull()
+    }
+
+    /** The unit is half of the amount, so Cancel has to put both back or it undoes nothing. */
+    @Test
+    fun `Cancel puts the unit back too`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("5")))
+
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+        // 5 mg becomes 5 mcg — the number never moved, but the container shrank a thousandfold.
+        viewModel.onAction(CompoundFormAction.Pick.OnPrimaryUnitSelected(UnitCode.MCG))
+        viewModel.onAction(CompoundFormAction.OnSaveClick)
+        assertThat(viewModel.state.value.shrinkPrompt).isNotNull()
+
+        viewModel.onAction(CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.CANCEL))
+
+        assertThat(viewModel.state.value.draft.primaryUnit).isEqualTo(UnitCode.MG)
+        assertThat(compounds.updated).isNull()
+    }
+
+    @Test
+    fun `a container that still holds what is open in it saves without asking`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+
+        val viewModel = shrunkTo("3.2")
+
+        assertThat(viewModel.state.value.shrinkPrompt).isNull()
+        assertThat(compounds.updated?.amountPerContainer).isEqualTo(mg("3.2"))
+    }
+
+    @Test
+    fun `a compound without an opened container never asks`() = runTest {
+        compounds.stored.value = compound(opened = null)
+
+        val viewModel = shrunkTo("1")
+
+        assertThat(viewModel.state.value.shrinkPrompt).isNull()
+        assertThat(compounds.updated).isNotNull()
+    }
+
+    /**
+     * A validation failure comes first: the form has to be savable before there is any point asking
+     * what to do with the container it would save.
+     */
+    @Test
+    fun `an invalid form is rejected before the container question is raised`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+        viewModel.onAction(CompoundFormAction.Edit.OnAmountPerContainerChange("2"))
+        viewModel.onAction(CompoundFormAction.Edit.OnNameChange(" "))
+        viewModel.onAction(CompoundFormAction.OnSaveClick)
+
+        assertThat(viewModel.state.value.shrinkPrompt).isNull()
+        assertThat(viewModel.state.value.errors[CompoundFormField.NAME])
+            .isEqualTo(CompoundFormError.NAME_REQUIRED)
+    }
+
+    // -----------------------------------------------------------------------
     // Edit mode (§4.4.1)
     // -----------------------------------------------------------------------
 
@@ -519,6 +628,12 @@ class CompoundFormViewModelTest {
         timeZone = TimeZone.UTC,
     )
 
+    /** An Edit-mode form whose container has been shrunk to [amount] and saved (§4.4.4 Edit case). */
+    private fun shrunkTo(amount: String) = viewModel(compoundId = COMPOUND_ID).also {
+        it.onAction(CompoundFormAction.Edit.OnAmountPerContainerChange(amount))
+        it.onAction(CompoundFormAction.OnSaveClick)
+    }
+
     private fun assertk.Assert<CompoundFormEvent>.isInstanceOfShowError() =
         given { assertThat(it is CompoundFormEvent.ShowError).isTrue() }
 
@@ -526,6 +641,9 @@ class CompoundFormViewModelTest {
         val stored = MutableStateFlow<CompoundSupply?>(null)
         var created: CompoundSupply? = null
         var updated: CompoundSupply? = null
+
+        /** Whether the last `update` was asked to cap the opened container (§4.4.4). */
+        var capped: Boolean? = null
 
         /** When set, `create` fails with this instead of storing. */
         var createError: DataError.Local? = null
@@ -540,8 +658,12 @@ class CompoundFormViewModelTest {
             return Result.Success(COMPOUND_ID)
         }
 
-        override suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local> {
+        override suspend fun update(
+            compound: CompoundSupply,
+            capOpenedContainer: Boolean,
+        ): EmptyResult<DataError.Local> {
             updated = compound
+            capped = capOpenedContainer
             return Result.Success(Unit)
         }
 
@@ -565,6 +687,8 @@ class CompoundFormViewModelTest {
     private companion object {
         const val COMPOUND_ID = 7L
         val NOW: Instant = Instant.parse("2026-08-15T09:00:00Z")
+
+        fun mg(value: String) = Quantity(Decimal.parse(value), UnitCode.MG)
         val OPENED_AT: Instant = Instant.parse("2026-08-03T09:00:00Z")
 
         fun openedContainer(remaining: Quantity = Quantity(Decimal.parse("5"), UnitCode.MG)) = OpenedContainer(

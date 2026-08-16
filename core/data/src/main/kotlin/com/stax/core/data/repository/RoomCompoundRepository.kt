@@ -25,6 +25,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 class RoomCompoundRepository(
     private val database: StaxDatabase,
@@ -81,10 +82,45 @@ class RoomCompoundRepository(
     // Update
     // -----------------------------------------------------------------------
 
-    override suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local> = runOp {
-        val now = Clock.System.now()
-        val rows = compoundDao.update(compound.toEntity().copy(updatedAt = now))
-        if (rows == 0) throw NotFoundException()
+    override suspend fun update(compound: CompoundSupply, capOpenedContainer: Boolean): EmptyResult<DataError.Local> =
+        runTx {
+            val now = Clock.System.now()
+            val rows = compoundDao.update(compound.toEntity().copy(updatedAt = now))
+            if (rows == 0) throw NotFoundException()
+            if (capOpenedContainer) clampOpenedContainer(compound, now)
+        }
+
+    /**
+     * §4.4.4's "Cap to new size": clamps the opened container down to the compound's new
+     * `amountPerContainer` and books the amount that disappears as a `Manual` transaction, so the
+     * ledger keeps summing to the physical stock (§5.8.0).
+     *
+     * The old remaining is read in the container's own unit and converted, because the same edit may
+     * have changed the unit as well as the amount. Nothing to cap is not a failure: the compound's
+     * own update still stands.
+     */
+    private suspend fun clampOpenedContainer(compound: CompoundSupply, now: Instant) {
+        val opened = openedContainerDao.getByCompoundSupplyId(compound.id) ?: return
+        val newAmount = compound.amountPerContainer
+        val oldRemaining = opened.remainingAmountUnit.convertTo(newAmount.unit, opened.remainingAmountValue)
+
+        openedContainerDao.update(
+            opened.copy(
+                remainingAmountValue = newAmount.value,
+                remainingAmountUnit = newAmount.unit,
+            ),
+        )
+        inventoryDao.insert(
+            InventoryTransactionEntity(
+                compoundSupplyId = compound.id,
+                deltaValue = newAmount.value - oldRemaining,
+                deltaUnit = newAmount.unit,
+                type = InventoryTransactionType.MANUAL,
+                sourceEventId = null,
+                reason = SIZE_REDUCED_REASON,
+                at = now,
+            ),
+        )
     }
 
     // -----------------------------------------------------------------------
@@ -261,5 +297,11 @@ class RoomCompoundRepository(
          * then disagree with the app around it.
          */
         const val COPY_SUFFIX = " (copy)"
+
+        /**
+         * §4.4.4. Stored in the ledger's `reason` column, so it is data rather than UI: a localized
+         * string would freeze whichever language was active when the container was capped.
+         */
+        const val SIZE_REDUCED_REASON = "Compound size reduced"
     }
 }

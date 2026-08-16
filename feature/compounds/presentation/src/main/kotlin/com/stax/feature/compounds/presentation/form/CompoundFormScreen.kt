@@ -153,6 +153,7 @@ fun CompoundFormScreen(
 
     if (state.isDiscardDialogOpen) DiscardChangesDialog(onAction = onAction)
     if (state.isDatePickerOpen) BatchExpiryDatePicker(onAction = onAction)
+    state.shrinkPrompt?.let { ContainerShrinkDialog(prompt = it, onAction = onAction) }
 }
 
 /**
@@ -310,6 +311,50 @@ private fun DiscardChangesDialog(onAction: (CompoundFormAction) -> Unit) {
     )
 }
 
+/**
+ * §4.4.4 Edit case: saving a container smaller than what is still open in it asks what to do with
+ * the difference. Neither answer is wrong, which is why this is a question and not a validation
+ * error — the third answer, Cancel, is also what dismissing the dialog means.
+ *
+ * Three actions where `AlertDialog` has two slots, so all three go in the confirm slot, stacked. The
+ * flow row the dialog would otherwise lay them out in only wraps what it measures as too wide, and
+ * these three labels are narrow enough to be squeezed onto one line of a dialog that is 280dp at its
+ * narrowest — a line on which none of them is readable. Stacking is M3's own answer for actions this
+ * long, and it is the same at every width, which is what makes the dialog predictable.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun ContainerShrinkDialog(prompt: ContainerShrinkPromptUi, onAction: (CompoundFormAction) -> Unit) {
+    fun decide(decision: ContainerShrinkDecision) = onAction(CompoundFormAction.OnContainerShrinkDecision(decision))
+
+    AlertDialog(
+        onDismissRequest = { decide(ContainerShrinkDecision.CANCEL) },
+        title = { Text(text = stringResource(R.string.compound_form_shrink_title)) },
+        text = {
+            Text(
+                text = stringResource(
+                    R.string.compound_form_shrink_body,
+                    prompt.remaining,
+                    prompt.newAmount,
+                ),
+            )
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = { decide(ContainerShrinkDecision.KEEP) }) {
+                    Text(text = stringResource(R.string.compound_form_shrink_keep))
+                }
+                TextButton(onClick = { decide(ContainerShrinkDecision.CAP) }) {
+                    Text(text = stringResource(R.string.compound_form_shrink_cap))
+                }
+                TextButton(onClick = { decide(ContainerShrinkDecision.CANCEL) }) {
+                    Text(text = stringResource(R.string.compound_form_cancel))
+                }
+            }
+        },
+    )
+}
+
 /** §4.4.3: the batch expiry field opens the Material date picker. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionName")
@@ -433,6 +478,25 @@ private fun CompoundFormEditPreview() {
                         fillFraction = 0.64f,
                         openedDaysAgo = 12,
                     ),
+                ),
+                onAction = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Shrink dialog · Compact", showBackground = true, widthDp = 411, heightDp = 914)
+@Preview(name = "Shrink dialog · Expanded", showBackground = true, widthDp = 1000, heightDp = 900)
+@Suppress("FunctionName", "UnusedPrivateMember")
+@Composable
+private fun CompoundFormShrinkDialogPreview() {
+    StaxTheme(dynamicColor = false) {
+        Surface {
+            CompoundFormScreen(
+                state = previewState().copy(
+                    isEdit = true,
+                    editedCompoundName = "Semaglutide",
+                    shrinkPrompt = ContainerShrinkPromptUi(remaining = "3.2 mg", newAmount = "2 mg"),
                 ),
                 onAction = {},
             )

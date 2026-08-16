@@ -61,6 +61,12 @@ sealed interface CompoundFormAction {
 
     data object OnSaveClick : CompoundFormAction
 
+    /**
+     * §4.4.4 Edit case: Keep remaining / Cap to new size / Cancel. One action rather than three,
+     * because the three are one answer to one question — including the dismiss, which is Cancel.
+     */
+    data class OnContainerShrinkDecision(val decision: ContainerShrinkDecision) : CompoundFormAction
+
     /** The app bar's × and Cancel, plus the back gesture — all confirm first when dirty (§4.4.5). */
     data object OnCancelClick : CompoundFormAction
     data object OnDiscardConfirm : CompoundFormAction

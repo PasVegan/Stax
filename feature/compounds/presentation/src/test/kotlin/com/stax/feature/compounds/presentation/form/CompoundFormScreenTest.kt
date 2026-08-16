@@ -5,6 +5,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -128,6 +130,81 @@ class CompoundFormScreenTest {
     }
 
     // -----------------------------------------------------------------------
+    // §4.4.4 Edit case — the shrink dialog
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the shrink dialog spells out both amounts and offers all three answers`() {
+        setScreen(state(shrinkPrompt = SHRINK))
+
+        composeRule.onNodeWithText(string(R.string.compound_form_shrink_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compound_form_shrink_body, "3.2 mg", "2 mg"))
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compound_form_shrink_keep)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.compound_form_shrink_cap)).assertIsDisplayed()
+        // Cancel is also the dock's label, so the dialog's is the last one composed.
+        composeRule.onAllNodesWithText(string(R.string.compound_form_cancel)).onLast().assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `Keep remaining files its decision`() {
+        setScreen(state(shrinkPrompt = SHRINK))
+
+        composeRule.onNodeWithText(string(R.string.compound_form_shrink_keep)).performClick()
+
+        assertThat(actions).containsExactly(
+            CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.KEEP),
+        )
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `Cap to new size files its decision`() {
+        setScreen(state(shrinkPrompt = SHRINK))
+
+        composeRule.onNodeWithText(string(R.string.compound_form_shrink_cap)).performClick()
+
+        assertThat(actions).containsExactly(
+            CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.CAP),
+        )
+    }
+
+    /**
+     * The dialog's Cancel and the dock's share a label, so the dialog's is the one on top — which is
+     * also what the scrim answers, since dismissing the question is Cancel (§4.4.4).
+     */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `Cancel files its decision`() {
+        setScreen(state(shrinkPrompt = SHRINK))
+
+        composeRule.onAllNodesWithText(string(R.string.compound_form_cancel)).onLast().performClick()
+
+        assertThat(actions).containsExactly(
+            CompoundFormAction.OnContainerShrinkDecision(ContainerShrinkDecision.CANCEL),
+        )
+    }
+
+    /** The labels are too long to share a line of a dialog that is 280dp at its narrowest. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the three answers stack one above the other`() {
+        setScreen(state(shrinkPrompt = SHRINK))
+
+        val keep = composeRule.onNodeWithText(string(R.string.compound_form_shrink_keep))
+            .getUnclippedBoundsInRoot()
+        val cap = composeRule.onNodeWithText(string(R.string.compound_form_shrink_cap))
+            .getUnclippedBoundsInRoot()
+        val cancel = composeRule.onAllNodesWithText(string(R.string.compound_form_cancel)).onLast()
+            .getUnclippedBoundsInRoot()
+
+        assertThat(cap.top.value).isGreaterThan(keep.bottom.value - STACK_TOLERANCE)
+        assertThat(cancel.top.value).isGreaterThan(cap.bottom.value - STACK_TOLERANCE)
+    }
+
+    // -----------------------------------------------------------------------
     // §4.4.1 app bar + §4.4 dock
     // -----------------------------------------------------------------------
 
@@ -239,6 +316,7 @@ class CompoundFormScreenTest {
         opened: OpenedContainerUi? = null,
         errors: kotlinx.collections.immutable.ImmutableMap<CompoundFormField, CompoundFormError> = persistentMapOf(),
         isDiscardDialogOpen: Boolean = false,
+        shrinkPrompt: ContainerShrinkPromptUi? = null,
     ) = CompoundFormState(
         draft = CompoundFormDraft(
             name = "Retatrutide",
@@ -253,9 +331,13 @@ class CompoundFormScreenTest {
         forecast = StockForecastUi(totalStock = "60 mg", containers = 6, volumePerContainer = "2 ml"),
         errors = errors,
         isDiscardDialogOpen = isDiscardDialogOpen,
+        shrinkPrompt = shrinkPrompt,
     )
 
     private companion object {
+        /** §4.4.4 Edit case: a 5 mg vial with 3.2 mg left, edited down to 2 mg. */
+        val SHRINK = ContainerShrinkPromptUi(remaining = "3.2 mg", newAmount = "2 mg")
+
         /** Pixel 10 portrait — Compact (§6.4.8). */
         const val COMPACT = "w411dp-h914dp"
 
@@ -267,5 +349,8 @@ class CompoundFormScreenTest {
 
         /** Rounding + the gutter between the columns; an even split is not a pixel-exact half. */
         const val EVEN_SPLIT_TOLERANCE = 24f
+
+        /** Text buttons overlap their neighbour's touch target slightly; stacking is about the rows. */
+        const val STACK_TOLERANCE = 8f
     }
 }

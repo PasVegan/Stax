@@ -27,7 +27,8 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   `CompoundFormScreen` over the field primitives of `CompoundFormFields.kt` (`FormTextField`,
   `FormPickerField`, `UnitSuffix`) and the sections of `CompoundFormSections.kt`.
   `CompoundFormDraft` is the editable half of the state; `CompoundFormAction.Overlay` is the
-  menus/pickers/prompts family, dispatched as one branch.
+  menus/pickers/prompts family, dispatched as one branch. `ContainerShrinkPromptUi` /
+  `ContainerShrinkDecision` are the §4.4.4 Edit-case dialog (M7-05).
 - `CreateCompoundRoute(onboarding)` — onboarding step 2 reuses this form (§4.14 step 2): same screen,
   app bar titled "Add your first compound · 2 of 3" with Skip in the trailing slot, driven by the
   route flag. `compoundsEntries(onOnboardingStepDone = …)` carries the end of that step back to
@@ -72,6 +73,17 @@ Compounds feature.
   death that can follow it — and a restored draft always beats the stored compound in Edit mode, or
   resuming would revert the user's unsaved edits. Round-tripped in `CompoundFormDraftPersistenceTest`,
   which runs on Robolectric because the draft serializes into a real `Bundle`.
+- **Shrinking the container below what is open in it is a question, not a validation error** (§4.4.4
+  Edit case, M7-05): both answers are legal, so Save stops to ask instead of marking a field wrong.
+  Keep and Cap both go on to write — they differ only in `CompoundRepository.update`'s
+  `capOpenedContainer` flag, which is what makes the compound row and the clamped container one
+  transaction — while Cancel puts `amountPerContainer` **and** `primaryUnit` back to the baseline and
+  writes nothing (either of the two may be what shrank the container: 5 mg → 5 mcg is a
+  thousandfold shrink with the number untouched). The prompt carries both amounts already unit-suffixed
+  for the same reason. Units of different families are never compared, so a Form change that moves
+  grams to millilitres raises no dialog. The dialog stacks its three actions in the `confirmButton`
+  slot: `AlertDialog`'s flow row only wraps what it measures as too wide, and these labels squeeze
+  onto one unreadable line of a 280dp dialog.
 - **`numberOfContainers` is stored as the unopened count** (§4.4.4): the form's "# of containers"
   field is the *total owned*, so Save subtracts the opened container and load adds it back. Total
   owned `3` with one opened stores `2`.

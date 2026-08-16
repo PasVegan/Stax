@@ -27,6 +27,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.domain.CompoundCategory
@@ -392,7 +393,14 @@ private fun OpenedContainerSummary(opened: OpenedContainerUi, onAction: (Compoun
             }
         }
         LinearProgressIndicator(progress = { opened.fillFraction }, modifier = Modifier.fillMaxWidth())
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        // Half the row each, rather than `SpaceBetween`: the space between only exists while both
+        // labels fit on one line, and the moment either wraps the two run together into
+        // "…remainingOpened 194 days ago". A weight apiece keeps the gap and wraps each in its own
+        // half; with room to spare it looks exactly like the arrangement it replaces.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(FIELD_GAP),
+        ) {
             Text(
                 text = stringResource(
                     R.string.compound_form_opened_remaining,
@@ -400,6 +408,7 @@ private fun OpenedContainerSummary(opened: OpenedContainerUi, onAction: (Compoun
                     opened.capacity,
                     opened.unit,
                 ),
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -409,8 +418,10 @@ private fun OpenedContainerSummary(opened: OpenedContainerUi, onAction: (Compoun
                     opened.openedDaysAgo,
                     opened.openedDaysAgo,
                 ),
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
             )
         }
     }

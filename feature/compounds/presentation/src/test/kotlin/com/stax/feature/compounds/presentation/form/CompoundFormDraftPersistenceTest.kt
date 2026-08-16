@@ -149,7 +149,10 @@ class CompoundFormDraftPersistenceTest {
         override suspend fun create(compound: CompoundSupply): Result<Long, DataError.Local> =
             Result.Success(COMPOUND_ID)
 
-        override suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local> = Result.Success(Unit)
+        override suspend fun update(
+            compound: CompoundSupply,
+            capOpenedContainer: Boolean,
+        ): EmptyResult<DataError.Local> = Result.Success(Unit)
 
         override suspend fun archive(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
 

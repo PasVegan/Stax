@@ -466,8 +466,10 @@ class CompoundsListViewModelTest {
         override suspend fun create(compound: CompoundSupply): Result<Long, DataError.Local> =
             throw NotImplementedError()
 
-        override suspend fun update(compound: CompoundSupply): EmptyResult<DataError.Local> =
-            throw NotImplementedError()
+        override suspend fun update(
+            compound: CompoundSupply,
+            capOpenedContainer: Boolean,
+        ): EmptyResult<DataError.Local> = throw NotImplementedError()
 
         override suspend fun archive(id: Long): EmptyResult<DataError.Local> {
             archived += id

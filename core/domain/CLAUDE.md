@@ -18,6 +18,8 @@ Compose. Everything else depends inward on this module.
 - Result/errors: `Result<D, E : Error>`, `DataError` (`DataError.Local`), `EmptyResult`.
 - Domain models: `CompoundSupply`, `Protocol`, `ScheduledDose`, `AdministrationEvent`,
   `DoseComponent`, `InjectionSite`, `InventoryTransaction`, `Settings`, `InventoryReadModels`.
+- Read models: `CompoundHistoryEntry` (§4.3.8 — one dose-history row: the event joined to the one
+  component that names the compound, with the volume its logged concentration implies).
 - `repository/` interfaces: `CompoundRepository`, `ProtocolRepository`, `ScheduledDoseRepository`,
   `AdministrationEventRepository`, `InjectionSiteRepository`, `InventoryRepository`,
   `SettingsRepository`.

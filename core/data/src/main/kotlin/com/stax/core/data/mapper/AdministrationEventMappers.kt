@@ -1,9 +1,14 @@
 package com.stax.core.data.mapper
 
 import com.stax.core.database.AdministrationEventEntity
+import com.stax.core.database.CompoundHistoryRow
 import com.stax.core.database.DoseComponentEntity
 import com.stax.core.domain.AdministrationEvent
+import com.stax.core.domain.CompoundHistoryEntry
+import com.stax.core.domain.Concentration
 import com.stax.core.domain.DoseComponent
+import com.stax.core.domain.Quantity
+import com.stax.core.domain.UnitFamily
 
 // ---------------------------------------------------------------------------
 // AdministrationEventEntity ↔ AdministrationEvent
@@ -42,3 +47,38 @@ fun AdministrationEvent.toEntity(): AdministrationEventEntity = AdministrationEv
 
 /** Produces the companion [DoseComponentEntity] rows for this event's components. */
 fun AdministrationEvent.toComponentEntities(): List<DoseComponentEntity> = components.map { it.toEntity() }
+
+// ---------------------------------------------------------------------------
+// CompoundHistoryRow → CompoundHistoryEntry  (§4.3.8)
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps one joined history row to its domain read model.
+ *
+ * The volume is derived here rather than stored, from the concentration snapshotted at log time
+ * (§3.5) — but only when that concentration's units divide into the dose. `Quantity.div` throws on a
+ * cross-family divisor and on count units, both of which are reachable data (a compound whose
+ * concentration is `500 mg / 1 capsule` logged in tablets), and a history row is not the place to
+ * raise them: no volume simply means the row shows the dose alone.
+ */
+fun CompoundHistoryRow.toDomain(): CompoundHistoryEntry {
+    val dose = Quantity(actualDoseValue, actualDoseUnit)
+    val concentration = concentrationAtLog()
+    return CompoundHistoryEntry(
+        eventId = eventId,
+        loggedAt = loggedAt,
+        status = status.toDomain(),
+        dose = dose,
+        volume = concentration?.takeIf { it.dividesInto(dose) }?.let { dose / it },
+        injectionSiteName = injectionSiteName,
+    )
+}
+
+private fun CompoundHistoryRow.concentrationAtLog(): Concentration? = Concentration(
+    amount = Quantity(concentrationAmountValue ?: return null, concentrationAmountUnit ?: return null),
+    per = Quantity(concentrationPerValue ?: return null, concentrationPerUnit ?: return null),
+)
+
+/** The preconditions `Quantity.div(Concentration)` asserts, asked instead of caught. */
+private fun Concentration.dividesInto(dose: Quantity): Boolean = dose.unit.family == amount.unit.family &&
+    (dose.unit == amount.unit || dose.unit.family != UnitFamily.COUNT)

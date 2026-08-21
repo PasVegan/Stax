@@ -7,8 +7,8 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
 
 ## Module coordinates
 - Gradle: `:feature:compounds:presentation` · plugin `com.stax.android.feature`.
-- Package: `com.stax.feature.compounds.presentation` (`.container`, `.di`, `.form`, `.list`,
-  `.navigation`).
+- Package: `com.stax.feature.compounds.presentation` (`.container`, `.detail`, `.di`, `.form`,
+  `.list`, `.navigation`).
 - Deps: `:core:domain`, `:core:presentation`, `:core:design-system`.
 
 ## Allowed dependencies
@@ -16,8 +16,7 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
 
 ## Key types
 - `CompoundsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes) +
-  `compoundsEntries` (Nav3 entryProvider extension). Coming: detail/create/edit ViewModels &
-  State/Action/Event, Root/Screen composables, history paging.
+  `compoundsEntries` (Nav3 entryProvider extension).
 - `list/` — `CompoundsListViewModel` + `CompoundsListState` / `Action` / `Event`, the
   `CompoundListItemUi` row model and the `CompoundStatusFilter` / `CompoundFilterMenu` enums (§4.2,
   M7-01), rendered by `CompoundsListRoot` / `CompoundsListScreen` with the internal `CompoundRow`,
@@ -30,6 +29,12 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   `CompoundFormDraft` is the editable half of the state; `CompoundFormAction.Overlay` is the
   menus/pickers/prompts family, dispatched as one branch. `ContainerShrinkPromptUi` /
   `ContainerShrinkDecision` are the §4.4.4 Edit-case dialog (M7-05).
+- `detail/` — the Compound Detail screen (§4.3, M7-07). `CompoundDetailViewModel` +
+  `CompoundDetailState` / `Action` / `Event` / `CompoundDetailArgs`, rendered by
+  `CompoundDetailRoot` / `CompoundDetailScreen` over the sections of `CompoundDetailSections.kt`.
+  UI models: `CompoundStatsUi` + `ExpiryStatUi` (§4.3.2), `ActiveProtocolUi` (§4.3.4),
+  `HistoryEntryUi` + `HistoryStatusFilter` (§4.3.7–§4.3.8). It reuses `form/`'s `OpenedContainerUi`,
+  which §4.4.3's card already borrowed from §4.3.3.
 - `container/` — the §4.5 opened-container sheets (M7-06): `OpenedContainerSheet` +
   `OpenedContainerSheetState` / `Action`, `OpenedContainerDateField`, `OpenedContainerSaveError`, and
   `NaturalDepletionDialog` (§4.5.5). Stateless and ViewModel-free — the screen that opens the sheet
@@ -49,7 +54,8 @@ Compounds feature.
 ## Notes
 - List+Detail uses the Nav3 **list-detail Scene** (`ListDetailSceneStrategy`) at Medium+ (§6.4.2),
   not `ListDetailPaneScaffold`.
-- History is paginated (Paging); validation variant of Create form per §4.4b.
+- The history list is lazy today and becomes a Paging 3 `PagingSource` at M7-08; validation variant
+  of the Create form per §4.4b.
 - **List filtering** (§4.2.2) happens in `CompoundsListViewModel`, not in a DAO query: the Low stock
   chip needs `dosesLeft`, which only `InventoryRepository` can aggregate, so the VM combines it with
   `CompoundRepository.observeAll()` and keeps the unfiltered rows private. Status (All / Low stock /
@@ -136,5 +142,38 @@ Compounds feature.
   fields need and far less than the Material calendar's ≈`500dp`. Only the fields scroll, and below
   the Medium height breakpoint the picker opens in its text-input mode. The form's own batch-expiry
   picker (§4.4.3) still opens as a calendar at every height and has the same overlap there.
+- **Compound Detail observes; the form reads once.** Nothing on the detail screen is being typed
+  into, so a row that changes underneath should show through immediately — five repositories are
+  combined into one state and a §4.5 write needs no re-read afterwards, unlike the form's
+  `syncFromCompound`. The two supply figures of §4.3.2 come from `InventoryRepository`'s aggregation
+  (M3-09) rather than being recomputed in the ViewModel: `dosesPerActualInjection` is protocol-
+  weighted, and one definition of it is enough.
+- **The §4.3.4 next-dose pill is one `ScheduledDose` flow per active protocol**, combined. A compound
+  with more than a handful of live protocols is not a case this screen has, and the alternative —
+  one query across every generated dose in the database — reads far more rows to answer less.
+- **§6.4.2's two-column detail layout keys off the *pane* width, not the window's**
+  (`BoxWithConstraints`, `720dp`). At an `840dp` Expanded window the detail pane is under `350dp`
+  once the `400dp` list pane and the rail have taken theirs — narrower than a Compact phone — and a
+  `0.55 / 0.45` split of that wraps every history row onto three lines. Same lesson as the form's
+  Stock section, one level up. Below the threshold the content is the single scroll §6.4.2 gives
+  Compact anyway.
+- **The history rows are items of the page's own `LazyColumn`, not a list nested inside it.** A lazy
+  list inside a scrolling parent has no height to measure against, and the point of §4.3.8's lazy
+  loading is precisely that the rows are not all composed at once. At Expanded the right-hand column
+  *is* that `LazyColumn`, so `historySection` is a `LazyListScope` extension both layouts place into
+  whichever list they own. The `PagingSource` behind it is M7-08; the section is shaped so only the
+  source changes.
+- **§4.3.9's "bottom nav is hidden on this screen" holds only while the detail *is* the screen.**
+  From Medium up it is one pane of the list-detail Scene beside the Compounds list, which is a
+  top-level destination and keeps its rail; the dock then spans the detail pane alone, which is what
+  §6.4.2 asks for. `:app` makes that call (`hidesChromeAsSolePane`), the same way it does for
+  multi-select — the nav suite is chrome, not a screen's.
+- **The §4.3.6 badge counts Taken + Partial all-time**, so it does not move when §4.3.7's chip does.
+  The chip filters `CompoundDetailState.history` out of the ViewModel's unfiltered `allHistory`,
+  exactly as the list's chips work on its own unfiltered rows.
+- **The §4.5 sheet writes are simpler here than in the form**: the compound always exists, so only
+  the persist path applies, and `numberOfContainers` is read from the last emission rather than after
+  a re-read — sound because none of §4.5.5's writes touches it (closing a container leaves the
+  unopened tally alone, §5.3).
 - Reads/writes only through repository interfaces (injected); no Room here.
 - See spec §4.2–§4.5, §6.4.2 Compounds; ISSUES M7-*.

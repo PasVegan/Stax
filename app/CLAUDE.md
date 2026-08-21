@@ -37,7 +37,10 @@ Everything (all `:core:*`, all `:feature:*:presentation`, `:widget`, `:shortcut`
   (`isFirstRunFlow`: Welcome, the notification gate, and the two Create forms flagged `onboarding = true`)
   — a visible nav item would be a one-tap exit out of a flow the user has neither finished nor skipped.
   It is seeded as `rememberNavigationSuiteScaffoldState`'s `initialValue` as well as driven by a
-  `LaunchedEffect`, so first launch never flashes the bar in. The chrome is **also hidden while a
+  `LaunchedEffect`, so first launch never flashes the bar in. It is **also hidden for Compound Detail
+  while that screen is the whole pane** (`hidesChromeAsSolePane`, §4.3.9): its own dock takes that
+  edge. Only below the Medium width — from there up the detail is one pane of the list-detail Scene
+  beside the Compounds list, which is a top-level destination and keeps its rail (§6.4.2). The chrome is **also hidden while a
   screen is in multi-select** (§4.2.4), which replaces the nav bar with its own bottom dock: only the
   screen knows the mode is on, so Compounds reports it through `compoundsEntries(onSelectionModeChange
   = …)` and the decision is made here. `navSuiteType()` (private) resolves the M3 Expressive nav type

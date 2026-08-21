@@ -3,6 +3,7 @@ package com.stax.feature.compounds.presentation.form
 import androidx.compose.runtime.Immutable
 import com.stax.core.domain.CompoundForm
 import com.stax.core.domain.ContainerType
+import com.stax.feature.compounds.presentation.container.OpenedContainerSheetState
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 
@@ -86,10 +87,12 @@ data class CompoundFormState(
     val openPicker: CompoundFormPicker? = null,
     val isDatePickerOpen: Boolean = false,
     /**
-     * The opened-container sheet the §4.4.3 CTA asks for. The sheet itself is §4.5's and arrives with
-     * M7-06 — this form only records that the user asked for it.
+     * The §4.5 opened-container sheet the §4.4.3 CTA opens, non-null while it is up. It is not a
+     * destination (§10.3), so this form holds its state and performs its writes.
      */
-    val isOpenedContainerSheetOpen: Boolean = false,
+    val openedSheet: OpenedContainerSheetState? = null,
+    /** §4.5.5: the container was saved empty, and there is unopened stock left to open in its place. */
+    val isDepletionPromptOpen: Boolean = false,
     val isDiscardDialogOpen: Boolean = false,
     /** §4.4.4 Edit case: non-null while Save is waiting to be told what to do about the opened container. */
     val shrinkPrompt: ContainerShrinkPromptUi? = null,

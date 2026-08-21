@@ -292,6 +292,25 @@ class CompoundFormScreenTest {
     }
 
     // -----------------------------------------------------------------------
+    // §4.5.5 natural depletion
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the depletion prompt offers Open new and Leave closed`() {
+        setScreen(state(isDepletionPromptOpen = true))
+
+        composeRule.onNodeWithText(string(R.string.container_depleted_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.container_depleted_open_new)).performClick()
+        composeRule.onNodeWithText(string(R.string.container_depleted_leave_closed)).performClick()
+
+        assertThat(actions).containsExactly(
+            CompoundFormAction.OnNaturalDepletionDecision(openNew = true),
+            CompoundFormAction.OnNaturalDepletionDecision(openNew = false),
+        )
+    }
+
+    // -----------------------------------------------------------------------
     // Harness
     // -----------------------------------------------------------------------
 
@@ -317,6 +336,7 @@ class CompoundFormScreenTest {
         errors: kotlinx.collections.immutable.ImmutableMap<CompoundFormField, CompoundFormError> = persistentMapOf(),
         isDiscardDialogOpen: Boolean = false,
         shrinkPrompt: ContainerShrinkPromptUi? = null,
+        isDepletionPromptOpen: Boolean = false,
     ) = CompoundFormState(
         draft = CompoundFormDraft(
             name = "Retatrutide",
@@ -332,6 +352,7 @@ class CompoundFormScreenTest {
         errors = errors,
         isDiscardDialogOpen = isDiscardDialogOpen,
         shrinkPrompt = shrinkPrompt,
+        isDepletionPromptOpen = isDepletionPromptOpen,
     )
 
     private companion object {

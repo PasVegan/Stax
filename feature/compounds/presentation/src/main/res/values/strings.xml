@@ -164,6 +164,43 @@
     <string name="compound_form_shrink_keep">Keep remaining</string>
     <string name="compound_form_shrink_cap">Cap to new size</string>
 
+    <!-- Opened container sheets (§4.5) -->
+    <!-- e.g. "Edit opened vial" / "Add opened vial" -->
+    <string name="container_sheet_title_edit">Edit opened %1$s</string>
+    <string name="container_sheet_title_add">Add opened %1$s</string>
+    <!-- e.g. "Semaglutide · 5 mg vial" -->
+    <string name="container_sheet_subtitle">%1$s · %2$s %3$s %4$s</string>
+    <string name="container_sheet_close">Close</string>
+    <string name="container_sheet_opened_date">Opened date</string>
+    <string name="container_sheet_remaining">Remaining</string>
+    <string name="container_sheet_remaining_error">Enter what is left, zero or more</string>
+    <string name="container_sheet_expiry">Container expiry</string>
+    <string name="container_sheet_expiry_unset">Tap to set</string>
+    <string name="container_sheet_delete">Delete</string>
+    <string name="container_sheet_save">Save</string>
+    <string name="container_sheet_removed">Opened container removed</string>
+    <string name="container_sheet_error_no_stock">No unopened container left to open</string>
+    <string name="container_sheet_error_write_failed">Could not save — try again</string>
+    <plurals name="container_sheet_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <!-- Derived from the compound's "expiry after opening", so it moves with the opened date -->
+    <plurals name="container_sheet_expiry_auto">
+        <item quantity="one">Auto · %1$d day after opening</item>
+        <item quantity="other">Auto · %1$d days after opening</item>
+    </plurals>
+    <plurals name="container_sheet_expiry_manual">
+        <item quantity="one">%1$d day after opening</item>
+        <item quantity="other">%1$d days after opening</item>
+    </plurals>
+
+    <!-- Natural depletion (§4.5.5) -->
+    <string name="container_depleted_title">Open new container?</string>
+    <string name="container_depleted_body">That container is empty and has been closed. You still have unopened stock.</string>
+    <string name="container_depleted_open_new">Open new</string>
+    <string name="container_depleted_leave_closed">Leave closed</string>
+
     <!-- Search overlay (§4.0.1) -->
     <string name="compounds_search_close">Close search</string>
     <string name="compounds_search_clear">Clear search</string>

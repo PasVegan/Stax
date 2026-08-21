@@ -13,6 +13,10 @@
  * model reaches the screen. Every numeric field is held as the user's raw text and only becomes a
  * `Decimal` / `Quantity` at validation time, so a half-typed "1." is never parsed (§3.0.1).
  *
+ * The §4.5 opened-container sheet is opened from here and its state lives in `CompoundFormState`
+ * (§10.3 — a sheet is not a destination), but the sheet itself belongs to the sibling `container`
+ * package so Compound Detail can host the same one.
+ *
  * Entry points: `CompoundFormRoot`, `CompoundFormViewModel`, `CompoundFormState`.
  */
 package com.stax.feature.compounds.presentation.form

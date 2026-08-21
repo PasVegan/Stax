@@ -52,6 +52,8 @@ import com.stax.core.domain.ContainerType
 import com.stax.core.presentation.ObserveAsEvents
 import com.stax.core.presentation.asString
 import com.stax.feature.compounds.presentation.R
+import com.stax.feature.compounds.presentation.container.NaturalDepletionDialog
+import com.stax.feature.compounds.presentation.container.OpenedContainerSheet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -87,6 +89,10 @@ fun CompoundFormRoot(
             CompoundFormEvent.Done -> onDone()
             is CompoundFormEvent.OpenReconstitutionHelper -> onReconstitute(event.compoundId)
             is CompoundFormEvent.ShowError -> scope.launch {
+                snackbarHostState.showSnackbar(context.asString(event.message))
+            }
+
+            is CompoundFormEvent.ShowMessage -> scope.launch {
                 snackbarHostState.showSnackbar(context.asString(event.message))
             }
         }
@@ -154,6 +160,21 @@ fun CompoundFormScreen(
     if (state.isDiscardDialogOpen) DiscardChangesDialog(onAction = onAction)
     if (state.isDatePickerOpen) BatchExpiryDatePicker(onAction = onAction)
     state.shrinkPrompt?.let { ContainerShrinkDialog(prompt = it, onAction = onAction) }
+
+    // §4.5: the sheet the opened-container section opens, and the question §4.5.5 asks once a save
+    // has emptied the container.
+    state.openedSheet?.let { sheet ->
+        OpenedContainerSheet(
+            state = sheet,
+            onAction = { onAction(CompoundFormAction.OpenedContainerSheet(it)) },
+        )
+    }
+    if (state.isDepletionPromptOpen) {
+        NaturalDepletionDialog(
+            onOpenNew = { onAction(CompoundFormAction.OnNaturalDepletionDecision(openNew = true)) },
+            onLeaveClosed = { onAction(CompoundFormAction.OnNaturalDepletionDecision(openNew = false)) },
+        )
+    }
 }
 
 /**

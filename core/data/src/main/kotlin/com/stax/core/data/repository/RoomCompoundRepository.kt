@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.stax.core.data.mapper.toDomain
 import com.stax.core.data.mapper.toEntity
 import com.stax.core.database.CompoundSupplyDao
+import com.stax.core.database.CompoundSupplyEntity
 import com.stax.core.database.InventoryTransactionDao
 import com.stax.core.database.InventoryTransactionEntity
 import com.stax.core.database.InventoryTransactionType
@@ -16,6 +17,7 @@ import com.stax.core.domain.Decimal
 import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.Quantity
 import com.stax.core.domain.Result
+import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.CompoundRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -175,42 +177,78 @@ class RoomCompoundRepository(
 
     override suspend fun openContainer(id: Long): EmptyResult<DataError.Local> = runTx {
         val compound = compoundDao.getById(id) ?: throw NotFoundException()
+        openNextContainer(
+            compound = compound,
+            openedAt = Clock.System.now(),
+            remainingAmount = Quantity(compound.amountPerContainerValue, compound.amountPerContainerUnit),
+            expiryAfterOpeningDays = compound.expiryAfterOpeningDays,
+            userDefinedExpiryDate = null,
+        )
+    }
 
+    override suspend fun addOpenedContainer(
+        compoundSupplyId: Long,
+        openedAt: Instant,
+        remainingAmount: Quantity,
+        expiryAfterOpeningDays: Int?,
+        userDefinedExpiryDate: LocalDate?,
+    ): EmptyResult<DataError.Local> = runTx {
+        val compound = compoundDao.getById(compoundSupplyId) ?: throw NotFoundException()
+        openNextContainer(
+            compound = compound,
+            openedAt = openedAt,
+            remainingAmount = remainingAmount,
+            expiryAfterOpeningDays = expiryAfterOpeningDays,
+            userDefinedExpiryDate = userDefinedExpiryDate,
+        )
+    }
+
+    /**
+     * The one container-opening operation §5.3 describes, whether the container is being opened now
+     * or was opened before the app knew about it (§4.5.5).
+     *
+     * The `ContainerOpen` row stays the delta-0 audit marker §5.3 defines — a sealed container moving
+     * into the opened pool changes no stock. What *is* stock is the gap between a full container and
+     * what the user says is left in this one, and that goes in as a `Manual` transaction so the
+     * ledger still sums to the physical stock (§5.8.0). Opening a fresh container leaves no gap and
+     * so writes no such row.
+     */
+    private suspend fun openNextContainer(
+        compound: CompoundSupplyEntity,
+        openedAt: Instant,
+        remainingAmount: Quantity,
+        expiryAfterOpeningDays: Int?,
+        userDefinedExpiryDate: LocalDate?,
+    ) {
         if (compound.numberOfContainers <= 0) throw ConstraintException()
-        if (openedContainerDao.getByCompoundSupplyId(id) != null) throw ConstraintException()
+        if (openedContainerDao.getByCompoundSupplyId(compound.id) != null) throw ConstraintException()
 
         val now = Clock.System.now()
-        val openedDate = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val predictedExpiry = compound.expiryAfterOpeningDays?.let { days ->
-            openedDate.plus(days, DateTimeUnit.DAY)
-        }
-
         compoundDao.update(
             compound.copy(numberOfContainers = compound.numberOfContainers - 1, updatedAt = now),
         )
         openedContainerDao.insert(
             OpenedContainerEntity(
-                compoundSupplyId = id,
-                openedAt = now,
-                remainingAmountValue = compound.amountPerContainerValue,
-                remainingAmountUnit = compound.amountPerContainerUnit,
-                expiryAfterOpeningDays = compound.expiryAfterOpeningDays,
-                userDefinedExpiryDate = null,
-                predictedExpiryDate = predictedExpiry,
+                compoundSupplyId = compound.id,
+                openedAt = openedAt,
+                remainingAmountValue = remainingAmount.value,
+                remainingAmountUnit = remainingAmount.unit,
+                expiryAfterOpeningDays = expiryAfterOpeningDays,
+                userDefinedExpiryDate = userDefinedExpiryDate,
+                predictedExpiryDate = predictedExpiryOf(openedAt, expiryAfterOpeningDays),
             ),
         )
         inventoryDao.insert(
-            InventoryTransactionEntity(
-                compoundSupplyId = id,
-                deltaValue = Decimal.parse("0"),
-                deltaUnit = compound.amountPerContainerUnit,
-                type = InventoryTransactionType.CONTAINER_OPEN,
-                sourceEventId = null,
-                reason = null,
-                at = now,
-            ),
+            audit(compound.id, InventoryTransactionType.CONTAINER_OPEN, compound.amountPerContainerUnit, now),
         )
-        Unit
+        val alreadyUsed = remainingAmount.unit.convertTo(compound.amountPerContainerUnit, remainingAmount.value) -
+            compound.amountPerContainerValue
+        // `!= ZERO` would compare `BigDecimal` scales, where `0` and `0.00` are two different values.
+        if (alreadyUsed.raw.signum() != 0) {
+            inventoryDao.insert(
+                manual(compound.id, alreadyUsed, compound.amountPerContainerUnit, ALREADY_OPENED_REASON, now),
+            )
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -219,10 +257,23 @@ class RoomCompoundRepository(
 
     override suspend fun closeContainer(id: Long, reason: String?): EmptyResult<DataError.Local> = runTx {
         val compound = compoundDao.getById(id) ?: throw NotFoundException()
-        val deleted = openedContainerDao.deleteByCompoundSupplyId(id)
-        if (deleted == 0) throw NotFoundException()
+        val opened = openedContainerDao.getByCompoundSupplyId(id) ?: throw NotFoundException()
+        openedContainerDao.deleteByCompoundSupplyId(id)
 
         val now = Clock.System.now()
+        // What was still in the container leaves the user's stock with it, so the ledger has to lose
+        // it too (§5.8.0) — `ContainerClose` itself is a delta-0 audit marker (§5.3) and cannot carry
+        // it. An already-empty container is the natural-depletion path, where whatever emptied it is
+        // in the ledger already; booking it again would double-count.
+        val remaining = opened.remainingAmountUnit.convertTo(
+            compound.amountPerContainerUnit,
+            opened.remainingAmountValue,
+        )
+        if (remaining.raw.signum() > 0) {
+            inventoryDao.insert(
+                manual(id, -remaining, compound.amountPerContainerUnit, reason ?: DISCARDED_REASON, now),
+            )
+        }
         inventoryDao.insert(
             InventoryTransactionEntity(
                 compoundSupplyId = id,
@@ -243,22 +294,80 @@ class RoomCompoundRepository(
 
     override suspend fun editOpenedContainer(
         compoundSupplyId: Long,
+        openedAt: Instant?,
         remainingAmount: Quantity?,
         expiryAfterOpeningDays: Int?,
         userDefinedExpiryDate: LocalDate?,
-    ): EmptyResult<DataError.Local> = runOp {
+    ): EmptyResult<DataError.Local> = runTx {
         val existing = openedContainerDao.getByCompoundSupplyId(compoundSupplyId)
             ?: throw NotFoundException()
 
+        val newOpenedAt = openedAt ?: existing.openedAt
+        val newExpiryDays = expiryAfterOpeningDays ?: existing.expiryAfterOpeningDays
         val updated = existing.copy(
+            openedAt = newOpenedAt,
             remainingAmountValue = remainingAmount?.value ?: existing.remainingAmountValue,
             remainingAmountUnit = remainingAmount?.unit ?: existing.remainingAmountUnit,
-            expiryAfterOpeningDays = expiryAfterOpeningDays ?: existing.expiryAfterOpeningDays,
+            expiryAfterOpeningDays = newExpiryDays,
             userDefinedExpiryDate = userDefinedExpiryDate ?: existing.userDefinedExpiryDate,
+            // Derived, never stored on the user's word (§3.1.1): moving the opened date moves the
+            // prediction with it, or the container would keep an expiry it no longer implies.
+            predictedExpiryDate = predictedExpiryOf(newOpenedAt, newExpiryDays),
         )
         val rows = openedContainerDao.update(updated)
         if (rows == 0) throw NotFoundException()
+
+        // Correcting what is left in the container is a stock change like any other, so it goes in
+        // the ledger (§5.8.0). Read in the new unit, since the edit may have changed that too.
+        if (remainingAmount != null) {
+            val delta = remainingAmount.value -
+                existing.remainingAmountUnit.convertTo(remainingAmount.unit, existing.remainingAmountValue)
+            if (delta.raw.signum() != 0) {
+                inventoryDao.insert(
+                    manual(
+                        compoundSupplyId,
+                        delta,
+                        remainingAmount.unit,
+                        REMAINING_ADJUSTED_REASON,
+                        Clock.System.now(),
+                    ),
+                )
+            }
+        }
+        Unit
     }
+
+    // -----------------------------------------------------------------------
+    // Ledger + derived-field helpers
+    // -----------------------------------------------------------------------
+
+    /** §3.1.1: `predictedExpiryDate = openedAt.date + expiryAfterOpeningDays`, in the user's own zone. */
+    private fun predictedExpiryOf(openedAt: Instant, expiryAfterOpeningDays: Int?): LocalDate? =
+        expiryAfterOpeningDays?.let { days ->
+            openedAt.toLocalDateTime(TimeZone.currentSystemDefault()).date.plus(days, DateTimeUnit.DAY)
+        }
+
+    private fun audit(compoundSupplyId: Long, type: InventoryTransactionType, unit: UnitCode, at: Instant) =
+        InventoryTransactionEntity(
+            compoundSupplyId = compoundSupplyId,
+            deltaValue = Decimal.parse("0"),
+            deltaUnit = unit,
+            type = type,
+            sourceEventId = null,
+            reason = null,
+            at = at,
+        )
+
+    private fun manual(compoundSupplyId: Long, delta: Decimal, unit: UnitCode, reason: String, at: Instant) =
+        InventoryTransactionEntity(
+            compoundSupplyId = compoundSupplyId,
+            deltaValue = delta,
+            deltaUnit = unit,
+            type = InventoryTransactionType.MANUAL,
+            sourceEventId = null,
+            reason = reason,
+            at = at,
+        )
 
     // -----------------------------------------------------------------------
     // Transaction helpers
@@ -303,5 +412,14 @@ class RoomCompoundRepository(
          * string would freeze whichever language was active when the container was capped.
          */
         const val SIZE_REDUCED_REASON = "Compound size reduced"
+
+        /** §4.5.5. The stock a part-used container did *not* bring in. Stored data, like the two above. */
+        const val ALREADY_OPENED_REASON = "Already-opened container"
+
+        /** §4.5.5 Edit: the user corrected what is left in the opened container. */
+        const val REMAINING_ADJUSTED_REASON = "Remaining amount corrected"
+
+        /** §4.5.4: the fallback reason for a container thrown away with something still in it. */
+        const val DISCARDED_REASON = "Opened container discarded"
     }
 }

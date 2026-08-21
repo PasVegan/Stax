@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
+import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
@@ -22,6 +23,8 @@ import com.stax.core.domain.Result
 import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.CompoundRepository
+import com.stax.feature.compounds.presentation.container.OpenedContainerDateField
+import com.stax.feature.compounds.presentation.container.OpenedContainerSheetAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -453,6 +456,228 @@ class CompoundFormViewModelTest {
     }
 
     // -----------------------------------------------------------------------
+    // Opened container sheet (§4.5)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `the sheet opens on the compound's container, in its own unit`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("3.2")))
+
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+
+        val sheet = requireNotNull(viewModel.state.value.openedSheet)
+        assertThat(sheet.isEdit).isTrue()
+        assertThat(sheet.remaining).isEqualTo("3.2")
+        assertThat(sheet.unit).isEqualTo(UnitCode.MG)
+        assertThat(sheet.openedDate).isEqualTo(LocalDate.parse("2026-08-03"))
+        assertThat(sheet.openedDaysAgo).isEqualTo(12)
+    }
+
+    @Test
+    fun `with no container the sheet opens on today and a full one`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundFormAction.Edit.OnAmountPerContainerChange("5"))
+        viewModel.onAction(CompoundFormAction.Edit.OnExpiryAfterOpeningDaysChange("28"))
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+
+        val sheet = requireNotNull(viewModel.state.value.openedSheet)
+        assertThat(sheet.isEdit).isFalse()
+        assertThat(sheet.remaining).isEqualTo("5")
+        assertThat(sheet.openedDate).isEqualTo(LocalDate.parse("2026-08-15"))
+        // §4.5.3: with an "expiry after opening" on the compound, the expiry starts out derived.
+        assertThat(sheet.expiryDate).isEqualTo(LocalDate.parse("2026-09-12"))
+        assertThat(sheet.isExpiryAuto).isTrue()
+    }
+
+    @Test
+    fun `moving the opened date moves an auto expiry with it`() = runTest {
+        val viewModel = openSheet { it.onAction(CompoundFormAction.Edit.OnExpiryAfterOpeningDaysChange("28")) }
+
+        viewModel.sheet(OpenedContainerSheetAction.OnDateSelected(LocalDate.parse("2026-08-01")))
+
+        val sheet = requireNotNull(viewModel.state.value.openedSheet)
+        assertThat(sheet.expiryDate).isEqualTo(LocalDate.parse("2026-08-29"))
+        assertThat(sheet.expiryDaysAfterOpening).isEqualTo(28)
+    }
+
+    @Test
+    fun `an expiry set by hand stops following the opened date`() = runTest {
+        val viewModel = openSheet { it.onAction(CompoundFormAction.Edit.OnExpiryAfterOpeningDaysChange("28")) }
+
+        viewModel.sheet(OpenedContainerSheetAction.OnDateFieldClick(OpenedContainerDateField.EXPIRY))
+        viewModel.sheet(OpenedContainerSheetAction.OnDateSelected(LocalDate.parse("2026-10-01")))
+        viewModel.sheet(OpenedContainerSheetAction.OnDateFieldClick(OpenedContainerDateField.OPENED))
+        viewModel.sheet(OpenedContainerSheetAction.OnDateSelected(LocalDate.parse("2026-08-01")))
+
+        val sheet = requireNotNull(viewModel.state.value.openedSheet)
+        assertThat(sheet.isExpiryAuto).isFalse()
+        assertThat(sheet.expiryDate).isEqualTo(LocalDate.parse("2026-10-01"))
+    }
+
+    @Test
+    fun `a remaining amount that is not a number at or above zero is rejected`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer())
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("-1"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+
+        assertThat(viewModel.state.value.openedSheet?.hasRemainingError).isEqualTo(true)
+        assertThat(compounds.edited).isNull()
+    }
+
+    /** §4.5.5, New Compound flow: nothing is written until the form itself saves. */
+    @Test
+    fun `Create Already Opened stages the container until the compound is saved`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundFormAction.Edit.OnNameChange("Retatrutide"))
+        viewModel.onAction(CompoundFormAction.Edit.OnAmountPerContainerChange("10"))
+        viewModel.onAction(CompoundFormAction.Edit.OnConcentrationChange("5"))
+        viewModel.onAction(CompoundFormAction.Edit.OnTotalContainersChange("3"))
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("4"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+
+        assertThat(compounds.added).isNull()
+        assertThat(viewModel.state.value.opened).isNotNull()
+        assertThat(viewModel.state.value.isDirty).isTrue()
+
+        viewModel.onAction(CompoundFormAction.OnSaveClick)
+
+        val created = requireNotNull(compounds.created)
+        assertThat(created.numberOfContainers).isEqualTo(2)
+        assertThat(created.currentOpened?.remainingAmount).isEqualTo(mg("4"))
+    }
+
+    /** §4.5.5, existing compound: the sheet's Save is a write of its own. */
+    @Test
+    fun `Create Already Opened on an existing compound opens the next container`() = runTest {
+        compounds.stored.value = compound(numberOfContainers = 3, opened = null)
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnDateFieldClick(OpenedContainerDateField.OPENED))
+        viewModel.sheet(OpenedContainerSheetAction.OnDateSelected(LocalDate.parse("2026-08-03")))
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("3.2"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+
+        val added = requireNotNull(compounds.added)
+        assertThat(added.remainingAmount).isEqualTo(mg("3.2"))
+        assertThat(added.openedAt).isEqualTo(Instant.parse("2026-08-03T00:00:00Z"))
+        // Total owned is unchanged — one of the three is now the opened one (§4.4.4).
+        assertThat(viewModel.state.value.draft.totalContainers).isEqualTo("3")
+        assertThat(viewModel.state.value.openedSheet).isNull()
+    }
+
+    @Test
+    fun `Edit writes the changed fields onto the existing container`() = runTest {
+        compounds.stored.value = compound(opened = openedContainer(remaining = mg("5")))
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("3.2"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+
+        assertThat(compounds.edited?.remainingAmount).isEqualTo(mg("3.2"))
+        assertThat(compounds.added).isNull()
+    }
+
+    /** §4.5.5: an empty container is removed, and the offer to open the next one follows. */
+    @Test
+    fun `saving an empty container closes it and asks about the next one`() = runTest {
+        compounds.stored.value = compound(numberOfContainers = 2, opened = openedContainer())
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("0"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+
+        assertThat(compounds.closedCount).isEqualTo(1)
+        assertThat(viewModel.state.value.opened).isNull()
+        assertThat(viewModel.state.value.isDepletionPromptOpen).isTrue()
+        // §3.1.1: `numberOfContainers` is not decremented again, so the total owned loses one.
+        assertThat(viewModel.state.value.draft.totalContainers).isEqualTo("2")
+    }
+
+    @Test
+    fun `an empty container with no unopened stock left asks nothing`() = runTest {
+        compounds.stored.value = compound(numberOfContainers = 0, opened = openedContainer())
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("0"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+
+        assertThat(viewModel.state.value.isDepletionPromptOpen).isFalse()
+    }
+
+    @Test
+    fun `Open new runs the container-opening operation`() = runTest {
+        compounds.stored.value = compound(numberOfContainers = 2, opened = openedContainer())
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("0"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+        viewModel.onAction(CompoundFormAction.OnNaturalDepletionDecision(openNew = true))
+
+        assertThat(compounds.stored.value?.currentOpened?.remainingAmount).isEqualTo(mg("5"))
+        assertThat(compounds.stored.value?.numberOfContainers).isEqualTo(1)
+        assertThat(viewModel.state.value.draft.totalContainers).isEqualTo("2")
+        assertThat(viewModel.state.value.isDepletionPromptOpen).isFalse()
+    }
+
+    @Test
+    fun `Leave closed leaves the compound without an opened container`() = runTest {
+        compounds.stored.value = compound(numberOfContainers = 2, opened = openedContainer())
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnRemainingChange("0"))
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+        viewModel.onAction(CompoundFormAction.OnNaturalDepletionDecision(openNew = false))
+
+        assertThat(compounds.stored.value?.currentOpened).isNull()
+        assertThat(viewModel.state.value.isDepletionPromptOpen).isFalse()
+    }
+
+    /** §4.5.4: the lost / discarded path — `numberOfContainers` is untouched, so the total drops. */
+    @Test
+    fun `Delete removes the container and drops the total owned`() = runTest {
+        compounds.stored.value = compound(numberOfContainers = 2, opened = openedContainer())
+        val viewModel = viewModel(compoundId = COMPOUND_ID)
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+
+        viewModel.events.test {
+            viewModel.sheet(OpenedContainerSheetAction.OnDeleteClick)
+            assertThat(awaitItem()).isInstanceOf(CompoundFormEvent.ShowMessage::class)
+        }
+
+        assertThat(compounds.stored.value?.numberOfContainers).isEqualTo(2)
+        assertThat(viewModel.state.value.opened).isNull()
+        assertThat(viewModel.state.value.draft.totalContainers).isEqualTo("2")
+        // Discarding is deliberate, so it does not go on to ask about opening another (§4.5.4).
+        assertThat(viewModel.state.value.isDepletionPromptOpen).isFalse()
+    }
+
+    @Test
+    fun `Delete of a staged container writes nothing`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(CompoundFormAction.Edit.OnAmountPerContainerChange("5"))
+        viewModel.onAction(CompoundFormAction.Edit.OnTotalContainersChange("3"))
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnSaveClick)
+        viewModel.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        viewModel.sheet(OpenedContainerSheetAction.OnDeleteClick)
+
+        assertThat(compounds.closedCount).isEqualTo(0)
+        assertThat(viewModel.state.value.opened).isNull()
+        assertThat(viewModel.state.value.draft.totalContainers).isEqualTo("2")
+    }
+
+    // -----------------------------------------------------------------------
     // Edit mode (§4.4.1)
     // -----------------------------------------------------------------------
 
@@ -628,6 +853,16 @@ class CompoundFormViewModelTest {
         timeZone = TimeZone.UTC,
     )
 
+    /** A Create-mode form with the §4.5 sheet open, after [setUp] has filled in whatever it needs. */
+    private fun openSheet(setUp: (CompoundFormViewModel) -> Unit = {}) = viewModel().also {
+        setUp(it)
+        it.onAction(CompoundFormAction.Overlay.OnOpenedContainerClick)
+        it.sheet(OpenedContainerSheetAction.OnDateFieldClick(OpenedContainerDateField.OPENED))
+    }
+
+    private fun CompoundFormViewModel.sheet(action: OpenedContainerSheetAction) =
+        onAction(CompoundFormAction.OpenedContainerSheet(action))
+
     /** An Edit-mode form whose container has been shrunk to [amount] and saved (§4.4.4 Edit case). */
     private fun shrunkTo(amount: String) = viewModel(compoundId = COMPOUND_ID).also {
         it.onAction(CompoundFormAction.Edit.OnAmountPerContainerChange(amount))
@@ -647,6 +882,11 @@ class CompoundFormViewModelTest {
 
         /** When set, `create` fails with this instead of storing. */
         var createError: DataError.Local? = null
+
+        /** The §4.5.5 container writes, for the tests to read back. */
+        var added: OpenedContainer? = null
+        var edited: OpenedContainer? = null
+        var closedCount: Int = 0
 
         override fun observeAll(): Flow<List<CompoundSupply>> = stored.map { listOfNotNull(it) }
 
@@ -671,17 +911,67 @@ class CompoundFormViewModelTest {
 
         override suspend fun duplicate(id: Long): Result<Long, DataError.Local> = throw NotImplementedError()
 
-        override suspend fun openContainer(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
+        // The container operations of §4.5.5 are what the sheet writes through, so the fake keeps
+        // the same books the real repository does: `numberOfContainers` and `currentOpened`.
+
+        override suspend fun openContainer(id: Long): EmptyResult<DataError.Local> = mutate { compound ->
+            compound.copy(
+                numberOfContainers = compound.numberOfContainers - 1,
+                currentOpened = OpenedContainer(
+                    openedAt = NOW,
+                    remainingAmount = compound.amountPerContainer,
+                    expiryAfterOpeningDays = compound.expiryAfterOpeningDays,
+                    userDefinedExpiryDate = null,
+                    predictedExpiryDate = null,
+                ),
+            )
+        }
+
+        override suspend fun addOpenedContainer(
+            compoundSupplyId: Long,
+            openedAt: Instant,
+            remainingAmount: Quantity,
+            expiryAfterOpeningDays: Int?,
+            userDefinedExpiryDate: LocalDate?,
+        ): EmptyResult<DataError.Local> = mutate { compound ->
+            added = OpenedContainer(
+                openedAt = openedAt,
+                remainingAmount = remainingAmount,
+                expiryAfterOpeningDays = expiryAfterOpeningDays,
+                userDefinedExpiryDate = userDefinedExpiryDate,
+                predictedExpiryDate = null,
+            )
+            compound.copy(numberOfContainers = compound.numberOfContainers - 1, currentOpened = added)
+        }
 
         override suspend fun closeContainer(id: Long, reason: String?): EmptyResult<DataError.Local> =
-            throw NotImplementedError()
+            mutate { compound ->
+                closedCount++
+                compound.copy(currentOpened = null)
+            }
 
         override suspend fun editOpenedContainer(
             compoundSupplyId: Long,
+            openedAt: Instant?,
             remainingAmount: Quantity?,
             expiryAfterOpeningDays: Int?,
             userDefinedExpiryDate: LocalDate?,
-        ): EmptyResult<DataError.Local> = throw NotImplementedError()
+        ): EmptyResult<DataError.Local> = mutate { compound ->
+            val current = compound.currentOpened ?: return Result.Error(DataError.Local.NOT_FOUND)
+            edited = current.copy(
+                openedAt = openedAt ?: current.openedAt,
+                remainingAmount = remainingAmount ?: current.remainingAmount,
+                expiryAfterOpeningDays = expiryAfterOpeningDays ?: current.expiryAfterOpeningDays,
+                userDefinedExpiryDate = userDefinedExpiryDate ?: current.userDefinedExpiryDate,
+            )
+            compound.copy(currentOpened = edited)
+        }
+
+        private inline fun mutate(transform: (CompoundSupply) -> CompoundSupply): EmptyResult<DataError.Local> {
+            val compound = stored.value ?: return Result.Error(DataError.Local.NOT_FOUND)
+            stored.value = transform(compound)
+            return Result.Success(Unit)
+        }
     }
 
     private companion object {

@@ -790,10 +790,14 @@ Two variants:
 - `7 · Create Already Opened Container (bottom sheet)` — opened from Create/Edit Compound "Mark as already opened" CTA. Identical UI minus Delete button.
 
 #### 4.5.1 Sheet structure
-Bottom sheet modal. Drag handle + Scrim overlay.
+Bottom sheet modal. Drag handle + Scrim overlay. Adaptive per §6.4.2 "Other modal bottom sheets".
+
+Only the fields scroll; the §4.5.4 action row is pinned below them. At Expanded the side sheet is as tall as the window, which on a landscape phone is `411dp` — less than the fields need — and a Save the user has to scroll to find is a Save they do not find.
+
+**Date pickers**: both date fields open the Material date picker in its **calendar** display mode where there is room and its **text-input** mode where there is not (window height below the Medium breakpoint, `480dp`). The calendar needs ≈`500dp` of height; below that its grid overlaps its own weekday header and action row.
 
 #### 4.5.2 Header
-Inline at top of sheet content: title ("Add opened {container type}" / "Edit {container type}") + subtitle (compound name + size e.g. "Semaglutide · 5 mg vial"). Right side: `close` icon button.
+Inline at top of sheet content: title ("Add opened {container type}" / "Edit opened {container type}") + subtitle (compound name + size e.g. "Semaglutide · 5 mg vial"). Right side: `close` icon button.
 
 #### 4.5.3 Fields
 1. **Opened date** — date picker field, `surface-container` row. Leading `today`, value (e.g. "May 14, 2026"), supporting "12 days ago" (auto-computed), trailing `edit`. Default to today on Create.
@@ -806,11 +810,17 @@ Bottom row: `Delete` (`error-container`, leading `delete` icon) + `Save` (filled
 
 **Delete behavior**: removes the `OpenedContainer` (lost/discarded path). Does not change `numberOfContainers`. Compound reverts to "no opened container" state. Snackbar "Opened container removed" (no undo).
 
+**Delete during the New Compound flow** removes the staged container instead, and writes nothing.
+
 #### 4.5.5 Save behavior
-- Create for an existing compound: decrements `numberOfContainers`, creates `OpenedContainer` row linked to compound, and updates compound's `currentOpened` ref.
+- Create for an existing compound: decrements `numberOfContainers`, creates `OpenedContainer` row linked to compound, and updates compound's `currentOpened` ref (`CompoundRepository.addOpenedContainer`).
 - Create during New Compound flow: stages the opened-container fields until "Save compound"; final save stores `numberOfContainers` as total-owned input minus one.
 - Edit: updates fields on existing `OpenedContainer`.
-- If `remainingAmount == 0` after save: triggers natural depletion. Remove `OpenedContainer` without decrementing `numberOfContainers` again, then show dialog "Open new container?" w/ "Open new" (default) / "Leave closed" actions when unopened stock remains.
+- If `remainingAmount == 0` after save: triggers natural depletion. Remove `OpenedContainer` without decrementing `numberOfContainers` again, then show dialog "Open new container?" w/ "Open new" (default) / "Leave closed" actions when unopened stock remains. Delete (§4.5.4) does **not** raise it: discarding a container is already a decision about that container.
+- **The form's total-owned count follows the write.** A container that left the stock — discarded or emptied — is one the user no longer has, while `numberOfContainers` is untouched, so §4.4.3's "# of containers" field drops by one. For an existing compound the count is re-read from the stored row rather than computed, so the field and the row cannot drift apart.
+- **A refused write is reported in the sheet**, not through the screen's snackbar: a modal sheet is a window of its own and the `SnackbarHost` draws behind it. The only refusal the user can act on is "no unopened container left to open" (§5.3 requires `numberOfContainers > 0`); everything else reads as a failed write.
+
+**Ledger** (§5.8.0): each of these moves stock, so each books it. Adding an already-opened container books the difference between a full container and what is left in it; correcting Remaining books the difference; discarding a container with something still in it books what goes with it. `ContainerOpen` / `ContainerClose` stay the delta-0 audit markers of §5.3.
 
 ---
 
@@ -1598,6 +1608,11 @@ Generation is idempotent — uses `(protocolId, scheduledAt)` uniqueness; never 
 - Decrement `compound_supply.numberOfContainers` by 1.
 - Create `OpenedContainer` with `openedAt=now` and `remainingAmount=amountPerContainer`.
 - Insert `InventoryTransaction { type=ContainerOpen, delta=0 }`. `ContainerOpen` is an audit marker only; the underlying stock did not change (the unit moved from "unopened" to "opened" pool). Net stock delta = 0.
+- **Already-opened variant** (§4.5.5 Create Already Opened): same operation, but `openedAt`, `remainingAmount` and the expiry come from the user. What the container has already lost never passed through the ledger, so it is booked as `InventoryTransaction { type=Manual, delta=remaining − amountPerContainer, reason="Already-opened container" }` — omitted when the container is still full.
+
+**Closing a container that is not empty** (§4.5.4 lost/discarded): whatever is left leaves the stock with it, so it is booked as `InventoryTransaction { type=Manual, delta=−remaining }` alongside the delta-0 `ContainerClose`. An already-empty container books nothing extra — the deduction that emptied it is in the ledger already.
+
+**Correcting an opened container's remaining** (§4.5.5 Edit): `InventoryTransaction { type=Manual, delta=new − old, reason="Remaining amount corrected" }`, read in the new unit since the same edit may have changed it.
 
 **Manual stock addition** (Compound Detail → Adjust, §4.3.9):
 - User-entered positive delta → insert `InventoryTransaction { type=Manual, delta=+x, reason="Added stock" }`.

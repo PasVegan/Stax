@@ -308,7 +308,7 @@ internal fun ColumnScope.StorageSection(state: CompoundFormState, onAction: (Com
 
 /**
  * §4.4.3 Opened container: the empty state and its "Add already opened" CTA until one exists, then
- * the summary card of §4.3.3 with the pencil that edits it. Both open the §4.5 sheet, which is M7-06.
+ * the summary card of §4.3.3 with the pencil that edits it. Both open the §4.5 sheet.
  */
 @Suppress("FunctionName")
 @Composable
@@ -620,7 +620,7 @@ internal fun CompoundFormError.messageRes(): Int = when (this) {
 
 /** "Jul 29, 2027" — a batch expiry is years out, so unlike the list row (§4.2.3) it carries its year. */
 @Composable
-private fun LocalDate.formatLong(): String {
+internal fun LocalDate.formatLong(): String {
     val languageTag = Locale.current.toLanguageTag()
     val formatter = remember(languageTag) {
         val locale = JavaLocale.forLanguageTag(languageTag)

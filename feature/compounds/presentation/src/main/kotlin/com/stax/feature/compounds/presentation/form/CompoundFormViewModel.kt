@@ -6,6 +6,7 @@ import androidx.lifecycle.serialization.saved
 import androidx.lifecycle.viewModelScope
 import com.stax.core.domain.CompoundSupply
 import com.stax.core.domain.Concentration
+import com.stax.core.domain.ContainerType
 import com.stax.core.domain.DataError
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.EmptyResult
@@ -20,7 +21,13 @@ import com.stax.core.domain.validateCompoundSupplyAmountPerContainer
 import com.stax.core.domain.validateCompoundSupplyConcentration
 import com.stax.core.domain.validateCompoundSupplyName
 import com.stax.core.domain.validateCompoundSupplyNumberOfContainers
+import com.stax.core.presentation.UiText
 import com.stax.core.presentation.toUiText
+import com.stax.feature.compounds.presentation.R
+import com.stax.feature.compounds.presentation.container.OpenedContainerDateField
+import com.stax.feature.compounds.presentation.container.OpenedContainerSaveError
+import com.stax.feature.compounds.presentation.container.OpenedContainerSheetAction
+import com.stax.feature.compounds.presentation.container.OpenedContainerSheetState
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.channels.Channel
@@ -30,8 +37,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -74,9 +85,10 @@ class CompoundFormViewModel(
     private var baseline = CompoundFormDraft()
 
     /**
-     * The compound's opened container, kept in domain form because Save needs it twice: to take one
-     * off the total-owned count (§4.4.4) and to pass through untouched. Editing it is the bottom
-     * sheet's job (§4.5), not this form's.
+     * The compound's opened container, kept in domain form because it is read from three sides: Save
+     * takes one off the total-owned count (§4.4.4) and passes it through, and the §4.5 sheet both
+     * opens on it and replaces it. During the New Compound flow this is the staged container — the
+     * one with nowhere to be written yet (§4.5.5).
      */
     private var openedContainer: OpenedContainer? = null
 
@@ -111,6 +123,10 @@ class CompoundFormViewModel(
             CompoundFormAction.OnSaveClick -> save()
 
             is CompoundFormAction.OnContainerShrinkDecision -> onContainerShrinkDecision(action.decision)
+
+            is CompoundFormAction.OpenedContainerSheet -> onSheetAction(action.action)
+
+            is CompoundFormAction.OnNaturalDepletionDecision -> onNaturalDepletionDecision(action.openNew)
 
             // §4.4.5: leaving a form the user has changed confirms first; an untouched one just closes.
             CompoundFormAction.OnCancelClick -> if (_state.value.isDirty) {
@@ -147,10 +163,9 @@ class CompoundFormViewModel(
                 updateDraft { it.copy(batchExpiryDate = action.date) }
             }
 
-            // The section and its CTA are §4.4.3's; the sheet the CTA opens is §4.5's, which lands
-            // with M7-06. Until then this records the intent and the screen renders nothing for it.
-            CompoundFormAction.Overlay.OnOpenedContainerClick ->
-                _state.update { it.copy(isOpenedContainerSheetOpen = true) }
+            // The section and its CTA are §4.4.3's; what the CTA opens is §4.5's sheet, seeded from
+            // the container if there is one and from the form's own fields if there is not.
+            CompoundFormAction.Overlay.OnOpenedContainerClick -> _state.update { it.copy(openedSheet = sheetState()) }
 
             CompoundFormAction.Overlay.OnDiscardDismiss -> _state.update { it.copy(isDiscardDialogOpen = false) }
         }
@@ -219,7 +234,7 @@ class CompoundFormViewModel(
                 it.copy(
                     draft = savedDraft ?: baseline,
                     editedCompoundName = compound.name,
-                    opened = compound.currentOpened?.toUi(compound),
+                    opened = compound.currentOpened?.toUi(compound.amountPerContainer, compound.containerType),
                     isLoading = false,
                     isDirty = (savedDraft ?: baseline).differsFrom(baseline),
                 )
@@ -344,6 +359,310 @@ class CompoundFormViewModel(
     }
 
     // -----------------------------------------------------------------------
+    // Opened container sheet (§4.5)
+    // -----------------------------------------------------------------------
+
+    /**
+     * The sheet as §4.5.3 opens it: the stored container's own values in the Edit variant, and the
+     * form's current fields as defaults in Create Already Opened — today, a full container, and the
+     * expiry `expiryAfterOpeningDays` implies.
+     *
+     * The unit is the container's own rather than the form's whenever there is a container: the form
+     * may hold an unsaved unit change, and reading `3.2 mg` back as `3.2 mcg` would be a
+     * thousandfold error dressed up as a default.
+     */
+    private fun sheetState(): OpenedContainerSheetState {
+        val draft = _state.value.draft
+        val opened = openedContainer
+        val today = today()
+        val openedDate = opened?.openedAt?.toLocalDateTime(timeZone)?.date ?: today
+        val expiry = opened?.userDefinedExpiryDate
+            ?: opened?.predictedExpiryDate
+            ?: draft.expiryAfterOpeningDaysOrNull()?.let { openedDate.plus(it, DateTimeUnit.DAY) }
+        return OpenedContainerSheetState(
+            isEdit = opened != null,
+            containerType = draft.containerType,
+            compoundName = draft.name.trim(),
+            containerAmount = draft.amountPerContainer.trim(),
+            unit = opened?.remainingAmount?.unit ?: draft.primaryUnit,
+            openedDate = openedDate,
+            openedDaysAgo = openedDate.daysUntil(today),
+            remaining = opened?.remainingAmount?.value?.toPlainString() ?: draft.amountPerContainer,
+            expiryDate = expiry,
+            isExpiryAuto = opened?.userDefinedExpiryDate == null,
+            expiryDaysAfterOpening = expiry?.let { openedDate.daysUntil(it) },
+        )
+    }
+
+    private fun onSheetAction(action: OpenedContainerSheetAction) {
+        val sheet = _state.value.openedSheet ?: return
+        when (action) {
+            OpenedContainerSheetAction.OnDismiss -> _state.update { it.copy(openedSheet = null) }
+
+            is OpenedContainerSheetAction.OnDateFieldClick ->
+                updateSheet { it.copy(openDatePicker = action.field) }
+
+            OpenedContainerSheetAction.OnDatePickerDismiss -> updateSheet { it.copy(openDatePicker = null) }
+
+            is OpenedContainerSheetAction.OnDateSelected -> onSheetDateSelected(sheet, action.date)
+
+            is OpenedContainerSheetAction.OnRemainingChange ->
+                updateSheet { it.copy(remaining = action.value, hasRemainingError = false, saveError = null) }
+
+            OpenedContainerSheetAction.OnDeleteClick -> deleteOpenedContainer()
+
+            OpenedContainerSheetAction.OnSaveClick -> saveOpenedContainer(sheet)
+        }
+    }
+
+    /**
+     * §4.5.3: moving the opened date drags an auto expiry along with it, since that expiry *is*
+     * "this many days after opening"; setting an expiry by hand ends the link both ways.
+     */
+    private fun onSheetDateSelected(sheet: OpenedContainerSheetState, date: LocalDate?) {
+        val field = sheet.openDatePicker
+        updateSheet { current ->
+            when {
+                date == null -> current.copy(openDatePicker = null)
+
+                field == OpenedContainerDateField.OPENED -> {
+                    val expiry = if (current.isExpiryAuto) {
+                        _state.value.draft.expiryAfterOpeningDaysOrNull()?.let { date.plus(it, DateTimeUnit.DAY) }
+                    } else {
+                        current.expiryDate
+                    }
+                    current.copy(
+                        openDatePicker = null,
+                        openedDate = date,
+                        openedDaysAgo = date.daysUntil(today()),
+                        expiryDate = expiry,
+                        expiryDaysAfterOpening = expiry?.let { date.daysUntil(it) },
+                    )
+                }
+
+                else -> current.copy(
+                    openDatePicker = null,
+                    expiryDate = date,
+                    isExpiryAuto = false,
+                    expiryDaysAfterOpening = current.openedDate.daysUntil(date),
+                )
+            }
+        }
+    }
+
+    /**
+     * §4.5.5. Which of the three writes it describes this is depends on what the form is: during New
+     * Compound there is no compound to write to, so the fields are staged until "Save compound";
+     * for a compound that already exists the sheet writes on its own, and the form's total-owned
+     * count is re-read from what was written rather than guessed at.
+     *
+     * An empty container is not rejected — it is §4.5.5's natural depletion, which opens the
+     * container and closes it again in one go, leaving the stock one container shorter.
+     */
+    private fun saveOpenedContainer(sheet: OpenedContainerSheetState) {
+        val remaining = sheet.remaining.toDecimalOrNull()
+        if (remaining == null || remaining < ZERO) {
+            updateSheet { it.copy(hasRemainingError = true) }
+            return
+        }
+        val expiryDays = _state.value.draft.expiryAfterOpeningDaysOrNull()
+        val container = OpenedContainer(
+            // An unchanged date keeps the instant it was opened at; only a date the user actually
+            // moved is flattened to midnight, since a date field cannot say anything finer.
+            openedAt = openedContainer?.openedAt?.takeIf { it.toLocalDateTime(timeZone).date == sheet.openedDate }
+                ?: sheet.openedDate.atStartOfDayIn(timeZone),
+            remainingAmount = Quantity(remaining, sheet.unit),
+            expiryAfterOpeningDays = expiryDays,
+            userDefinedExpiryDate = sheet.expiryDate.takeIf { !sheet.isExpiryAuto },
+            predictedExpiryDate = expiryDays?.let { sheet.openedDate.plus(it, DateTimeUnit.DAY) },
+        )
+        val isDepleted = remaining <= ZERO
+        if (args.compoundId == null) {
+            stageOpenedContainer(container, isDepleted)
+        } else {
+            persistOpenedContainer(args.compoundId, container, isDepleted)
+        }
+    }
+
+    /** §4.5.5 "Create during New Compound flow": nothing is written until the form itself saves. */
+    private fun stageOpenedContainer(container: OpenedContainer, isDepleted: Boolean) {
+        openedContainer = if (isDepleted) null else container
+        _state.update { current ->
+            // A container that was opened and emptied is one the user no longer has, so the
+            // total-owned count loses it — the same arithmetic the persisted path reads back.
+            val draft = if (isDepleted) current.draft.withOneFewerContainer() else current.draft
+            savedDraft = draft
+            current.copy(
+                draft = draft,
+                openedSheet = null,
+                opened = openedContainer?.toUi(draft.amountPerContainerOrNull(), draft.containerType),
+                // Staging a container is an unsaved change even when no field of the form moved.
+                isDirty = true,
+            )
+        }
+        refreshForecast()
+        if (isDepleted) promptForNewContainer()
+    }
+
+    /** §4.5.5 for a compound that already exists: the sheet's Save is a write of its own. */
+    private fun persistOpenedContainer(compoundId: Long, container: OpenedContainer, isDepleted: Boolean) {
+        val existing = openedContainer
+        runSheetWrite(compoundId, promptOnEmpty = isDepleted) {
+            val opened = if (existing == null) {
+                compoundRepository.addOpenedContainer(
+                    compoundSupplyId = compoundId,
+                    openedAt = container.openedAt,
+                    remainingAmount = container.remainingAmount,
+                    expiryAfterOpeningDays = container.expiryAfterOpeningDays,
+                    userDefinedExpiryDate = container.userDefinedExpiryDate,
+                )
+            } else {
+                compoundRepository.editOpenedContainer(
+                    compoundSupplyId = compoundId,
+                    openedAt = container.openedAt,
+                    remainingAmount = container.remainingAmount,
+                    expiryAfterOpeningDays = container.expiryAfterOpeningDays,
+                    userDefinedExpiryDate = container.userDefinedExpiryDate,
+                )
+            }
+            // Natural depletion (§4.5.5): the container is removed without `numberOfContainers` being
+            // decremented a second time, which is exactly what closing it does.
+            if (opened is Result.Success && isDepleted) {
+                compoundRepository.closeContainer(compoundId, null)
+            } else {
+                opened
+            }
+        }
+    }
+
+    /** §4.5.4: the lost / discarded path. Staged or stored, the container simply stops existing. */
+    private fun deleteOpenedContainer() {
+        val compoundId = args.compoundId
+        if (compoundId == null || openedContainer == null) {
+            openedContainer = null
+            _state.update { current ->
+                val draft = current.draft.withOneFewerContainer()
+                savedDraft = draft
+                current.copy(draft = draft, openedSheet = null, opened = null, isDirty = true)
+            }
+            refreshForecast()
+            return
+        }
+        // No "open a new one?" here: discarding a container is a deliberate act, and §4.5.4 answers
+        // it with a snackbar stating what happened, not with a question about the next one.
+        runSheetWrite(compoundId, message = CompoundFormEvent.ShowMessage(removedMessage())) {
+            compoundRepository.closeContainer(compoundId, null)
+        }
+    }
+
+    /** §4.5.5: with unopened stock left, an emptied container raises the offer to open the next one. */
+    private fun promptForNewContainer() {
+        val unopened = _state.value.draft.totalContainers.trim().toIntOrNull() ?: 0
+        if (unopened > 0) _state.update { it.copy(isDepletionPromptOpen = true) }
+    }
+
+    /**
+     * §4.5.5: "Open new" runs the container-opening operation of §5.3 — a fresh full container, dated
+     * now. "Leave closed" is the whole of the other answer, so it only closes the prompt.
+     */
+    private fun onNaturalDepletionDecision(openNew: Boolean) {
+        _state.update { it.copy(isDepletionPromptOpen = false) }
+        if (!openNew) return
+
+        val compoundId = args.compoundId
+        if (compoundId == null) {
+            val draft = _state.value.draft
+            openedContainer = OpenedContainer(
+                openedAt = now(),
+                remainingAmount = draft.amountPerContainerOrNull() ?: return,
+                expiryAfterOpeningDays = draft.expiryAfterOpeningDaysOrNull(),
+                userDefinedExpiryDate = null,
+                predictedExpiryDate = draft.expiryAfterOpeningDaysOrNull()
+                    ?.let { today().plus(it, DateTimeUnit.DAY) },
+            )
+            _state.update {
+                it.copy(opened = openedContainer?.toUi(draft.amountPerContainerOrNull(), draft.containerType))
+            }
+            refreshForecast()
+            return
+        }
+        runSheetWrite(compoundId) { compoundRepository.openContainer(compoundId) }
+    }
+
+    /**
+     * Runs one of §4.5.5's writes, then re-reads the compound rather than mirroring what was written.
+     *
+     * The reason is `numberOfContainers`: opening a container decrements it, discarding one leaves it
+     * alone, and the form's field is the *total owned* (§4.4.4). Deriving that total from the row the
+     * repository actually wrote keeps the two in step — and it is also the [baseline], because a
+     * write that has already happened is not an unsaved change to discard.
+     */
+    private fun runSheetWrite(
+        compoundId: Long,
+        promptOnEmpty: Boolean = false,
+        message: CompoundFormEvent? = null,
+        write: suspend () -> EmptyResult<DataError.Local>,
+    ) {
+        viewModelScope.launch {
+            updateSheet { it.copy(isSaving = true) }
+            when (val result = write()) {
+                is Result.Success -> {
+                    syncFromCompound(compoundId)
+                    message?.let { _events.send(it) }
+                    if (promptOnEmpty) promptForNewContainer()
+                }
+
+                // Reported in the sheet, not through the screen's snackbar: the sheet is a window of
+                // its own and the `SnackbarHost` draws behind it, so a failure said that way is said
+                // where the user cannot see it. Closing the sheet to make room would throw away what
+                // they typed, which is worse.
+                is Result.Error -> updateSheet {
+                    it.copy(isSaving = false, saveError = result.error.toSaveError())
+                }
+            }
+        }
+    }
+
+    /** Re-reads the compound after a §4.5.5 write and re-derives everything the form shows from it. */
+    private suspend fun syncFromCompound(compoundId: Long) {
+        val compound = compoundRepository.observeById(compoundId).first() ?: return
+        openedContainer = compound.currentOpened
+        val total = (compound.numberOfContainers + if (compound.currentOpened != null) 1 else 0).toString()
+        baseline = baseline.copy(totalContainers = total)
+        _state.update { current ->
+            val draft = current.draft.copy(totalContainers = total)
+            savedDraft = draft
+            current.copy(
+                draft = draft,
+                openedSheet = null,
+                opened = compound.currentOpened?.toUi(compound.amountPerContainer, compound.containerType),
+                isDirty = draft.differsFrom(baseline),
+            )
+        }
+        refreshForecast()
+    }
+
+    private fun updateSheet(transform: (OpenedContainerSheetState) -> OpenedContainerSheetState) {
+        _state.update { it.copy(openedSheet = it.openedSheet?.let(transform)) }
+    }
+
+    /**
+     * §5.3: the one refusal the sheet can explain in its own terms is "there is nothing left to
+     * open" — every other failure is the write itself going wrong, which nothing the user types will
+     * fix.
+     */
+    private fun DataError.Local.toSaveError(): OpenedContainerSaveError =
+        if (this == DataError.Local.CONSTRAINT_VIOLATION) {
+            OpenedContainerSaveError.NO_UNOPENED_STOCK
+        } else {
+            OpenedContainerSaveError.WRITE_FAILED
+        }
+
+    private fun today(): LocalDate = now().toLocalDateTime(timeZone).date
+
+    private fun removedMessage() = UiText.StringResource(R.string.container_sheet_removed)
+
+    // -----------------------------------------------------------------------
     // Validation (§4.4.4)
     // -----------------------------------------------------------------------
 
@@ -455,15 +774,24 @@ class CompoundFormViewModel(
         notes = notes.orEmpty(),
     )
 
-    private fun OpenedContainer.toUi(compound: CompoundSupply) = OpenedContainerUi(
-        containerType = compound.containerType,
-        remaining = remainingAmount.value.toPlainString(),
-        capacity = compound.amountPerContainer.value.toPlainString(),
-        unit = compound.amountPerContainer.unit.name.lowercase(),
-        fillFraction = remainingAmount.fractionOf(compound.amountPerContainer),
-        openedDaysAgo = openedAt.toLocalDateTime(timeZone).date
-            .daysUntil(now().toLocalDateTime(timeZone).date),
-    )
+    /**
+     * The §4.4.3 summary card for a container.
+     *
+     * [capacity] is passed rather than read off a compound because a container staged during the New
+     * Compound flow (§4.5.5) has no stored compound to read it from — the form's own
+     * `amountPerContainer` is all there is, and it may still be half-typed.
+     */
+    private fun OpenedContainer.toUi(capacity: Quantity?, containerType: ContainerType): OpenedContainerUi {
+        val size = capacity ?: remainingAmount
+        return OpenedContainerUi(
+            containerType = containerType,
+            remaining = remainingAmount.value.toPlainString(),
+            capacity = size.value.toPlainString(),
+            unit = size.unit.name.lowercase(),
+            fillFraction = remainingAmount.fractionOf(size),
+            openedDaysAgo = openedAt.toLocalDateTime(timeZone).date.daysUntil(today()),
+        )
+    }
 
     /**
      * The live stock preview of §6.4.2's right column. Null while the numbers it needs are missing or

@@ -169,6 +169,15 @@ Compounds feature.
   and hands the `LazyPagingItems` to `CompoundDetailScreen` as a second parameter. The chip therefore
   **re-runs the query** instead of filtering loaded rows — with paging there are no loaded rows to
   filter — and §4.3.6's badge comes from its own `COUNT`, which is why it still does not move.
+- **Measured on glass with 1000 history rows** (M7-08, release build, Fold emulator, `dumpsys
+  gfxinfo`): flinging the history is `p50 16ms / p90 17ms`, 7% janky at Compact and 8.5% in the
+  two-column right-hand list — 60fps, and unchanged between a 200-row and a 1000-row history, which
+  is the whole point of paging. A max-speed fling all the way to row 1000, with page fetches in
+  flight, costs `p50 31ms`; the same emulator scrolls the *system Settings* list at `p50 32ms`, so
+  that is the machine, not us. The one slower gesture is the whole-page fling at Compact
+  (`p50 46ms`), which re-lays out the stat strip and the cards on every frame — §4.3.2–§4.3.5, not
+  the history, and identical at 200 rows. §2.3.2's SLO is not gateable before the Baseline Profile
+  pass anyway.
 - **A stand-in `PagingData` needs its load states spelled out.** `PagingData.from(list)` leaves the
   differ's states alone, so it sits on its initial `Loading` forever: §4.3.8's empty state never
   appears and `asSnapshot()` waits for a refresh that never finishes. Previews and both test doubles

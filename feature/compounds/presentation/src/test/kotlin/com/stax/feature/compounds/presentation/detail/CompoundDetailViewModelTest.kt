@@ -1,5 +1,9 @@
 package com.stax.feature.compounds.presentation.detail
 
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
+import androidx.paging.PagingData
+import androidx.paging.testing.asSnapshot
 import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.containsExactly
@@ -189,21 +193,20 @@ class CompoundDetailViewModelTest {
     // --- §4.3.6 – §4.3.8 History -------------------------------------------
 
     @Test
-    fun `history arrives unfiltered and the badge counts Taken plus Partial all-time`() = runTest {
+    fun `history pages in unfiltered and the badge counts Taken plus Partial all-time`() = runTest {
         events.history.value = listOf(
             historyEntry(id = 1, status = AdministrationEventStatus.TAKEN),
             historyEntry(id = 2, status = AdministrationEventStatus.PARTIAL),
             historyEntry(id = 3, status = AdministrationEventStatus.SKIPPED),
         )
+        val viewModel = viewModel()
 
-        val state = viewModel().state.value
-
-        assertThat(state.history.map { it.eventId }).containsExactly(1L, 2L, 3L)
-        assertThat(state.loggedDoseCount).isEqualTo(2)
+        assertThat(viewModel.history.asSnapshot().map { it.eventId }).containsExactly(1L, 2L, 3L)
+        assertThat(viewModel.state.value.loggedDoseCount).isEqualTo(2)
     }
 
     @Test
-    fun `a status chip narrows the list without moving the badge`() = runTest {
+    fun `a status chip re-queries the pages without moving the badge`() = runTest {
         events.history.value = listOf(
             historyEntry(id = 1, status = AdministrationEventStatus.TAKEN),
             historyEntry(id = 2, status = AdministrationEventStatus.PARTIAL),
@@ -213,7 +216,8 @@ class CompoundDetailViewModelTest {
 
         viewModel.onAction(CompoundDetailAction.OnHistoryFilterClick(HistoryStatusFilter.SKIPPED))
 
-        assertThat(viewModel.state.value.history.map { it.eventId }).containsExactly(3L)
+        assertThat(viewModel.state.value.historyFilter).isEqualTo(HistoryStatusFilter.SKIPPED)
+        assertThat(viewModel.history.asSnapshot().map { it.eventId }).containsExactly(3L)
         assertThat(viewModel.state.value.loggedDoseCount).isEqualTo(2)
     }
 
@@ -221,7 +225,7 @@ class CompoundDetailViewModelTest {
     fun `a history row carries its dose, volume and site pre-rendered`() = runTest {
         events.history.value = listOf(historyEntry(id = 1, status = AdministrationEventStatus.TAKEN))
 
-        val row = viewModel().state.value.history.single()
+        val row = viewModel().history.asSnapshot().single()
 
         assertThat(row.dose).isEqualTo("0.25 mg")
         assertThat(row.volume).isEqualTo("0.1 ml")
@@ -525,8 +529,25 @@ class CompoundDetailViewModelTest {
     private class FakeAdministrationEventRepository : AdministrationEventRepository {
         val history = MutableStateFlow<List<CompoundHistoryEntry>>(emptyList())
 
-        override fun observeForCompound(compoundSupplyId: Long): Flow<List<CompoundHistoryEntry>> =
-            history.map { entries -> entries }
+        /**
+         * Stands in for the DAO's `WHERE status = :status`, so the chip is exercised the same way.
+         *
+         * The load states are spelled out because a bare `PagingData.from` leaves them alone: the
+         * differ would stay on its initial `Loading` and `asSnapshot` would wait for it forever.
+         */
+        override fun pagedHistoryForCompound(
+            compoundSupplyId: Long,
+            status: AdministrationEventStatus?,
+        ): Flow<PagingData<CompoundHistoryEntry>> = history.map { entries ->
+            val loaded = LoadState.NotLoading(endOfPaginationReached = true)
+            PagingData.from(
+                data = entries.filter { status == null || it.status == status },
+                sourceLoadStates = LoadStates(refresh = loaded, prepend = loaded, append = loaded),
+            )
+        }
+
+        override fun observeLoggedDoseCount(compoundSupplyId: Long): Flow<Int> =
+            history.map { entries -> entries.count { it.status != AdministrationEventStatus.SKIPPED } }
 
         override suspend fun log(
             event: AdministrationEvent,

@@ -33,13 +33,18 @@ Shared.
 - **Stax divergence**: no remote sources / DTOs. We call all accessors "Repository" even though they
   are single-source by the skill's strict definition (most aggregate ≥2 tables). See §10.2.
 - Mutating ops return `Result<_, DataError.Local>` / `EmptyResult`; never throw on expected failures.
-- **`AdministrationEventRepository.observeForCompound`** is §4.3.8's dose history. It is driven from
-  `dose_component`, not from `administration_event`: the compound is named by the component, so an
-  event logging two compounds at once (§4.10.3) belongs in both histories and shows only its own
+- **`AdministrationEventRepository.pagedHistoryForCompound`** is §4.3.8's dose history. It is driven
+  from `dose_component`, not from `administration_event`: the compound is named by the component, so
+  an event logging two compounds at once (§4.10.3) belongs in both histories and shows only its own
   dose in each. The volume is derived in the mapper from the concentration snapshotted at log time
   (§3.5), and only when that concentration's units divide into the dose — `Quantity.div` throws on a
   cross-family divisor and on count units, both of which are reachable data, and a history row is
   not the place to raise them.
+- **The `Pager` is built here, never in a ViewModel** (M7-08): the `PagingSource` behind it is a Room
+  type and `:feature:*` may not see one, so the repository hands out a `Flow<PagingData<…>>` and the
+  feature only ever knows the domain read model. §4.3.7's status filter is an argument to that method
+  and lands in the SQL; §4.3.6's badge is `observeLoggedDoseCount`, a separate `COUNT` — which is
+  also why the badge does not move when the chip does.
 - Each repository method needs a Robolectric DAO test (one happy + one failure path).
 - **`CompoundRepository.update(compound, capOpenedContainer)`** is §4.4.4's Edit case: the flag clamps
   the opened container to the compound's new `amountPerContainer` and books the difference as a

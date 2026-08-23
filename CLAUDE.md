@@ -37,7 +37,7 @@ gap, update the spec in the same change.
 | Navigation | **Navigation 3** (`NavDisplay` + `entryProvider` + `NavBackStack`), `navigation3 1.1.2` |
 | Adaptive | `NavigationSuiteScaffold` chrome + Nav3 **Scene strategies** (`ListDetailSceneStrategy`, `SupportingPaneSceneStrategy`) from `adaptive-navigation3` — **never** `*PaneScaffold` |
 | Architecture | **MVI** per screen, **Koin** DI (`4.2.1`) |
-| Data | **Room** (`2.8.4`, WAL + FK on), DataStore (theme cache), kotlinx-datetime (`0.8.0`) |
+| Data | **Room** (`2.8.4`, WAL + FK on), **Paging 3** (`3.5.1`, unbounded lists only), DataStore (theme cache), kotlinx-datetime (`0.8.0`) |
 | Background | WorkManager + AlarmManager (exact reminders). No foreground services. |
 | Widget | Glance (`1.1.1`) |
 | Testing | JUnit5 (`6.1.0`), AssertK, Turbine, Robolectric, Compose UI test, Macrobenchmark |

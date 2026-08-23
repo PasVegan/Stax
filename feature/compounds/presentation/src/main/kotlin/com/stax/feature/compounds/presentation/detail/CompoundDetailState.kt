@@ -78,13 +78,16 @@ data class HistoryEntryUi(
 /**
  * UI state of Compound Detail (§4.3).
  *
- * [history] is the *result* list — what is left of the compound's doses after [historyFilter]; the
- * unfiltered source stays in the ViewModel, exactly as the Compounds list keeps its own (§4.2.2).
- * [loggedDoseCount] is the badge of §4.3.6 and counts Taken + Partial **all-time**, so it does not
- * move when the filter does.
+ * The history rows themselves are **not** here (§4.3.8, M7-08): they arrive as a paged
+ * `LazyPagingItems` stream alongside this state, which holds only [historyFilter] — the chip that
+ * decides which query produces them. [loggedDoseCount] is the badge of §4.3.6 and counts Taken +
+ * Partial **all-time**, so it does not move when the filter does.
  *
  * [isNotesExpanded], [historyFilter] and [openedSheet] are state rather than `remember`s: whether the
  * notes are unfolded, which chip is picked and whether the §4.5 sheet is up are all app state (§2.3.1).
+ *
+ * There is no `isLoading`: the only thing that waited on it was §4.3.8's empty state, and the paged
+ * history answers "has the first load finished" itself, through its own refresh `LoadState`.
  */
 data class CompoundDetailState(
     val name: String = "",
@@ -96,8 +99,6 @@ data class CompoundDetailState(
     val isNotesExpanded: Boolean = false,
     val loggedDoseCount: Int = 0,
     val historyFilter: HistoryStatusFilter = HistoryStatusFilter.ALL,
-    val history: ImmutableList<HistoryEntryUi> = persistentListOf(),
     val openedSheet: OpenedContainerSheetState? = null,
     val isDepletionPromptOpen: Boolean = false,
-    val isLoading: Boolean = true,
 )

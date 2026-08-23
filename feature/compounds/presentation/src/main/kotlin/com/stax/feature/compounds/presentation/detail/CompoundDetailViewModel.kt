@@ -2,6 +2,9 @@ package com.stax.feature.compounds.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import com.stax.core.domain.AdministrationEventStatus
 import com.stax.core.domain.CompoundDosesLeft
 import com.stax.core.domain.CompoundHistoryEntry
@@ -39,6 +42,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
@@ -67,13 +71,14 @@ data class CompoundDetailArgs(val compoundId: Long)
  * Four sources make one screen and are combined once: the compound itself, the inventory aggregation
  * behind the stat strip (§4.3.2 — `dosesLeft` and `daysLeft` are protocol-weighted, which only
  * [InventoryRepository] can work out), the active protocols with the next dose generated for each
- * (§4.3.4), and the dose history (§4.3.8). Everything is *observed*, unlike the form, which reads its
- * compound once: nothing here is being typed into, so a row that changes underneath should show
+ * (§4.3.4), and §4.3.6's all-time dose count. Everything is *observed*, unlike the form, which reads
+ * its compound once: nothing here is being typed into, so a row that changes underneath should show
  * through immediately.
  *
- * [allHistory] is the whole history; [CompoundDetailState.history] is what survives §4.3.7's chip —
- * the same arrangement the Compounds list uses for its own filters, so the screen only ever sees what
- * it renders.
+ * [history] is **not** part of that state (§4.3.8, M7-08): a `PagingData` stream is neither a list nor
+ * a value to hold, so it is its own flow, driven by §4.3.7's chip and cached against configuration
+ * change. The chip therefore re-queries rather than filtering rows already in memory — which is the
+ * point of paging, since the rows it would filter were never all loaded.
  *
  * [now] and [timeZone] are parameters so "opened 12 days ago" is testable without freezing the system
  * clock; production resolves the defaults.
@@ -96,8 +101,19 @@ class CompoundDetailViewModel(
     private val _events = Channel<CompoundDetailEvent>()
     val events = _events.receiveAsFlow()
 
-    /** The compound's whole history. The screen sees [CompoundDetailState.history] — what the chip left. */
-    private var allHistory: List<HistoryEntryUi> = emptyList()
+    /**
+     * §4.3.8's history, paged (M7-08). Re-queried whenever §4.3.7's chip moves — the filter is a SQL
+     * predicate, not a pass over loaded rows — and `cachedIn` so a rotation or a pane resize does not
+     * throw away the pages already read.
+     */
+    val history: Flow<PagingData<HistoryEntryUi>> = _state
+        .map { it.historyFilter }
+        .distinctUntilChanged()
+        .flatMapLatest { filter ->
+            administrationEventRepository.pagedHistoryForCompound(args.compoundId, filter.status())
+        }
+        .map { page -> page.map { it.toUi() } }
+        .cachedIn(viewModelScope)
 
     /**
      * The compound as last observed. Kept whole because the §4.5 sheet needs fields §4.3 never
@@ -110,7 +126,7 @@ class CompoundDetailViewModel(
             compoundRepository.observeById(args.compoundId),
             inventoryRepository.observeDosesLeftPerCompound(),
             activeProtocols(protocolRepository, scheduledDoseRepository),
-            administrationEventRepository.observeForCompound(args.compoundId),
+            administrationEventRepository.observeLoggedDoseCount(args.compoundId),
             ::Snapshot,
         )
             .onEach(::render)
@@ -130,9 +146,8 @@ class CompoundDetailViewModel(
             CompoundDetailAction.OnToggleNotes ->
                 _state.update { it.copy(isNotesExpanded = !it.isNotesExpanded) }
 
-            is CompoundDetailAction.OnHistoryFilterClick -> _state.update {
-                it.copy(historyFilter = action.filter, history = allHistory.filteredBy(action.filter))
-            }
+            is CompoundDetailAction.OnHistoryFilterClick ->
+                _state.update { it.copy(historyFilter = action.filter) }
 
             is CompoundDetailAction.OnHistoryEntryClick ->
                 send(CompoundDetailEvent.NavigateToAdministrationEvent(action.eventId))
@@ -158,7 +173,7 @@ class CompoundDetailViewModel(
         val compound: CompoundSupply?,
         val dosesLeft: List<CompoundDosesLeft>,
         val protocols: List<ActiveProtocolUi>,
-        val history: List<CompoundHistoryEntry>,
+        val loggedDoseCount: Int,
     )
 
     private fun render(snapshot: Snapshot) {
@@ -170,10 +185,9 @@ class CompoundDetailViewModel(
             return
         }
         currentCompound = compound
-        allHistory = snapshot.history.map { it.toUi() }
         val supply = snapshot.dosesLeft.firstOrNull { it.compoundSupplyId == args.compoundId }
-        _state.update { current ->
-            current.copy(
+        _state.update {
+            it.copy(
                 name = compound.name,
                 category = compound.category,
                 stats = compound.statsWith(supply),
@@ -181,9 +195,7 @@ class CompoundDetailViewModel(
                 protocols = snapshot.protocols.toImmutableList(),
                 notes = compound.notes?.takeIf { it.isNotBlank() },
                 // §4.3.6: Taken + Partial, all-time — so it does not move when the chip does.
-                loggedDoseCount = allHistory.count { it.status != AdministrationEventStatus.SKIPPED },
-                history = allHistory.filteredBy(current.historyFilter),
-                isLoading = false,
+                loggedDoseCount = snapshot.loggedDoseCount,
             )
         }
     }
@@ -225,12 +237,6 @@ class CompoundDetailViewModel(
         volume = volume?.toString(),
         siteName = injectionSiteName,
     )
-
-    /** §4.3.7: All keeps everything; the other three are one status apiece. */
-    private fun List<HistoryEntryUi>.filteredBy(filter: HistoryStatusFilter) = filter.status()
-        ?.let { status -> filter { it.status == status } }
-        .let { it ?: this }
-        .toImmutableList()
 
     /**
      * §4.3.4's sub-rows, each with the next dose §3.3 generated for it.

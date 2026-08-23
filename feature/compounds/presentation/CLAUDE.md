@@ -34,7 +34,8 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   `CompoundDetailRoot` / `CompoundDetailScreen` over the sections of `CompoundDetailSections.kt`.
   UI models: `CompoundStatsUi` + `ExpiryStatUi` (§4.3.2), `ActiveProtocolUi` (§4.3.4),
   `HistoryEntryUi` + `HistoryStatusFilter` (§4.3.7–§4.3.8). It reuses `form/`'s `OpenedContainerUi`,
-  which §4.4.3's card already borrowed from §4.3.3.
+  which §4.4.3's card already borrowed from §4.3.3. `CompoundDetailViewModel.history` is a
+  `Flow<PagingData<HistoryEntryUi>>` **beside** the state, not in it (M7-08).
 - `container/` — the §4.5 opened-container sheets (M7-06): `OpenedContainerSheet` +
   `OpenedContainerSheetState` / `Action`, `OpenedContainerDateField`, `OpenedContainerSaveError`, and
   `NaturalDepletionDialog` (§4.5.5). Stateless and ViewModel-free — the screen that opens the sheet
@@ -54,8 +55,7 @@ Compounds feature.
 ## Notes
 - List+Detail uses the Nav3 **list-detail Scene** (`ListDetailSceneStrategy`) at Medium+ (§6.4.2),
   not `ListDetailPaneScaffold`.
-- The history list is lazy today and becomes a Paging 3 `PagingSource` at M7-08; validation variant
-  of the Create form per §4.4b.
+- Validation variant of the Create form per §4.4b.
 - **List filtering** (§4.2.2) happens in `CompoundsListViewModel`, not in a DAO query: the Low stock
   chip needs `dosesLeft`, which only `InventoryRepository` can aggregate, so the VM combines it with
   `CompoundRepository.observeAll()` and keeps the unfiltered rows private. Status (All / Low stock /
@@ -161,8 +161,29 @@ Compounds feature.
   list inside a scrolling parent has no height to measure against, and the point of §4.3.8's lazy
   loading is precisely that the rows are not all composed at once. At Expanded the right-hand column
   *is* that `LazyColumn`, so `historySection` is a `LazyListScope` extension both layouts place into
-  whichever list they own. The `PagingSource` behind it is M7-08; the section is shaped so only the
-  source changes.
+  whichever list they own.
+- **§4.3.8's history is paged and therefore travels beside the state, not inside it** (M7-08).
+  `PagingData` is a stream, not a value: `CompoundDetailState` keeps only `historyFilter`, the
+  ViewModel exposes `history: Flow<PagingData<HistoryEntryUi>>` (`flatMapLatest` on that filter,
+  `cachedIn(viewModelScope)`), and `CompoundDetailRoot` collects it with `collectAsLazyPagingItems()`
+  and hands the `LazyPagingItems` to `CompoundDetailScreen` as a second parameter. The chip therefore
+  **re-runs the query** instead of filtering loaded rows — with paging there are no loaded rows to
+  filter — and §4.3.6's badge comes from its own `COUNT`, which is why it still does not move.
+- **Measured on glass with 1000 history rows** (M7-08, release build, Fold emulator, `dumpsys
+  gfxinfo`): flinging the history is `p50 16ms / p90 17ms`, 7% janky at Compact and 8.5% in the
+  two-column right-hand list — 60fps, and unchanged between a 200-row and a 1000-row history, which
+  is the whole point of paging. A max-speed fling all the way to row 1000, with page fetches in
+  flight, costs `p50 31ms`; the same emulator scrolls the *system Settings* list at `p50 32ms`, so
+  that is the machine, not us. The one slower gesture is the whole-page fling at Compact
+  (`p50 46ms`), which re-lays out the stat strip and the cards on every frame — §4.3.2–§4.3.5, not
+  the history, and identical at 200 rows. §2.3.2's SLO is not gateable before the Baseline Profile
+  pass anyway.
+- **A stand-in `PagingData` needs its load states spelled out.** `PagingData.from(list)` leaves the
+  differ's states alone, so it sits on its initial `Loading` forever: §4.3.8's empty state never
+  appears and `asSnapshot()` waits for a refresh that never finishes. Previews and both test doubles
+  pass `sourceLoadStates = LoadStates(NotLoading(true), …)`. The flow behind
+  `collectAsLazyPagingItems()` must also be `remember`ed — a fresh one per recomposition gives it a
+  fresh differ each time, which is the same symptom by another route. Both cost an afternoon once.
 - **§4.3.9's "bottom nav is hidden on this screen" holds only while the detail *is* the screen.**
   From Medium up it is one pane of the list-detail Scene beside the Compounds list, which is a
   top-level destination and keeps its rail; the dock then spans the detail pane alone, which is what

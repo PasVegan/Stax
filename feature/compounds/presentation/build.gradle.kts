@@ -12,4 +12,8 @@ dependencies {
     // The search overlay (§4.0.1) is a mode of the list screen, not a nav destination, so the back
     // gesture has to close it before NavDisplay pops the entry: BackHandler.
     implementation(libs.androidx.activity.compose)
+
+    // §4.3.8's history is paged: collectAsLazyPagingItems in the Root, LazyPagingItems in the list.
+    implementation(libs.androidx.paging.compose)
+    testImplementation(libs.androidx.paging.testing)
 }

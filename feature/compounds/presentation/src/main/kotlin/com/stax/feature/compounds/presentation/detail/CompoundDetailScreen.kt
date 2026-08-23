@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -36,6 +35,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
+import androidx.paging.PagingData
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
@@ -52,6 +57,7 @@ import com.stax.feature.compounds.presentation.container.OpenedContainerSheet
 import com.stax.feature.compounds.presentation.form.OpenedContainerUi
 import com.stax.feature.compounds.presentation.list.categoryLabel
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -81,6 +87,7 @@ fun CompoundDetailRoot(
     viewModel: CompoundDetailViewModel = koinViewModel { parametersOf(args) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val history = viewModel.history.collectAsLazyPagingItems()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -105,6 +112,7 @@ fun CompoundDetailRoot(
 
     CompoundDetailScreen(
         state = state,
+        history = history,
         onAction = viewModel::onAction,
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -121,11 +129,15 @@ fun CompoundDetailRoot(
  * is under `350dp` — narrower than a Compact phone. Two columns are worth having once the pane can
  * actually carry them ([TWO_COLUMN_MIN_WIDTH]), and below that the same content is one scroll, which
  * is the layout §6.4.2 gives Compact anyway.
+ *
+ * [history] arrives separately from [state] because it is paged (§4.3.8, M7-08): what the chip in the
+ * state selects is *which* query fills it, not which of its rows survive.
  */
 @Suppress("FunctionName")
 @Composable
 fun CompoundDetailScreen(
     state: CompoundDetailState,
+    history: LazyPagingItems<HistoryEntryUi>,
     onAction: (CompoundDetailAction) -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -141,9 +153,9 @@ fun CompoundDetailScreen(
             CompoundDetailTopBar(state = state, onAction = onAction)
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
                 if (maxWidth >= TWO_COLUMN_MIN_WIDTH) {
-                    TwoColumnContent(state = state, onAction = onAction)
+                    TwoColumnContent(state = state, history = history, onAction = onAction)
                 } else {
-                    SingleColumnContent(state = state, onAction = onAction)
+                    SingleColumnContent(state = state, history = history, onAction = onAction)
                 }
             }
             CompoundDetailDock(onAction = onAction)
@@ -203,7 +215,11 @@ private fun CompoundDetailTopBar(state: CompoundDetailState, onAction: (Compound
  */
 @Suppress("FunctionName")
 @Composable
-private fun SingleColumnContent(state: CompoundDetailState, onAction: (CompoundDetailAction) -> Unit) {
+private fun SingleColumnContent(
+    state: CompoundDetailState,
+    history: LazyPagingItems<HistoryEntryUi>,
+    onAction: (CompoundDetailAction) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(SCREEN_PADDING),
@@ -215,7 +231,7 @@ private fun SingleColumnContent(state: CompoundDetailState, onAction: (CompoundD
         item(key = "notes") {
             NotesCard(notes = state.notes, isExpanded = state.isNotesExpanded, onAction = onAction)
         }
-        historySection(state = state, onAction = onAction)
+        historySection(state = state, history = history, onAction = onAction)
     }
 }
 
@@ -226,7 +242,11 @@ private fun SingleColumnContent(state: CompoundDetailState, onAction: (CompoundD
  */
 @Suppress("FunctionName")
 @Composable
-private fun TwoColumnContent(state: CompoundDetailState, onAction: (CompoundDetailAction) -> Unit) {
+private fun TwoColumnContent(
+    state: CompoundDetailState,
+    history: LazyPagingItems<HistoryEntryUi>,
+    onAction: (CompoundDetailAction) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -254,19 +274,30 @@ private fun TwoColumnContent(state: CompoundDetailState, onAction: (CompoundDeta
                 contentPadding = PaddingValues(bottom = SCREEN_PADDING),
                 verticalArrangement = Arrangement.spacedBy(CARD_GAP),
             ) {
-                historySection(state = state, onAction = onAction)
+                historySection(state = state, history = history, onAction = onAction)
             }
         }
     }
 }
 
-/** §4.3.6–§4.3.8, as list items so both layouts can place them in whichever list they own. */
-private fun LazyListScope.historySection(state: CompoundDetailState, onAction: (CompoundDetailAction) -> Unit) {
+/**
+ * §4.3.6–§4.3.8, as list items so both layouts can place them in whichever list they own.
+ *
+ * The rows come off [history] one page at a time (M7-08), so only what is on screen is ever composed
+ * — which is what §2.3.2's scroll SLO asks of a history that has no upper bound. A row that has not
+ * been loaded yet is null; placeholders are off, so that only happens on the trailing edge and the
+ * row is simply not drawn.
+ */
+private fun LazyListScope.historySection(
+    state: CompoundDetailState,
+    history: LazyPagingItems<HistoryEntryUi>,
+    onAction: (CompoundDetailAction) -> Unit,
+) {
     item(key = "history-header") { HistoryHeader(loggedDoseCount = state.loggedDoseCount) }
     item(key = "history-filters") {
         HistoryFilterRow(selected = state.historyFilter, onAction = onAction)
     }
-    if (state.history.isEmpty() && !state.isLoading) {
+    if (history.itemCount == 0 && history.loadState.refresh is LoadState.NotLoading) {
         item(key = "history-empty") {
             Text(
                 text = stringResource(
@@ -281,8 +312,8 @@ private fun LazyListScope.historySection(state: CompoundDetailState, onAction: (
             )
         }
     }
-    items(items = state.history, key = { it.eventId }) { entry ->
-        HistoryRow(entry = entry, onAction = onAction)
+    items(count = history.itemCount, key = history.itemKey { it.eventId }) { index ->
+        history[index]?.let { entry -> HistoryRow(entry = entry, onAction = onAction) }
     }
 }
 
@@ -343,7 +374,11 @@ private val DOCK_ICON_GAP = 8.dp
 private fun CompoundDetailScreenPreview() {
     StaxTheme(dynamicColor = false) {
         Surface {
-            CompoundDetailScreen(state = previewState(), onAction = {})
+            CompoundDetailScreen(
+                state = previewState(),
+                history = previewHistory().asLazyPagingItems(),
+                onAction = {},
+            )
         }
     }
 }
@@ -361,8 +396,8 @@ private fun CompoundDetailScreenEmptyPreview() {
                     protocols = persistentListOf(),
                     notes = null,
                     loggedDoseCount = 0,
-                    history = persistentListOf(),
                 ),
+                history = emptyList<HistoryEntryUi>().asLazyPagingItems(),
                 onAction = {},
             )
         }
@@ -401,11 +436,23 @@ private fun previewState(): CompoundDetailState = CompoundDetailState(
     notes = "Pre-mixed with 2 mL BAC water. Reconstituted May 14 — keep refrigerated and use " +
         "within 28 days of opening.",
     loggedDoseCount = 24,
-    history = previewHistory(),
     isLoading = false,
 )
 
-private fun previewHistory() = persistentListOf(
+/**
+ * A fixed list as the paged stream the screen takes — for previews and nothing else.
+ *
+ * The flow is remembered so the differ survives recomposition, and the load states are spelled out
+ * because `PagingData.from(list)` alone leaves them on their initial `Loading` — which would keep
+ * §4.3.8's empty state from ever appearing.
+ */
+@Composable
+private fun List<HistoryEntryUi>.asLazyPagingItems(): LazyPagingItems<HistoryEntryUi> = remember(this) {
+    val loaded = LoadState.NotLoading(endOfPaginationReached = true)
+    flowOf(PagingData.from(this, LoadStates(refresh = loaded, prepend = loaded, append = loaded)))
+}.collectAsLazyPagingItems()
+
+private fun previewHistory() = listOf(
     HistoryEntryUi(
         eventId = 1,
         loggedAt = PREVIEW_NOW,

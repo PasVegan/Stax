@@ -1,6 +1,7 @@
 package com.stax.feature.compounds.presentation.detail
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -15,6 +16,10 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.height
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
+import androidx.paging.PagingData
+import androidx.paging.compose.collectAsLazyPagingItems
 import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.isEmpty
@@ -29,7 +34,7 @@ import com.stax.core.domain.ScheduleType
 import com.stax.feature.compounds.presentation.R
 import com.stax.feature.compounds.presentation.form.OpenedContainerUi
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import org.junit.Rule
@@ -207,7 +212,7 @@ class CompoundDetailScreenTest {
     @Test
     @Config(qualifiers = COMPACT)
     fun `an empty history says so`() {
-        setScreen(state(history = emptyList()))
+        setScreen(state(), history = emptyList())
 
         scrollTo(string(R.string.compound_detail_history_empty))
         composeRule.onNodeWithText(string(R.string.compound_detail_history_empty)).assertIsDisplayed()
@@ -216,7 +221,7 @@ class CompoundDetailScreenTest {
     @Test
     @Config(qualifiers = COMPACT)
     fun `an empty history says it differently when a chip is what emptied it`() {
-        setScreen(state(history = emptyList(), historyFilter = HistoryStatusFilter.PARTIAL))
+        setScreen(state(historyFilter = HistoryStatusFilter.PARTIAL), history = emptyList())
 
         scrollTo(string(R.string.compound_detail_history_empty_filtered))
         composeRule.onNodeWithText(string(R.string.compound_detail_history_empty_filtered)).assertIsDisplayed()
@@ -302,14 +307,34 @@ class CompoundDetailScreenTest {
             .performScrollToNode(hasText(text, substring = true))
     }
 
-    private fun setScreen(state: CompoundDetailState) {
+    private fun setScreen(state: CompoundDetailState, history: List<HistoryEntryUi> = HISTORY) {
         actions.clear()
         composeRule.setContent {
             StaxTheme(dynamicColor = false) {
-                CompoundDetailScreen(state = state, onAction = { actions += it })
+                CompoundDetailScreen(
+                    state = state,
+                    history = remember { flowOf(pagingData(history)) }.collectAsLazyPagingItems(),
+                    onAction = { actions += it },
+                )
             }
         }
     }
+
+    /**
+     * A fixed list as one loaded page.
+     *
+     * The load states are spelled out: `PagingData.from(list)` alone leaves them untouched, so the
+     * differ would stay on its initial `Loading` and §4.3.8's empty state — which asks whether the
+     * refresh has finished — would never show.
+     */
+    private fun pagingData(rows: List<HistoryEntryUi>): PagingData<HistoryEntryUi> = PagingData.from(
+        data = rows,
+        sourceLoadStates = LoadStates(
+            refresh = LoadState.NotLoading(endOfPaginationReached = true),
+            prepend = LoadState.NotLoading(endOfPaginationReached = true),
+            append = LoadState.NotLoading(endOfPaginationReached = true),
+        ),
+    )
 
     private fun string(resId: Int, vararg args: Any): String = composeRule.activity.getString(resId, *args)
 
@@ -325,7 +350,6 @@ class CompoundDetailScreenTest {
         opened: OpenedContainerUi? = OPENED,
         isNotesExpanded: Boolean = false,
         historyFilter: HistoryStatusFilter = HistoryStatusFilter.ALL,
-        history: List<HistoryEntryUi> = HISTORY,
     ) = CompoundDetailState(
         name = "Semaglutide",
         category = CompoundCategory.PEPTIDE,
@@ -336,7 +360,6 @@ class CompoundDetailScreenTest {
         isNotesExpanded = isNotesExpanded,
         loggedDoseCount = 24,
         historyFilter = historyFilter,
-        history = history.toPersistentList(),
         isLoading = false,
     )
 

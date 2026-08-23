@@ -18,7 +18,8 @@ impls in `:core:data` call these DAOs; nothing else touches Room.
 - Entities: `CompoundSupplyEntity`, `OpenedContainerEntity`, `ProtocolEntity`,
   `ProtocolDosageTimeEntity`, `ScheduledDoseEntity`, `AdministrationEventEntity`,
   `DoseComponentEntity`, `InjectionSiteEntity`, `InventoryTransactionEntity`, `SettingsEntity`.
-- DAOs: one per entity (`*Dao`) + relation POJOs `CompoundWithOpened`, `ProtocolWithDosageTimes`.
+- DAOs: one per entity (`*Dao`) + relation POJOs `CompoundWithOpened`, `ProtocolWithDosageTimes`,
+  and the flat projection `CompoundHistoryRow` (`observeHistoryForCompound`, §4.3.8).
 - `RoomConverters` (TypeConverters), `DatabaseSeedCallback` (first-launch seed), `migration/`.
 
 ## Applicable skills

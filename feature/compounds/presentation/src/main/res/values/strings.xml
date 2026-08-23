@@ -207,4 +207,86 @@
     <string name="compounds_search_empty_title">No matches</string>
     <string name="compounds_search_empty_supporting">Try a different name.</string>
 
+    <!-- Compound Detail (§4.3) -->
+    <string name="compound_detail_back">Back</string>
+    <string name="compound_detail_stat_doses_left">Doses left</string>
+    <string name="compound_detail_stat_days_left">Days left</string>
+    <string name="compound_detail_stat_batch_expiry">Batch expiry</string>
+    <string name="compound_detail_stat_container_expiry">Container expiry</string>
+    <!-- No active protocol uses this compound, so there is no dose size to divide the stock by -->
+    <string name="compound_detail_stat_unknown">—</string>
+    <!-- e.g. "63 d" -->
+    <string name="compound_detail_stat_days_value">%1$d d</string>
+
+    <string name="compound_detail_opened_edit">Edit</string>
+    <string name="compound_detail_opened_add">Add opened container</string>
+    <string name="compound_detail_opened_empty">Nothing open yet</string>
+
+    <!-- e.g. "Active protocols · 1" -->
+    <string name="compound_detail_protocols">Active protocols · %1$d</string>
+    <string name="compound_detail_protocols_empty">No active protocol uses this compound.</string>
+    <!-- e.g. "Next: Today 8 PM" -->
+    <string name="compound_detail_next_dose">Next: %1$s</string>
+    <string name="compound_detail_next_dose_none">No dose scheduled</string>
+
+    <string name="compound_detail_notes">Notes</string>
+    <string name="compound_detail_notes_empty">No notes for this compound.</string>
+    <string name="compound_detail_show_more">Show more</string>
+    <string name="compound_detail_show_less">Show less</string>
+
+    <string name="compound_detail_history">Dose history</string>
+    <plurals name="compound_detail_history_count">
+        <item quantity="one">%1$d dose</item>
+        <item quantity="other">%1$d doses</item>
+    </plurals>
+    <string name="compound_detail_history_empty">No doses logged yet.</string>
+    <string name="compound_detail_history_empty_filtered">No doses match this filter.</string>
+
+    <string name="compound_detail_filter_all">All</string>
+    <string name="compound_detail_filter_taken">Taken</string>
+    <string name="compound_detail_filter_partial">Partial</string>
+    <string name="compound_detail_filter_skipped">Skipped</string>
+
+    <string name="compound_detail_log_dose">Log dose</string>
+    <string name="compound_detail_adjust">Adjust</string>
+
+    <!-- Relative day labels for a protocol's next dose and a history row (§4.3.4, §4.3.8) -->
+    <string name="compound_detail_today">Today</string>
+    <string name="compound_detail_yesterday">Yesterday</string>
+    <string name="compound_detail_tomorrow">Tomorrow</string>
+    <!-- e.g. "Today · 8:00 PM" -->
+    <string name="compound_detail_day_and_time">%1$s · %2$s</string>
+    <!-- Joins the parts of a row's supporting line: "0.25 mg · 0.10 mL · Taken · Abdomen R" -->
+    <string name="compound_detail_meta_separator">" · "</string>
+
+    <!-- Schedule summaries (§4.3.4 details line, §3.2) -->
+    <string name="compound_detail_schedule_daily">Daily</string>
+    <plurals name="compound_detail_schedule_every_x_days">
+        <item quantity="one">Every day</item>
+        <item quantity="other">Every %1$d days</item>
+    </plurals>
+    <plurals name="compound_detail_schedule_times_per_day">
+        <item quantity="one">%1$d× a day</item>
+        <item quantity="other">%1$d× a day</item>
+    </plurals>
+    <plurals name="compound_detail_schedule_times_per_week">
+        <item quantity="one">%1$d× a week</item>
+        <item quantity="other">%1$d× a week</item>
+    </plurals>
+    <plurals name="compound_detail_schedule_times_per_month">
+        <item quantity="one">%1$d× a month</item>
+        <item quantity="other">%1$d× a month</item>
+    </plurals>
+
+    <!-- Route abbreviations used in the compact details line (§4.3.4) -->
+    <string name="compound_detail_route_sc">sc</string>
+    <string name="compound_detail_route_im">im</string>
+    <string name="compound_detail_route_oral">oral</string>
+    <string name="compound_detail_route_topical">topical</string>
+
+    <!-- Dose status (§4.3.8) -->
+    <string name="compound_detail_status_taken">Taken</string>
+    <string name="compound_detail_status_partial">Partial</string>
+    <string name="compound_detail_status_skipped">Skipped</string>
+
 </resources>

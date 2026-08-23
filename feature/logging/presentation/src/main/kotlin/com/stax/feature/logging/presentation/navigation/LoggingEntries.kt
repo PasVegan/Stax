@@ -29,6 +29,11 @@ fun EntryProviderScope<NavKey>.loggingEntries(onBack: () -> Unit) {
             Button(onClick = onBack) { Text(text = "Back") }
         }
     }
+    entry<AdministrationEventDetailRoute> { key ->
+        PlaceholderScreen(title = "Dose detail #${key.eventId}") {
+            Button(onClick = onBack) { Text(text = "Back") }
+        }
+    }
 }
 
 @Suppress("FunctionName")

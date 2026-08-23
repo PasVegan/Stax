@@ -2,6 +2,7 @@ package com.stax.core.data.repository
 
 import androidx.room.Room
 import assertk.assertThat
+import assertk.assertions.containsExactly
 import assertk.assertions.containsExactlyInAnyOrder
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
@@ -183,6 +184,40 @@ class AdministrationEventRepositoryTest {
         assertThat(result).isInstanceOf(Result.Error::class)
         assertThat((result as Result.Error).error).isEqualTo(DataError.Local.CONSTRAINT_VIOLATION)
         assertLedgerBalanced()
+    }
+
+    @Test
+    fun `observeForCompound maps rows newest first and derives volume from the logged concentration`() = runTest {
+        repository.log(event(), listOf(component(actualDoseValue = "0.25")))
+        repository.log(
+            event().copy(loggedAt = LOGGED_AT + 1.days),
+            // A scheduled dose can only be logged once (§3.4), so the later dose is a manual one.
+            listOf(component(actualDoseValue = "0.5").copy(scheduledDoseId = null)),
+        )
+
+        val history = repository.observeForCompound(compoundId).first()
+
+        assertThat(history.map { it.dose.value.toPlainString() }).containsExactly("0.5", "0.25")
+        // 2.5 mg/mL snapshotted at log time (§3.5): 0.5 mg is 0.2 mL, 0.25 mg is 0.1 mL.
+        assertThat(history.map { it.volume?.value?.toPlainString() }).containsExactly("0.2", "0.1")
+        assertThat(history.first().injectionSiteName).isEqualTo("Left abdomen")
+        assertThat(history.first().status).isEqualTo(DomainAdministrationEventStatus.TAKEN)
+    }
+
+    @Test
+    fun `observeForCompound leaves volume null when nothing was logged to divide by`() = runTest {
+        database.compoundSupplyDao().update(
+            database.compoundSupplyDao().getById(compoundId)!!.copy(
+                concentrationAmountValue = null,
+                concentrationAmountUnit = null,
+                concentrationPerValue = null,
+                concentrationPerUnit = null,
+            ),
+        )
+
+        repository.log(event(status = DomainAdministrationEventStatus.SKIPPED), listOf(component("0.25")))
+
+        assertThat(repository.observeForCompound(compoundId).first().single().volume).isNull()
     }
 
     private suspend fun assertLedgerBalanced() {

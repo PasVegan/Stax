@@ -1,5 +1,7 @@
 package com.stax.feature.compounds.presentation.di
 
+import com.stax.feature.compounds.presentation.detail.CompoundDetailArgs
+import com.stax.feature.compounds.presentation.detail.CompoundDetailViewModel
 import com.stax.feature.compounds.presentation.form.CompoundFormArgs
 import com.stax.feature.compounds.presentation.form.CompoundFormViewModel
 import com.stax.feature.compounds.presentation.list.CompoundsListViewModel
@@ -15,4 +17,10 @@ val compoundsPresentationModule = module {
     // and the `SavedStateHandle` behind the auto-saved draft (§4.4.5) is resolved from the
     // ViewModel's CreationExtras — which is why both are read off the parameter holder.
     viewModel { params -> CompoundFormViewModel(params.get(), get(), params.get<CompoundFormArgs>()) }
+
+    // Compound Detail reads five repositories (§4.3) and, like the form, takes its route argument
+    // as a Koin parameter — which compound it is showing is not something it can look up.
+    viewModel { params ->
+        CompoundDetailViewModel(get(), get(), get(), get(), get(), params.get<CompoundDetailArgs>())
+    }
 }

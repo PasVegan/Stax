@@ -702,7 +702,7 @@ Sticky `surface-container-low`. Two buttons:
 - **Log dose** (filled `primary`): leading `add` icon. → §4.10.2-b Log Dose (from Compound).
 - **Adjust** (tonal `secondary-container`): leading `inventory_2` icon. → Adjust Edit compound screen.
 
-Bottom nav is hidden on this screen.
+Bottom nav is hidden on this screen — while the detail *is* the screen. At Medium and above it is one pane of the list-detail Scene beside the Compounds list (§6.4.2), which is a top-level destination and keeps its rail; the dock then spans the detail pane alone and nothing collides.
 
 ---
 
@@ -2049,6 +2049,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
   - Top stat strip stays full-width (§4.3.2).
   - Below: **left column** (`fillMaxWidth(0.55)`) = Opened vial card + Active protocols + Notes. **Right column** (`fillMaxWidth(0.45)`) = History section (filter chips + paginated history list).
   - Bottom dock (§4.3.9 Log dose / Adjust) spans only the detail pane, not the list pane.
+  - The switch is measured against the **detail pane's own width** (`720dp`), not the window's. At the Expanded lower bound the pane is what is left after the `400dp` list pane and the navigation rail — under `350dp`, narrower than a Compact phone — and splitting that leaves history rows too narrow to read. Below the threshold the pane keeps the single-column layout above.
 
 ##### Protocols list + Protocol Detail (§4.7 / §4.8)
 

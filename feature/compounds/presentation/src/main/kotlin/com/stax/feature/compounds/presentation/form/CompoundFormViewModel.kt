@@ -838,7 +838,7 @@ private fun EmptyResult<ValidationError>.failure(): ValidationError.Code? =
     (this as? Result.Error)?.error as? ValidationError.Code
 
 /** Null rather than a throw when the units are of different families (a tub of grams has no millilitres). */
-private fun Quantity.convertedTo(target: UnitCode): Quantity? = try {
+internal fun Quantity.convertedTo(target: UnitCode): Quantity? = try {
     Quantity(unit.convertTo(target, value), target)
 } catch (_: IllegalArgumentException) {
     null
@@ -851,10 +851,11 @@ private fun Quantity.dividedBy(concentration: Concentration): Quantity? = try {
 }
 
 /**
- * How full the container is, for the progress track of the opened-container card. Display geometry,
- * not dose math — which is why this is the one `Float` in the form (§3.0.1).
+ * How full the container is, for the progress track of the opened-container card — the form's
+ * summary (§4.4.3) and Compound Detail's segmented bar (§4.3.3) both read it. Display geometry,
+ * not dose math, which is why it is one of the few `Float`s in the feature (§3.0.1).
  */
-private fun Quantity.fractionOf(capacity: Quantity): Float {
+internal fun Quantity.fractionOf(capacity: Quantity): Float {
     if (capacity.value <= ZERO) return 0f
     val remaining = convertedTo(capacity.unit) ?: return 0f
     return (remaining.value / capacity.value).raw.toFloat().coerceIn(0f, 1f)

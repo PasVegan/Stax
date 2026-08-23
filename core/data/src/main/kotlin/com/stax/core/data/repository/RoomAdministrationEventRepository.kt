@@ -1,6 +1,7 @@
 package com.stax.core.data.repository
 
 import androidx.room.withTransaction
+import com.stax.core.data.mapper.toDomain
 import com.stax.core.data.mapper.toEntity
 import com.stax.core.database.AdministrationEventDao
 import com.stax.core.database.AdministrationEventEntity
@@ -22,6 +23,7 @@ import com.stax.core.database.ScheduledDoseStatus
 import com.stax.core.database.SettingsDao
 import com.stax.core.database.StaxDatabase
 import com.stax.core.domain.AdministrationEvent
+import com.stax.core.domain.CompoundHistoryEntry
 import com.stax.core.domain.Concentration
 import com.stax.core.domain.DataError
 import com.stax.core.domain.Decimal
@@ -32,6 +34,8 @@ import com.stax.core.domain.Result
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.AdministrationEventEdit
 import com.stax.core.domain.repository.AdministrationEventRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import com.stax.core.domain.AdministrationEventStatus as DomainAdministrationEventStatus
@@ -48,6 +52,9 @@ class RoomAdministrationEventRepository(
     private val protocolDao: ProtocolDao,
     private val settingsDao: SettingsDao,
 ) : AdministrationEventRepository {
+
+    override fun observeForCompound(compoundSupplyId: Long): Flow<List<CompoundHistoryEntry>> =
+        eventDao.observeHistoryForCompound(compoundSupplyId).map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun log(
         event: AdministrationEvent,

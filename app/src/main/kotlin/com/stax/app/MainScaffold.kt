@@ -49,6 +49,8 @@ import com.stax.feature.compounds.presentation.navigation.compoundsEntries
 import com.stax.feature.dashboard.presentation.navigation.DashboardRoute
 import com.stax.feature.dashboard.presentation.navigation.DashboardSupportingRoute
 import com.stax.feature.dashboard.presentation.navigation.dashboardEntries
+import com.stax.feature.logging.presentation.navigation.AdministrationEventDetailRoute
+import com.stax.feature.logging.presentation.navigation.LogDoseRoute
 import com.stax.feature.logging.presentation.navigation.loggingEntries
 import com.stax.feature.onboarding.presentation.completion.rememberOnboardingCompletion
 import com.stax.feature.onboarding.presentation.navigation.NotificationGateRoute
@@ -115,7 +117,9 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
     // The first-run flow has to be answered before the app is usable, so its screens hide the chrome:
     // a visible nav item is a one-tap exit out of a flow the user has neither finished nor skipped
     // (§4.14, §4.15). Seeded as the initial value too, so first launch never flashes the bar in.
-    val chromeHidden = navState.currentRoute.isFirstRunFlow() || multiSelectActive
+    val chromeHidden = navState.currentRoute.isFirstRunFlow() ||
+        multiSelectActive ||
+        navState.currentRoute.hidesChromeAsSolePane()
     val navSuiteState = rememberNavigationSuiteScaffoldState(
         initialValue = if (chromeHidden) NavigationSuiteScaffoldValue.Hidden else NavigationSuiteScaffoldValue.Visible,
     )
@@ -184,6 +188,20 @@ private fun navSuiteType(): NavigationSuiteType {
         else -> NavigationSuiteType.ShortNavigationBarCompact
     }
 }
+
+/**
+ * §4.3.9: Compound Detail hides the bottom nav — its own dock takes that edge, and two competing bars
+ * there is one too many.
+ *
+ * Only while it *is* the screen, though: from Medium up it is one pane of the list-detail Scene
+ * (§6.4.2) beside the Compounds list, and the list is a top-level destination that keeps its rail.
+ * The dock then spans the detail pane alone, which is what §6.4.2 asks for, and nothing collides.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun NavKey.hidesChromeAsSolePane(): Boolean = this is CompoundDetailRoute &&
+    !currentWindowAdaptiveInfoV2().windowSizeClass
+        .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
 /**
  * The screens that make up the first-run flow (§4.14, §4.15): Welcome, the Create Compound / Create
@@ -262,6 +280,11 @@ private fun StaxNavDisplay(
             onCreateCompound = { navState.push(CreateCompoundRoute()) },
             onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
             onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
+            // The three ways out of Compound Detail (§4.3.4, §4.3.8, §4.3.9). Each belongs to another
+            // feature, so the destination is named here and not there (§10.3).
+            onProtocolClick = { protocolId -> navState.push(ProtocolDetailRoute(protocolId)) },
+            onLogDose = { compoundId -> navState.push(LogDoseRoute(compoundId)) },
+            onAdministrationEventClick = { eventId -> navState.push(AdministrationEventDetailRoute(eventId)) },
             onBack = { navState.goBack() },
             // §4.14 step 2 ends by advancing to step 3 — the Create Protocol form, flagged the same
             // way — whether the user saved a compound (§4.4.4) or skipped the step.

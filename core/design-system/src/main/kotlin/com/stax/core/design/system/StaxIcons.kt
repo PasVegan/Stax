@@ -64,6 +64,7 @@ object StaxIcons {
     val Tune: Painter @Composable get() = painterResource(R.drawable.ic_tune)
     val Vaccines: Painter @Composable get() = painterResource(R.drawable.ic_vaccines)
     val Warning: Painter @Composable get() = painterResource(R.drawable.ic_warning)
+    val WaterDrop: Painter @Composable get() = painterResource(R.drawable.ic_water_drop)
 
     /** Filled variants — bottom-nav selected state. */
     object Filled {

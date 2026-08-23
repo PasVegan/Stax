@@ -12,4 +12,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.datastore.preferences)
+    // The Pager that wraps the DAO's PagingSource lives here — a feature never sees a Room type.
+    implementation(libs.androidx.paging.common)
+
+    testImplementation(libs.androidx.paging.testing)
 }

@@ -1,5 +1,6 @@
 package com.stax.core.database
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
@@ -61,11 +62,17 @@ interface AdministrationEventDao {
     suspend fun getLatestByInjectionSite(injectionSiteId: Long): AdministrationEventEntity?
 
     /**
-     * A compound's dose history, newest first (§4.3.8).
+     * A compound's dose history as pages, newest first (§4.3.8), optionally narrowed to the one
+     * status §4.3.7's chip picked — a null [status] is the All chip and constrains nothing.
      *
      * Driven from `dose_component` because that is the table that knows about compounds; an event
      * logging two compounds at once (§4.10.3) therefore appears once in each of their histories, with
      * only its own component's dose. The site join is a LEFT one — an oral or skipped dose has none.
+     *
+     * A `PagingSource` rather than a `Flow<List<…>>`: a history is unbounded, and §2.3.2's scroll SLO
+     * is about how many rows are read and composed at once, not about how many exist. The chip is a
+     * SQL predicate for the same reason — filtering in memory would mean loading everything to throw
+     * most of it away.
      */
     @Query(
         """
@@ -80,8 +87,29 @@ interface AdministrationEventDao {
         INNER JOIN administration_event e ON e.id = c.administrationEventId
         LEFT JOIN injection_site s ON s.id = e.injectionSiteId
         WHERE c.compoundSupplyId = :compoundSupplyId
+            AND (:status IS NULL OR e.status = :status)
         ORDER BY e.loggedAt DESC, e.id DESC
         """,
     )
-    fun observeHistoryForCompound(compoundSupplyId: Long): Flow<List<CompoundHistoryRow>>
+    fun historyPagingSourceForCompound(
+        compoundSupplyId: Long,
+        status: AdministrationEventStatus?,
+    ): PagingSource<Int, CompoundHistoryRow>
+
+    /**
+     * §4.3.6's badge: Taken + Partial components for this compound, all-time.
+     *
+     * Counted in SQL rather than off the history list, which no longer exists whole in memory — and
+     * the badge is deliberately unmoved by §4.3.7's chip, so it was never the same question anyway.
+     */
+    @Query(
+        """
+        SELECT COUNT(*)
+        FROM dose_component c
+        INNER JOIN administration_event e ON e.id = c.administrationEventId
+        WHERE c.compoundSupplyId = :compoundSupplyId
+            AND e.status != 'SKIPPED'
+        """,
+    )
+    fun observeLoggedDoseCountForCompound(compoundSupplyId: Long): Flow<Int>
 }

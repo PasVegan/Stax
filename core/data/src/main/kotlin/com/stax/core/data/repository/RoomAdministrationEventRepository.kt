@@ -1,5 +1,9 @@
 package com.stax.core.data.repository
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
 import androidx.room.withTransaction
 import com.stax.core.data.mapper.toDomain
 import com.stax.core.data.mapper.toEntity
@@ -53,8 +57,22 @@ class RoomAdministrationEventRepository(
     private val settingsDao: SettingsDao,
 ) : AdministrationEventRepository {
 
-    override fun observeForCompound(compoundSupplyId: Long): Flow<List<CompoundHistoryEntry>> =
-        eventDao.observeHistoryForCompound(compoundSupplyId).map { rows -> rows.map { it.toDomain() } }
+    /**
+     * §4.3.8's history, paged. The [Pager] is built here rather than in the ViewModel: the
+     * `PagingSource` behind it is a Room type, and a feature module never sees one (§10.2).
+     */
+    override fun pagedHistoryForCompound(
+        compoundSupplyId: Long,
+        status: DomainAdministrationEventStatus?,
+    ): Flow<PagingData<CompoundHistoryEntry>> = Pager(
+        config = PagingConfig(pageSize = HISTORY_PAGE_SIZE, enablePlaceholders = false),
+        pagingSourceFactory = {
+            eventDao.historyPagingSourceForCompound(compoundSupplyId, status?.toEntity())
+        },
+    ).flow.map { page -> page.map { it.toDomain() } }
+
+    override fun observeLoggedDoseCount(compoundSupplyId: Long): Flow<Int> =
+        eventDao.observeLoggedDoseCountForCompound(compoundSupplyId)
 
     override suspend fun log(
         event: AdministrationEvent,
@@ -375,6 +393,12 @@ class RoomAdministrationEventRepository(
     private class ConstraintException : Exception()
 
     private companion object {
+        /**
+         * Rows per page (§4.3.8). Comfortably more than a screenful at any breakpoint, so the first
+         * load fills the pane and the next page is fetched well before the user reaches it.
+         */
+        const val HISTORY_PAGE_SIZE = 30
+
         val ZERO: Decimal = Decimal.parse("0")
         const val FALLBACK_SC_COOLDOWN_DAYS = 5
         const val FALLBACK_IM_COOLDOWN_DAYS = 7

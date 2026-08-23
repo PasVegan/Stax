@@ -19,7 +19,7 @@ impls in `:core:data` call these DAOs; nothing else touches Room.
   `ProtocolDosageTimeEntity`, `ScheduledDoseEntity`, `AdministrationEventEntity`,
   `DoseComponentEntity`, `InjectionSiteEntity`, `InventoryTransactionEntity`, `SettingsEntity`.
 - DAOs: one per entity (`*Dao`) + relation POJOs `CompoundWithOpened`, `ProtocolWithDosageTimes`,
-  and the flat projection `CompoundHistoryRow` (`observeHistoryForCompound`, §4.3.8).
+  and the flat projection `CompoundHistoryRow` (`historyPagingSourceForCompound`, §4.3.8).
 - `RoomConverters` (TypeConverters), `DatabaseSeedCallback` (first-launch seed), `migration/`.
 
 ## Applicable skills
@@ -33,4 +33,11 @@ Shared.
 - Every schema version needs a `MigrationTestHelper` test (`migration/MigrationTest.kt`, M19-01);
   bump version + add migration + add test together.
 - Transactional boundaries (§5.8.5) are implemented with `@Transaction` DAO methods consumed by repos.
+- **Unbounded lists return a Room `PagingSource`, not a `Flow<List<…>>`** — today that is
+  `historyPagingSourceForCompound` (§4.3.8), whose status filter is `AND (:status IS NULL OR
+  e.status = :status)` so §4.3.7's chip narrows the query instead of the result. Its companion
+  `observeLoggedDoseCountForCompound` is §4.3.6's badge as a `COUNT`, which is the only way to
+  answer "how many all-time" once the rows are no longer all in memory. Test them with
+  `TestPager` (`paging-testing`), remembering that `PagingConfig.initialLoadSize` defaults to three
+  pages.
 - See spec §5.8 (Room implementation), §3; ISSUES M2-*.

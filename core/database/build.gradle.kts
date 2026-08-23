@@ -11,6 +11,9 @@ ksp {
 dependencies {
     implementation(project(":core:domain"))
     implementation(libs.kotlinx.datetime)
+    // Room-generated PagingSource for the compound history query (§4.3.8).
+    implementation(libs.androidx.room.paging)
 
+    testImplementation(libs.androidx.paging.testing)
     androidTestImplementation(libs.androidx.room.testing)
 }

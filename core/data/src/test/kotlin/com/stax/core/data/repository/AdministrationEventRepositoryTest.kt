@@ -1,5 +1,6 @@
 package com.stax.core.data.repository
 
+import androidx.paging.testing.asSnapshot
 import androidx.room.Room
 import assertk.assertThat
 import assertk.assertions.containsExactly
@@ -187,7 +188,7 @@ class AdministrationEventRepositoryTest {
     }
 
     @Test
-    fun `observeForCompound maps rows newest first and derives volume from the logged concentration`() = runTest {
+    fun `pagedHistoryForCompound pages newest first and derives volume from the logged concentration`() = runTest {
         repository.log(event(), listOf(component(actualDoseValue = "0.25")))
         repository.log(
             event().copy(loggedAt = LOGGED_AT + 1.days),
@@ -195,7 +196,7 @@ class AdministrationEventRepositoryTest {
             listOf(component(actualDoseValue = "0.5").copy(scheduledDoseId = null)),
         )
 
-        val history = repository.observeForCompound(compoundId).first()
+        val history = repository.pagedHistoryForCompound(compoundId, status = null).asSnapshot()
 
         assertThat(history.map { it.dose.value.toPlainString() }).containsExactly("0.5", "0.25")
         // 2.5 mg/mL snapshotted at log time (§3.5): 0.5 mg is 0.2 mL, 0.25 mg is 0.1 mL.
@@ -205,7 +206,22 @@ class AdministrationEventRepositoryTest {
     }
 
     @Test
-    fun `observeForCompound leaves volume null when nothing was logged to divide by`() = runTest {
+    fun `pagedHistoryForCompound narrows to the status the chip picked`() = runTest {
+        repository.log(event(), listOf(component(actualDoseValue = "0.25")))
+        repository.log(
+            event(status = DomainAdministrationEventStatus.SKIPPED).copy(loggedAt = LOGGED_AT + 1.days),
+            listOf(component(actualDoseValue = "0.5").copy(scheduledDoseId = null)),
+        )
+
+        val skipped = repository
+            .pagedHistoryForCompound(compoundId, DomainAdministrationEventStatus.SKIPPED)
+            .asSnapshot()
+
+        assertThat(skipped.map { it.dose.value.toPlainString() }).containsExactly("0.5")
+    }
+
+    @Test
+    fun `pagedHistoryForCompound leaves volume null when nothing was logged to divide by`() = runTest {
         database.compoundSupplyDao().update(
             database.compoundSupplyDao().getById(compoundId)!!.copy(
                 concentrationAmountValue = null,
@@ -217,7 +233,23 @@ class AdministrationEventRepositoryTest {
 
         repository.log(event(status = DomainAdministrationEventStatus.SKIPPED), listOf(component("0.25")))
 
-        assertThat(repository.observeForCompound(compoundId).first().single().volume).isNull()
+        assertThat(repository.pagedHistoryForCompound(compoundId, status = null).asSnapshot().single().volume)
+            .isNull()
+    }
+
+    @Test
+    fun `observeLoggedDoseCount counts Taken plus Partial and ignores Skipped`() = runTest {
+        repository.log(event(), listOf(component(actualDoseValue = "0.25")))
+        repository.log(
+            event(status = DomainAdministrationEventStatus.PARTIAL).copy(loggedAt = LOGGED_AT + 1.days),
+            listOf(component(actualDoseValue = "0.1").copy(scheduledDoseId = null)),
+        )
+        repository.log(
+            event(status = DomainAdministrationEventStatus.SKIPPED).copy(loggedAt = LOGGED_AT + 2.days),
+            listOf(component(actualDoseValue = "0.25").copy(scheduledDoseId = null)),
+        )
+
+        assertThat(repository.observeLoggedDoseCount(compoundId).first()).isEqualTo(2)
     }
 
     private suspend fun assertLedgerBalanced() {

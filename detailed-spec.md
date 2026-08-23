@@ -696,6 +696,12 @@ List (lazy load). Each row `surface-container`:
 
 Tap row → §4.11 Administration Event detail.
 
+**Paged (Paging 3).** A history has no upper bound, so the rows are read a page at a time from a Room
+`PagingSource` over `dose_component` rather than loaded whole — that is what meets §2.3.2's scroll SLO
+at a thousand rows. §4.3.7's chip is part of that query (`WHERE status = …`), not a pass over rows
+already in memory: filtering in memory would mean loading everything to throw most of it away. The
+§4.3.6 badge is a separate `COUNT`, which is also why it stays still when the chip moves.
+
 #### 4.3.9 Bottom dock
 
 Sticky `surface-container-low`. Two buttons:

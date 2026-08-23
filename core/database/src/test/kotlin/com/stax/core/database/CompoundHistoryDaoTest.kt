@@ -1,8 +1,12 @@
 package com.stax.core.database
 
+import androidx.paging.PagingConfig
+import androidx.paging.PagingSource
+import androidx.paging.testing.TestPager
 import androidx.room.Room
 import assertk.assertThat
 import assertk.assertions.containsExactly
+import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
@@ -19,7 +23,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Instant
 
-/** `AdministrationEventDao.observeHistoryForCompound` — the query behind §4.3.8's history list. */
+/** `AdministrationEventDao.historyPagingSourceForCompound` — the query behind §4.3.8's history list. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class CompoundHistoryDaoTest {
@@ -56,7 +60,7 @@ class CompoundHistoryDaoTest {
         val newest = logDose(compoundId, at = "2026-06-08T08:00:00Z")
         val middle = logDose(compoundId, at = "2026-06-04T08:00:00Z")
 
-        val rows = eventDao.observeHistoryForCompound(compoundId).first()
+        val rows = firstPage(compoundId)
 
         assertThat(rows.map { it.eventId }).containsExactly(newest, middle, oldest)
     }
@@ -68,7 +72,7 @@ class CompoundHistoryDaoTest {
         val mine = logDose(compoundId, at = "2026-06-01T08:00:00Z")
         logDose(otherId, at = "2026-06-02T08:00:00Z")
 
-        val rows = eventDao.observeHistoryForCompound(compoundId).first()
+        val rows = firstPage(compoundId)
 
         assertThat(rows.map { it.eventId }).containsExactly(mine)
     }
@@ -85,10 +89,8 @@ class CompoundHistoryDaoTest {
             doseComponent(eventId = eventId, compoundSupplyId = second, actualDose = Decimal.parse("0.5")),
         )
 
-        assertThat(eventDao.observeHistoryForCompound(first).first().single().actualDoseValue)
-            .isEqualTo(Decimal.parse("0.25"))
-        assertThat(eventDao.observeHistoryForCompound(second).first().single().actualDoseValue)
-            .isEqualTo(Decimal.parse("0.5"))
+        assertThat(firstPage(first).single().actualDoseValue).isEqualTo(Decimal.parse("0.25"))
+        assertThat(firstPage(second).single().actualDoseValue).isEqualTo(Decimal.parse("0.5"))
     }
 
     @Test
@@ -98,7 +100,7 @@ class CompoundHistoryDaoTest {
         logDose(compoundId, at = "2026-06-02T08:00:00Z", injectionSiteId = siteId)
         logDose(compoundId, at = "2026-06-01T08:00:00Z", injectionSiteId = null)
 
-        val rows = eventDao.observeHistoryForCompound(compoundId).first()
+        val rows = firstPage(compoundId)
 
         assertThat(rows.first().injectionSiteName).isEqualTo("Abdomen R")
         assertThat(rows.last().injectionSiteName).isNull()
@@ -108,8 +110,63 @@ class CompoundHistoryDaoTest {
     fun `a compound with no logged dose has an empty history`() = runTest {
         val compoundId = compoundDao.insert(compound())
 
-        assertThat(eventDao.observeHistoryForCompound(compoundId).first()).isEmpty()
+        assertThat(firstPage(compoundId)).isEmpty()
     }
+
+    @Test
+    fun `the status filter is part of the query, not a pass over what it returned`() = runTest {
+        val compoundId = compoundDao.insert(compound())
+        val taken = logDose(compoundId, at = "2026-06-01T08:00:00Z")
+        val skipped = logDose(
+            compoundId,
+            at = "2026-06-02T08:00:00Z",
+            status = AdministrationEventStatus.SKIPPED,
+        )
+
+        assertThat(firstPage(compoundId, AdministrationEventStatus.SKIPPED).map { it.eventId })
+            .containsExactly(skipped)
+        assertThat(firstPage(compoundId, AdministrationEventStatus.TAKEN).map { it.eventId })
+            .containsExactly(taken)
+        assertThat(firstPage(compoundId).map { it.eventId }).containsExactly(skipped, taken)
+    }
+
+    @Test
+    fun `a page is a window on the history, not the whole of it`() = runTest {
+        val compoundId = compoundDao.insert(compound())
+        repeat(ROWS_BEYOND_ONE_PAGE) { index ->
+            logDose(compoundId, at = "2026-06-01T08:00:0${index % 10}Z")
+        }
+
+        // `initialLoadSize` defaults to three pages, which would swallow the whole fixture in one go.
+        val config = PagingConfig(pageSize = PAGE_SIZE, initialLoadSize = PAGE_SIZE)
+        val pager = TestPager(config, source(compoundId))
+
+        assertThat(pager.refresh().rows()).hasSize(PAGE_SIZE)
+        assertThat(pager.append().rows()).hasSize(PAGE_SIZE)
+    }
+
+    @Test
+    fun `the badge counts Taken plus Partial and ignores Skipped`() = runTest {
+        val compoundId = compoundDao.insert(compound())
+        logDose(compoundId, at = "2026-06-01T08:00:00Z")
+        logDose(compoundId, at = "2026-06-02T08:00:00Z", status = AdministrationEventStatus.PARTIAL)
+        logDose(compoundId, at = "2026-06-03T08:00:00Z", status = AdministrationEventStatus.SKIPPED)
+
+        assertThat(eventDao.observeLoggedDoseCountForCompound(compoundId).first()).isEqualTo(2)
+    }
+
+    private fun source(compoundId: Long, status: AdministrationEventStatus? = null) =
+        eventDao.historyPagingSourceForCompound(compoundId, status)
+
+    /** The first page the source hands out — enough for every assertion but the paging one. */
+    private suspend fun firstPage(
+        compoundId: Long,
+        status: AdministrationEventStatus? = null,
+    ): List<CompoundHistoryRow> =
+        TestPager(PagingConfig(pageSize = PAGE_SIZE), source(compoundId, status)).refresh().rows()
+
+    private fun PagingSource.LoadResult<Int, CompoundHistoryRow>?.rows(): List<CompoundHistoryRow> =
+        (this as PagingSource.LoadResult.Page).data
 
     private suspend fun logDose(
         compoundSupplyId: Long,
@@ -198,4 +255,11 @@ class CompoundHistoryDaoTest {
         createdAt = Instant.parse("2026-06-06T00:00:00Z"),
         updatedAt = Instant.parse("2026-06-06T00:00:00Z"),
     )
+
+    private companion object {
+        const val PAGE_SIZE = 20
+
+        /** More than one page, so `append` has somewhere to go. */
+        const val ROWS_BEYOND_ONE_PAGE = 45
+    }
 }

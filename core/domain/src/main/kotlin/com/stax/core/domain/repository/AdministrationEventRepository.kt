@@ -1,5 +1,6 @@
 package com.stax.core.domain.repository
 
+import androidx.paging.PagingData
 import com.stax.core.domain.AdministrationEvent
 import com.stax.core.domain.AdministrationEventStatus
 import com.stax.core.domain.CompoundHistoryEntry
@@ -24,12 +25,22 @@ data class AdministrationEventEdit(
 interface AdministrationEventRepository {
 
     /**
-     * Emits one compound's dose history, newest first (§4.3.8).
+     * Emits one compound's dose history as pages, newest first (§4.3.8), narrowed to [status] when
+     * §4.3.7's chip picked one — null is the All chip.
      *
      * One entry per dose component naming the compound, not per event: a multi-compound log (§4.10.3)
      * belongs in both histories, and each shows only the dose that was its own.
+     *
+     * Paged rather than listed because a history has no upper bound: §2.3.2's scroll SLO is met by
+     * reading a window of it, and the status filter belongs in the query for the same reason.
      */
-    fun observeForCompound(compoundSupplyId: Long): Flow<List<CompoundHistoryEntry>>
+    fun pagedHistoryForCompound(
+        compoundSupplyId: Long,
+        status: AdministrationEventStatus?,
+    ): Flow<PagingData<CompoundHistoryEntry>>
+
+    /** §4.3.6's badge: this compound's Taken + Partial components, all-time and chip-independent. */
+    fun observeLoggedDoseCount(compoundSupplyId: Long): Flow<Int>
 
     suspend fun log(event: AdministrationEvent, components: List<DoseComponent>): Result<Long, DataError.Local>
 

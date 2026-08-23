@@ -37,37 +37,59 @@ import com.stax.core.design.system.StaxIcons
 import com.stax.core.domain.UnitCode
 
 /**
- * §4.6.2's hero: the number to draw, in whichever unit §4.6.4's Display tile is on.
+ * §4.6.2's hero: the number to draw over the syringe it is drawn on, with the size badge that picks
+ * which syringe that is on the same top row.
  *
- * The syringe visualization and the size badge that shares this card land with M8-02 — what is here
- * is the figure they will be drawn around.
+ * The figure and the barrel are one statement — "10 units" and a barrel filled a tenth of the way say
+ * the same thing twice, once to read and once to recognise at the bench.
  */
 @Suppress("FunctionName")
 @Composable
-internal fun DrawToHero(state: ReconstitutionState, modifier: Modifier = Modifier) {
+internal fun DrawToHero(
+    state: ReconstitutionState,
+    onAction: (ReconstitutionAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(modifier = Modifier.padding(HERO_PADDING)) {
-            Text(
-                text = stringResource(R.string.reconstitution_draw_to),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Column(
+            modifier = Modifier.padding(HERO_PADDING),
+            verticalArrangement = Arrangement.spacedBy(HERO_GAP),
+        ) {
+            // The badge shares the label's line rather than the figure's: "U-100 · 1 mL" is wide, and
+            // beside the display-sized number it squeezed "units" into two lines on a Compact phone.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.reconstitution_draw_to),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SyringeSizeBadge(syringeSize = state.syringeSize, onAction = onAction)
+            }
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = state.drawTo ?: stringResource(R.string.reconstitution_no_value),
                     style = MaterialTheme.typography.displayMedium,
+                    maxLines = 1,
                 )
                 Text(
                     text = drawToUnitLabel(state.display),
                     modifier = Modifier.padding(start = VALUE_UNIT_GAP, bottom = UNIT_BASELINE_NUDGE),
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
                 )
             }
+            SyringeVisualization(
+                syringeSize = state.syringeSize,
+                fill = state.syringeFill,
+                drawTo = state.drawTo,
+                display = state.display,
+            )
         }
     }
 }
@@ -583,7 +605,7 @@ private fun displayShortLabel(display: DoseDisplay): String = drawToUnitLabel(di
 
 /** §4.6.2's "Draw to": the same choice as a unit after a number — "0.10 mL", "10 units". */
 @Composable
-private fun drawToUnitLabel(display: DoseDisplay): String = stringResource(
+internal fun drawToUnitLabel(display: DoseDisplay): String = stringResource(
     when (display) {
         DoseDisplay.MILLILITRES -> R.string.reconstitution_unit_ml
         DoseDisplay.INSULIN_UNITS -> R.string.reconstitution_units
@@ -599,6 +621,7 @@ private val ICON_INLINE_MIN_WIDTH = 132.dp
 internal val SCREEN_PADDING = 16.dp
 internal val SECTION_GAP = 16.dp
 private val HERO_PADDING = 20.dp
+private val HERO_GAP = 12.dp
 private val TILE_PADDING = 12.dp
 private val TILE_GAP = 8.dp
 private val ROW_PADDING = 14.dp

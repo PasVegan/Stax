@@ -146,6 +146,49 @@ class ReconstitutionScreenTest {
         )
     }
 
+    /** §4.6.2's acceptance: the size badge is a button, and one tap moves to the next syringe. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `cycles the syringe size from the badge`() {
+        setContent(state())
+
+        composeRule.onNodeWithText(insulinBadge()).assertIsDisplayed().performClick()
+
+        assertThat(actions).containsExactly(ReconstitutionAction.OnCycleSyringeSize)
+    }
+
+    /** The barrel is a `Canvas` with no text nodes, so the description is all a screen reader gets. */
+    @Test
+    @Config(qualifiers = NARROW)
+    fun `describes the drawn syringe`() {
+        setContent(state())
+
+        composeRule
+            .onNodeWithContentDescription(
+                composeRule.activity.getString(
+                    R.string.reconstitution_syringe_description,
+                    insulinBadge(),
+                    "10",
+                    string(R.string.reconstitution_units),
+                ),
+            )
+            .assertIsDisplayed()
+    }
+
+    /** §4.6.2: a regular syringe's badge drops the U-scale — there is none to state. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `labels a regular syringe by its capacity alone`() {
+        setContent(state().copy(syringeSize = SyringeSize.ML3))
+
+        composeRule
+            .onNodeWithText(composeRule.activity.getString(R.string.reconstitution_syringe_regular, "3"))
+            .assertIsDisplayed()
+    }
+
+    private fun insulinBadge(): String =
+        composeRule.activity.getString(R.string.reconstitution_syringe_insulin, 100, "1")
+
     private fun setContent(state: ReconstitutionState) {
         composeRule.setContent {
             StaxTheme(dynamicColor = false) {

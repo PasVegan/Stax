@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- App bar (§4.6.1) -->
+    <string name="reconstitution_title">Reconstitute</string>
+    <string name="reconstitution_close">Close</string>
+    <!-- "{compound name} · {container amount}{unit} vial" -->
+    <string name="reconstitution_subtitle">%1$s · %2$s %3$s vial</string>
+    <string name="reconstitution_subtitle_standalone">Standalone calculator</string>
+
+    <!-- Syringe hero (§4.6.2) -->
+    <string name="reconstitution_draw_to">Draw to</string>
+
+    <!-- Progressive disclosure (§4.6) -->
+    <string name="reconstitution_show_calculation">Show calculation</string>
+    <string name="reconstitution_hide_calculation">Hide calculation</string>
+
+    <!-- Mix (§4.6.4) -->
+    <string name="reconstitution_mix">Mix</string>
+    <string name="reconstitution_container">Container</string>
+    <string name="reconstitution_diluent">Diluent</string>
+    <string name="reconstitution_desired_dose">Desired dose</string>
+    <string name="reconstitution_display">Display</string>
+
+    <!-- Result (§4.6.6) -->
+    <string name="reconstitution_result">Result</string>
+    <string name="reconstitution_concentration">Concentration</string>
+    <!-- "mg/mL" — the container's unit over one millilitre -->
+    <string name="reconstitution_concentration_unit">%1$s/mL</string>
+    <string name="reconstitution_doses_per_container">Doses / container</string>
+
+    <!-- Save dock (§4.6.7) -->
+    <string name="reconstitution_save">Save &amp; set concentration</string>
+
+    <!-- Shown wherever a result needs an input the user has not typed yet -->
+    <string name="reconstitution_no_value">—</string>
+
+    <!-- Display modes (§4.6.4) -->
+    <string name="reconstitution_display_millilitres">mL</string>
+    <string name="reconstitution_display_insulin_units">Insulin units</string>
+    <string name="reconstitution_units">units</string>
+
+    <!-- Unit labels (§3.1). Only the units a container can be reconstituted from (§4.6). -->
+    <string name="reconstitution_unit_mcg">mcg</string>
+    <string name="reconstitution_unit_mg">mg</string>
+    <string name="reconstitution_unit_g">g</string>
+    <string name="reconstitution_unit_iu">IU</string>
+    <string name="reconstitution_unit_ml">mL</string>
+
+</resources>

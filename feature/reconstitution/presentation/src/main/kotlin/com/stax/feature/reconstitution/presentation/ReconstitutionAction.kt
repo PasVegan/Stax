@@ -20,6 +20,9 @@ sealed interface ReconstitutionAction {
     data class OnDesiredDoseChange(val value: String) : ReconstitutionAction
     data class OnDoseUnitSelected(val unit: UnitCode) : ReconstitutionAction
 
+    /** §4.6.2: the size badge pill — one tap walks to the next syringe and wraps. */
+    data object OnCycleSyringeSize : ReconstitutionAction
+
     /** §4.6.4 "Display": mL or insulin units. */
     data class OnDisplaySelected(val display: DoseDisplay) : ReconstitutionAction
 

@@ -83,6 +83,9 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
             is ReconstitutionAction.OnDoseUnitSelected ->
                 _state.update { it.copy(doseUnit = action.unit, openPicker = null).recalculated() }
 
+            ReconstitutionAction.OnCycleSyringeSize ->
+                _state.update { it.copy(syringeSize = it.syringeSize.next()).recalculated() }
+
             is ReconstitutionAction.OnDisplaySelected ->
                 _state.update { it.copy(display = action.display, openPicker = null).recalculated() }
 
@@ -176,10 +179,23 @@ internal fun ReconstitutionState.recalculated(): ReconstitutionState {
 
     return copy(
         drawTo = volume?.value?.asDisplayed(display),
+        syringeFill = volume?.value?.fractionOf(syringeSize) ?: 0f,
         concentration = perMl?.round(CONCENTRATION_SCALE),
         dosesPerContainer = dosesPerContainer?.floorToInt(),
     )
 }
+
+/**
+ * §4.6.2: how much of the syringe the dose fills.
+ *
+ * The division is the domain's — a volume over a capacity, both [Decimal] (§3.0.1) — and only the
+ * ratio it comes to crosses into `Float`, because what the syringe does with it is geometry.
+ *
+ * A dose too big for the barrel pegs at full rather than overflowing it; the figure over the fill and
+ * §4.6.3's chips still read the real one, and the size badge is one tap from a syringe that holds it.
+ */
+private fun Decimal.fractionOf(syringeSize: SyringeSize): Float =
+    (this / Decimal.parse(syringeSize.capacityMl)).raw.toFloat().coerceIn(0f, 1f)
 
 /**
  * §4.6.2's "Draw to". Millilitres keep two decimals — the graduation an insulin syringe is read to —

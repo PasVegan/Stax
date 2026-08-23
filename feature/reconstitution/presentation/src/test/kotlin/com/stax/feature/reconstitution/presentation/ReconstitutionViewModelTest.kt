@@ -132,6 +132,64 @@ class ReconstitutionViewModelTest {
         assertThat(viewModel.state.value.dosesPerContainer).isEqualTo(5)
     }
 
+    /**
+     * §4.6.2: the fill is the volume over the syringe's capacity, so 0.10 mL is a tenth of a U-100
+     * barrel and a twentieth of a 2 mL one — the same dose, a different picture.
+     */
+    @Test
+    fun `fills the syringe to the drawn volume`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+        assertThat(viewModel.state.value.syringeFill).isEqualTo(0.1f)
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.5"))
+        assertThat(viewModel.state.value.syringeFill).isEqualTo(0.2f)
+    }
+
+    /** A dose bigger than the barrel pegs at full rather than drawing past the needle (§4.6.2). */
+    @Test
+    fun `pegs the fill at a full barrel`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("5"))
+
+        assertThat(viewModel.state.value.syringeFill).isEqualTo(1f)
+    }
+
+    @Test
+    fun `leaves the syringe empty until the mix produces a volume`() = runTest {
+        val viewModel = viewModel()
+
+        assertThat(viewModel.state.value.syringeFill).isEqualTo(0f)
+    }
+
+    /** §4.6.2's acceptance: the badge walks the six sizes in order and wraps. */
+    @Test
+    fun `cycles the syringe size on the badge and re-fills the barrel`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+        assertThat(viewModel.state.value.syringeSize).isEqualTo(SyringeSize.U100)
+
+        viewModel.onAction(ReconstitutionAction.OnCycleSyringeSize)
+
+        // 0.10 mL of a 2 mL barrel — the same dose, a twentieth of the way up.
+        assertThat(viewModel.state.value.syringeSize).isEqualTo(SyringeSize.ML2)
+        assertThat(viewModel.state.value.syringeFill).isEqualTo(0.05f)
+    }
+
+    @Test
+    fun `wraps the syringe size round to the first`() = runTest {
+        val viewModel = viewModel()
+
+        repeat(SyringeSize.entries.size) { viewModel.onAction(ReconstitutionAction.OnCycleSyringeSize) }
+
+        assertThat(viewModel.state.value.syringeSize).isEqualTo(SyringeSize.U100)
+    }
+
     /** §4.6.4's Display tile restates the same volume; it never changes the mix. */
     @Test
     fun `restates the drawn dose in millilitres`() = runTest {

@@ -12,6 +12,45 @@ import kotlinx.collections.immutable.persistentListOf
  */
 enum class DoseDisplay { MILLILITRES, INSULIN_UNITS }
 
+/**
+ * §4.6.2's syringe sizes, in the order the size badge cycles them.
+ *
+ * An insulin syringe is graduated in the U-100 standard's units — 100 to the millilitre — so U-30,
+ * U-50 and U-100 are 0.3, 0.5 and 1 mL of capacity under three different numbers. A regular syringe
+ * is graduated in millilitres and simply says so.
+ *
+ * [minorCount] is how many intervals the graduation cuts the barrel into, not how many units it
+ * counts: a U-100 barrel with a hundred ticks on it is a grey smear, so it ticks every two units and
+ * numbers every fifty. [scaleMax] is the number at the far end — units on an insulin barrel,
+ * millilitres on a regular one — and every [labelEvery] tick carries the figure it has reached.
+ */
+enum class SyringeSize(
+    val isInsulin: Boolean,
+    /** Capacity in millilitres, as the string [com.stax.core.domain.Decimal] parses for the fill. */
+    val capacityMl: String,
+    val scaleMax: Int,
+    val minorCount: Int,
+    val majorEvery: Int,
+    val labelEvery: Int,
+) {
+    U30(isInsulin = true, capacityMl = "0.3", scaleMax = 30, minorCount = 30, majorEvery = 5, labelEvery = 10),
+    U50(isInsulin = true, capacityMl = "0.5", scaleMax = 50, minorCount = 50, majorEvery = 5, labelEvery = 10),
+    U100(isInsulin = true, capacityMl = "1", scaleMax = 100, minorCount = 50, majorEvery = 5, labelEvery = 25),
+    ML2(isInsulin = false, capacityMl = "2", scaleMax = 2, minorCount = 20, majorEvery = 5, labelEvery = 10),
+    ML3(isInsulin = false, capacityMl = "3", scaleMax = 3, minorCount = 30, majorEvery = 5, labelEvery = 10),
+    ML5(isInsulin = false, capacityMl = "5", scaleMax = 5, minorCount = 25, majorEvery = 5, labelEvery = 5),
+    ;
+
+    /** §4.6.2: the badge cycles the six in order and wraps. */
+    fun next(): SyringeSize = entries[(ordinal + 1) % entries.size]
+
+    /**
+     * The figure printed under tick [tick]. Every size divides evenly at its own [labelEvery], so the
+     * numbers on the barrel are whole ones — "0 50 100", never "0 33.3 66.7".
+     */
+    fun graduationLabel(tick: Int): String = (scaleMax * tick / minorCount).toString()
+}
+
 /** The menus §4.6.4's tiles open. Only one is up at a time, so the open one is a single value. */
 enum class ReconstitutionPicker { CONTAINER_UNIT, DOSE_UNIT, DISPLAY }
 
@@ -39,11 +78,15 @@ data class ReconstitutionState(
     val desiredDose: String = "",
     val doseUnit: UnitCode = UnitCode.MG,
     val display: DoseDisplay = DoseDisplay.INSULIN_UNITS,
+    /** §4.6.2: the syringe drawn under "Draw to", cycled by the size badge. */
+    val syringeSize: SyringeSize = SyringeSize.U100,
     val doseUnitOptions: ImmutableList<UnitCode> = MASS_UNITS,
     val openPicker: ReconstitutionPicker? = null,
     val isCalculationExpanded: Boolean = false,
     /** §4.6.2 "Draw to": the dose as a volume or as insulin units, per [display]. */
     val drawTo: String? = null,
+    /** §4.6.2: how far up [syringeSize]'s barrel the dose reaches, `0f`..`1f`. */
+    val syringeFill: Float = 0f,
     /** §4.6.6: how much active is in one millilitre, in [containerUnit]. */
     val concentration: String? = null,
     /** §4.6.6: whole doses of [desiredDose] one container yields. */

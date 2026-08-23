@@ -436,7 +436,6 @@ private fun previewState(): CompoundDetailState = CompoundDetailState(
     notes = "Pre-mixed with 2 mL BAC water. Reconstituted May 14 — keep refrigerated and use " +
         "within 28 days of opening.",
     loggedDoseCount = 24,
-    isLoading = false,
 )
 
 /**

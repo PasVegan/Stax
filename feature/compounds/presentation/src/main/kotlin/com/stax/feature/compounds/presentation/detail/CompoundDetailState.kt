@@ -85,6 +85,9 @@ data class HistoryEntryUi(
  *
  * [isNotesExpanded], [historyFilter] and [openedSheet] are state rather than `remember`s: whether the
  * notes are unfolded, which chip is picked and whether the §4.5 sheet is up are all app state (§2.3.1).
+ *
+ * There is no `isLoading`: the only thing that waited on it was §4.3.8's empty state, and the paged
+ * history answers "has the first load finished" itself, through its own refresh `LoadState`.
  */
 data class CompoundDetailState(
     val name: String = "",
@@ -98,5 +101,4 @@ data class CompoundDetailState(
     val historyFilter: HistoryStatusFilter = HistoryStatusFilter.ALL,
     val openedSheet: OpenedContainerSheetState? = null,
     val isDepletionPromptOpen: Boolean = false,
-    val isLoading: Boolean = true,
 )

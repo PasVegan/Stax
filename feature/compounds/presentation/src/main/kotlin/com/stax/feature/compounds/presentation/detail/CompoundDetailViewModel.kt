@@ -196,7 +196,6 @@ class CompoundDetailViewModel(
                 notes = compound.notes?.takeIf { it.isNotBlank() },
                 // §4.3.6: Taken + Partial, all-time — so it does not move when the chip does.
                 loggedDoseCount = snapshot.loggedDoseCount,
-                isLoading = false,
             )
         }
     }

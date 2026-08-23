@@ -360,7 +360,6 @@ class CompoundDetailScreenTest {
         isNotesExpanded = isNotesExpanded,
         loggedDoseCount = 24,
         historyFilter = historyFilter,
-        isLoading = false,
     )
 
     private companion object {

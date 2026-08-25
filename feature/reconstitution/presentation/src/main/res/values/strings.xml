@@ -27,6 +27,16 @@
     <string name="reconstitution_desired_dose">Desired dose</string>
     <string name="reconstitution_display">Display</string>
 
+    <!-- Equivalence chips (§4.6.3) -->
+    <string name="reconstitution_equivalence">Dose equivalents</string>
+
+    <!-- Dose ladder (§4.6.5) -->
+    <string name="reconstitution_dose_ladder">Dose ladder</string>
+    <!-- A rung's second line: "10 u", "0.10 mL" -->
+    <string name="reconstitution_rung_equivalent">%1$s %2$s</string>
+    <!-- Insulin units after a figure, where a rung has no room for the word -->
+    <string name="reconstitution_units_short">u</string>
+
     <!-- Result (§4.6.6) -->
     <string name="reconstitution_result">Result</string>
     <string name="reconstitution_concentration">Concentration</string>

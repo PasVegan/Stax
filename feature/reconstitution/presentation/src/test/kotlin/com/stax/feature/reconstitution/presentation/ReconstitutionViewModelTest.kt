@@ -2,6 +2,7 @@ package com.stax.feature.reconstitution.presentation
 
 import app.cash.turbine.test
 import assertk.assertThat
+import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isNull
@@ -19,6 +20,7 @@ import com.stax.core.domain.Result
 import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.CompoundRepository
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -188,6 +190,111 @@ class ReconstitutionViewModelTest {
         repeat(SyringeSize.entries.size) { viewModel.onAction(ReconstitutionAction.OnCycleSyringeSize) }
 
         assertThat(viewModel.state.value.syringeSize).isEqualTo(SyringeSize.U100)
+    }
+
+    /**
+     * §4.6.3: one dose, three ways. 0.25 mg of a 2.5 mg/mL mix is 0.10 mL, which is 10 units.
+     */
+    @Test
+    fun `states the dose in mass, volume and insulin units`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+
+        assertThat(viewModel.state.value.equivalence)
+            .isEqualTo(DoseEquivalence(mass = "0.25", volume = "0.10", units = "10"))
+    }
+
+    /** The chips have nothing to state until the mix produces a volume (§4.6.3). */
+    @Test
+    fun `has no equivalents before the mix produces a volume`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+
+        assertThat(viewModel.state.value.equivalence).isNull()
+    }
+
+    /** M8-03's acceptance: the default rungs of §4.6.5 — [0.1, dose/2, dose, dose x2, dose x3]. */
+    @Test
+    fun `computes the default dose ladder`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+
+        assertThat(viewModel.state.value.ladder).isEqualTo(
+            persistentListOf(
+                DoseRung(dose = "0.1", equivalent = "4", isSelected = false),
+                DoseRung(dose = "0.125", equivalent = "5", isSelected = false),
+                DoseRung(dose = "0.25", equivalent = "10", isSelected = true),
+                DoseRung(dose = "0.5", equivalent = "20", isSelected = false),
+                DoseRung(dose = "0.75", equivalent = "30", isSelected = false),
+            ),
+        )
+    }
+
+    /** A dose whose half is the fixed floor would put 0.1 on the ladder twice (§4.6.5). */
+    @Test
+    fun `drops a rung that repeats another`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.2"))
+
+        assertThat(viewModel.state.value.ladder.map(DoseRung::dose))
+            .isEqualTo(listOf("0.1", "0.2", "0.4", "0.6"))
+    }
+
+    /** §4.6.5: tapping a rung types its figure into Desired dose, and everything re-derives. */
+    @Test
+    fun `takes the desired dose from a tapped rung`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+
+        val doubled = viewModel.state.value.ladder.last { !it.isSelected && it.dose == "0.5" }
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange(doubled.dose))
+
+        val state = viewModel.state.value
+        assertThat(state.desiredDose).isEqualTo("0.5")
+        assertThat(state.drawTo).isEqualTo("20")
+        // The ladder recomputes around the tapped value, so the rung the user chose stays the one lit.
+        assertThat(state.ladder.single { it.isSelected }.dose).isEqualTo("0.5")
+    }
+
+    /** The ladder still picks doses before there is a diluent to convert them through (§4.6.5). */
+    @Test
+    fun `lists rungs without their equivalents until the mix has a concentration`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+
+        val ladder = viewModel.state.value.ladder
+        assertThat(ladder.map(DoseRung::dose)).isEqualTo(listOf("0.1", "0.125", "0.25", "0.5", "0.75"))
+        assertThat(ladder.mapNotNull(DoseRung::equivalent)).isEmpty()
+    }
+
+    @Test
+    fun `has no ladder until a dose is typed`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        assertThat(viewModel.state.value.ladder).isEmpty()
+    }
+
+    /** §4.6.5's rungs follow §4.6.4's Display, exactly as "Draw to" does. */
+    @Test
+    fun `restates the ladder in millilitres`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+        viewModel.onAction(ReconstitutionAction.OnDesiredDoseChange("0.25"))
+
+        viewModel.onAction(ReconstitutionAction.OnDisplaySelected(DoseDisplay.MILLILITRES))
+
+        assertThat(viewModel.state.value.ladder.single { it.isSelected }.equivalent).isEqualTo("0.10")
     }
 
     /** §4.6.4's Display tile restates the same volume; it never changes the mix. */

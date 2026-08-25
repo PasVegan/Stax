@@ -10,6 +10,11 @@
 
     <!-- Syringe hero (§4.6.2) -->
     <string name="reconstitution_draw_to">Draw to</string>
+    <!-- Size badge pill: "U-100 · 1 mL" for insulin, "3 mL" for a regular syringe -->
+    <string name="reconstitution_syringe_insulin">U-%1$d · %2$s mL</string>
+    <string name="reconstitution_syringe_regular">%1$s mL</string>
+    <!-- The Canvas syringe has no text of its own: "U-100 · 1 mL syringe, drawn to 10 units" -->
+    <string name="reconstitution_syringe_description">%1$s syringe, drawn to %2$s %3$s</string>
 
     <!-- Progressive disclosure (§4.6) -->
     <string name="reconstitution_show_calculation">Show calculation</string>

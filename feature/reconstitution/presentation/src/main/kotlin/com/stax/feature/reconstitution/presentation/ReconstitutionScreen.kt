@@ -64,7 +64,7 @@ fun ReconstitutionRoot(
  * calculation", and above it §6.4.2 keeps the same sections open because horizontal space is cheap.
  * The columns those wider panes arrange them into land with M8-05; here every width is one scroll.
  *
- * §4.6.2's syringe (M8-02) and §4.6.3 / §4.6.5's chips and dose ladder (M8-03) are not drawn yet.
+ * §4.6.3 / §4.6.5's equivalence chips and dose ladder (M8-03) are not drawn yet.
  */
 @Suppress("FunctionName")
 @Composable
@@ -92,7 +92,7 @@ fun ReconstitutionScreen(
                         .padding(SCREEN_PADDING),
                     verticalArrangement = Arrangement.spacedBy(SECTION_GAP),
                 ) {
-                    DrawToHero(state = state)
+                    DrawToHero(state = state, onAction = onAction)
                     if (isDisclosed) {
                         ShowCalculationRow(isExpanded = state.isCalculationExpanded, onAction = onAction)
                     }

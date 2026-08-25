@@ -18,10 +18,13 @@ chips, dose ladder, and save-concentration action. Pure dosing-math UI on top of
   and is `internal` so it can be driven straight from tests.
 - `ReconstitutionRoot` / `ReconstitutionScreen` (+ `ReconstitutionSections.kt`: `DrawToHero`,
   `ShowCalculationRow`, `MixSection`, `ResultSection`).
+- `SyringeVisualization.kt` — §4.6.2's `Canvas` renderer (`SyringeVisualization`) and its size badge
+  (`SyringeSizeBadge`). `SyringeSize` (in `ReconstitutionState.kt`) carries the capacity and the
+  graduation of each syringe; `next()` is the cycle the badge walks.
 - `reconstitutionPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
   `reconstitutionEntries` (Nav3 entryProvider extension).
-- Coming: syringe visualization (M8-02), equivalence chips + dose ladder (M8-03), the save write
-  (M8-04), the 2/3-column layouts (M8-05).
+- Coming: equivalence chips + dose ladder (M8-03), the save write (M8-04), the 2/3-column layouts
+  (M8-05).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas syringe), `navigation-3`, `adaptive`, `android-di-koin`.
@@ -32,7 +35,8 @@ Reconstitution feature.
 ## Notes
 - **All math via `Decimal`/`Quantity`/`Concentration`** from `:core:domain` — never `Double`/`Float`
   (§3.0.1). The screen orchestrates; the arithmetic is domain-owned.
-- Syringe visualization animates via `graphicsLayer` + spring (`StaxMotion`, damping 0.8 / stiffness 380).
+- The syringe fill animates on `StaxMotion.syringeFillSpec()` (spring, damping 0.8 / stiffness 380,
+  §4.6.8). `syringeFill` is a ratio the ViewModel computes in `Decimal`; the composable only draws it.
 - Adaptive: 1/2/3 columns Compact/Medium/Expanded (§6.4.2) — M8-05. Today every width is one
   scroll, and §4.6's "Show calculation" disclosure appears only below a `600dp` **pane** width,
   since §6.4.2 keeps the same sections open from Medium up.

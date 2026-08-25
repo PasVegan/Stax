@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.ExperimentalMaterial3AdaptiveNavigationSuiteApi
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldValue
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
@@ -130,11 +131,12 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
     val selected = TopLevelDestination.entries.firstOrNull { it.route == navState.topLevelRoute }
         ?: TopLevelDestination.Home
 
+    val suiteType = navSuiteType()
     NavigationSuiteScaffold(
-        navigationSuiteItems = {
+        navigationItems = {
             TopLevelDestination.entries.forEach { destination ->
                 val isSelected = destination == selected
-                item(
+                NavigationSuiteItem(
                     selected = isSelected,
                     onClick = { navState.onTopLevelSelected(destination.route) },
                     icon = {
@@ -156,11 +158,12 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
                             maxLines = 1,
                         )
                     },
+                    navigationSuiteType = suiteType,
                 )
             }
         },
         modifier = modifier,
-        layoutType = navSuiteType(),
+        navigationSuiteType = suiteType,
         state = navSuiteState,
     ) {
         StaxNavDisplay(

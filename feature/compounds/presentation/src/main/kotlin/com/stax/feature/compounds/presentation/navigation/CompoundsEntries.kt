@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.paneInsets
+import com.stax.core.domain.Concentration
 import com.stax.feature.compounds.presentation.detail.CompoundDetailArgs
 import com.stax.feature.compounds.presentation.detail.CompoundDetailRoot
 import com.stax.feature.compounds.presentation.form.CompoundFormArgs
@@ -49,6 +50,10 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
     // Nullable: the Helper button on the Create form (§4.4.3) has no compound to pre-select yet, and
     // §4.6's standalone calculator is exactly what that case wants.
     onReconstitute: (Long?) -> Unit,
+    // §4.6.7 "return to caller": the mix the helper computed, waiting in `:app` for whichever form
+    // opened it, and the acknowledgement that clears it once that form has typed it in.
+    reconstitutionResult: Concentration?,
+    onReconstitutionResultApplied: () -> Unit,
     onProtocolClick: (Long) -> Unit,
     onLogDose: (Long) -> Unit,
     onAdministrationEventClick: (Long) -> Unit,
@@ -86,6 +91,8 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
             args = CompoundFormArgs(compoundId = null, isOnboarding = key.onboarding),
             onDone = if (key.onboarding) onOnboardingStepDone else onBack,
             onReconstitute = onReconstitute,
+            reconstitutionResult = reconstitutionResult,
+            onReconstitutionResultApplied = onReconstitutionResultApplied,
         )
     }
     entry<EditCompoundRoute> { key ->
@@ -93,6 +100,8 @@ fun EntryProviderScope<NavKey>.compoundsEntries(
             args = CompoundFormArgs(compoundId = key.compoundId),
             onDone = onBack,
             onReconstitute = onReconstitute,
+            reconstitutionResult = reconstitutionResult,
+            onReconstitutionResultApplied = onReconstitutionResultApplied,
         )
     }
 }

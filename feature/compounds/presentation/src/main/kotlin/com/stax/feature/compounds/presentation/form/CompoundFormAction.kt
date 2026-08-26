@@ -2,6 +2,7 @@ package com.stax.feature.compounds.presentation.form
 
 import com.stax.core.domain.CompoundCategory
 import com.stax.core.domain.CompoundForm
+import com.stax.core.domain.Concentration
 import com.stax.core.domain.ContainerType
 import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
@@ -17,6 +18,12 @@ sealed interface CompoundFormAction {
         data class OnTotalContainersChange(val value: String) : Edit
         data class OnAmountPerContainerChange(val value: String) : Edit
         data class OnConcentrationChange(val value: String) : Edit
+
+        /**
+         * §4.6.7's "return to caller": the Reconstitution Helper came back with a mix, and the
+         * concentration row is where it lands — an edit like any other, only typed by the calculator.
+         */
+        data class OnConcentrationCalculated(val concentration: Concentration) : Edit
         data class OnBatchNumberChange(val value: String) : Edit
         data class OnSupplierChange(val value: String) : Edit
         data class OnExpiryAfterOpeningDaysChange(val value: String) : Edit

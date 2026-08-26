@@ -3,6 +3,7 @@ package com.stax.feature.compounds.presentation.form
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import assertk.assertThat
+import assertk.assertions.contains
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isInstanceOf
@@ -42,6 +43,9 @@ import org.junit.jupiter.api.Test
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
+// One case per rule of §4.4, over one shared fake: a test class grows with the form it covers, and
+// splitting it would only duplicate the harness (`TooManyFunctions` is off repo-wide for the same reason).
+@Suppress("LargeClass")
 class CompoundFormViewModelTest {
 
     private lateinit var compounds: FakeCompoundRepository
@@ -835,6 +839,33 @@ class CompoundFormViewModelTest {
 
             assertThat(awaitItem()).isEqualTo(CompoundFormEvent.OpenReconstitutionHelper(COMPOUND_ID))
         }
+    }
+
+    /**
+     * §4.6.7's "return to caller": the helper's mix lands on the concentration row, units and all.
+     *
+     * IU rather than mg because that is where the units matter — the figure alone typed into a mg/mL
+     * row would be a thousandfold lie.
+     */
+    @Test
+    fun `fills the concentration row from the Reconstitution Helper`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(
+            CompoundFormAction.Edit.OnConcentrationCalculated(
+                Concentration(
+                    amount = Quantity(Decimal.parse("100"), UnitCode.IU),
+                    per = Quantity(Decimal.parse("1"), UnitCode.ML),
+                ),
+            ),
+        )
+
+        val draft = viewModel.state.value.draft
+        assertThat(draft.concentrationAmount).isEqualTo("100")
+        assertThat(draft.concentrationUnit).isEqualTo(UnitCode.IU)
+        assertThat(draft.concentrationPerUnit).isEqualTo(UnitCode.ML)
+        // Marked as the user's own, so a later Form change does not overwrite what they calculated.
+        assertThat(draft.touched).contains(CompoundFormField.CONCENTRATION)
     }
 
     // -----------------------------------------------------------------------

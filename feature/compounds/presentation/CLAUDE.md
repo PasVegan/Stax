@@ -29,6 +29,8 @@ sheets (edit / create-already-opened) + amount-per-container shrink dialog.
   `CompoundFormDraft` is the editable half of the state; `CompoundFormAction.Overlay` is the
   menus/pickers/prompts family, dispatched as one branch. `ContainerShrinkPromptUi` /
   `ContainerShrinkDecision` are the §4.4.4 Edit-case dialog (M7-05).
+  `Edit.OnConcentrationCalculated` is §4.6.7's return path: the Reconstitution Helper's mix, units and
+  all, typed into the concentration row as an edit like any other (M8-04).
 - `detail/` — the Compound Detail screen (§4.3, M7-07). `CompoundDetailViewModel` +
   `CompoundDetailState` / `Action` / `Event` / `CompoundDetailArgs`, rendered by
   `CompoundDetailRoot` / `CompoundDetailScreen` over the sections of `CompoundDetailSections.kt`.
@@ -62,6 +64,12 @@ Compounds feature.
   Expiring soon), Category, Form and the search query all AND together; an empty Category/Form
   selection means "no constraint". Row expiry is the earlier of `batchExpiryDate` and the opened
   container's `userDefinedExpiryDate ?? predictedExpiryDate` (§3.1, §4.3.2).
+- **The Reconstitution Helper's result** (§4.6.7) reaches the form through `:app`, not through the
+  compound row: `compoundsEntries(reconstitutionResult = …, onReconstitutionResultApplied = …)` holds
+  what the helper computed until whichever form opened it composes again, and the form applies it once
+  and hands it back. The row is not the channel because the form reads its compound **once** (a form
+  that reloaded under the user's hands would discard what they were typing), and because §4.4.3's
+  Create case has no row yet — the helper opened standalone and wrote nothing.
 - **Search overlay** (§4.0.1) is `CompoundsSearchOverlay`, a mode of the list screen driven by
   `CompoundsListState.isSearchOpen` — not a nav destination, which is why it needs its own
   `BackHandler` (hence the `activity-compose` dependency). Protocols (§4.7.1) and Sites (§4.12.1)

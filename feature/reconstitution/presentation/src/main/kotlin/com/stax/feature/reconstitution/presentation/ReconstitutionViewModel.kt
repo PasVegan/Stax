@@ -9,6 +9,9 @@ import com.stax.core.domain.Quantity
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.UnitFamily
 import com.stax.core.domain.repository.CompoundRepository
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -160,29 +163,64 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
 internal fun ReconstitutionState.recalculated(): ReconstitutionState {
     val container = containerAmount.toDecimalOrNull()?.takeIf { it > ZERO }
     val diluentMl = diluent.toDecimalOrNull()?.takeIf { it > ZERO }
+    val typedDose = desiredDose.toDecimalOrNull()?.takeIf { it > ZERO }
     // Guarded rather than assumed: `Quantity / Concentration` and `convertTo` both throw across unit
     // families, and a crash is a poor answer to a picker the user is still moving.
-    val dose = desiredDose.toDecimalOrNull()
-        ?.takeIf { it > ZERO && doseUnit.family == containerUnit.family }
+    val dose = typedDose?.takeIf { doseUnit.family == containerUnit.family }
 
     val perMl = if (container != null && diluentMl != null) container / diluentMl else null
-    val volume = if (perMl != null && dose != null) {
-        Quantity(dose, doseUnit) / Concentration(Quantity(perMl, containerUnit), Quantity(ONE, UnitCode.ML))
-    } else {
-        null
-    }
+    val mix = perMl?.let { Concentration(Quantity(it, containerUnit), Quantity(ONE, UnitCode.ML)) }
+    val volume = if (mix != null && dose != null) (Quantity(dose, doseUnit) / mix).value else null
     val dosesPerContainer = if (container != null && dose != null) {
         container / doseUnit.convertTo(containerUnit, dose)
     } else {
         null
     }
 
+    val equivalence = if (dose != null && volume != null) {
+        DoseEquivalence(
+            mass = dose.toPlainString(),
+            volume = volume.asDisplayed(DoseDisplay.MILLILITRES),
+            units = volume.asDisplayed(DoseDisplay.INSULIN_UNITS),
+        )
+    } else {
+        null
+    }
+
     return copy(
-        drawTo = volume?.value?.asDisplayed(display),
-        syringeFill = volume?.value?.fractionOf(syringeSize) ?: 0f,
+        equivalence = equivalence,
+        // The ladder runs off the typed dose rather than the convertible one: a dose unit that does
+        // not match the container still names five doses, it just cannot say what they draw to.
+        ladder = typedDose.ladder(mix.takeIf { dose != null }, doseUnit, display),
+        syringeFill = volume?.fractionOf(syringeSize) ?: 0f,
         concentration = perMl?.round(CONCENTRATION_SCALE),
         dosesPerContainer = dosesPerContainer?.floorToInt(),
     )
+}
+
+/**
+ * §4.6.5's default rungs: `[0.1, dose/2, dose, dose×2, dose×3]`, ordered and de-duplicated.
+ *
+ * The duplicates are real — a dose of `0.2` puts `0.1` on the ladder twice, once as the floor and
+ * once as its own half — and two identical pills side by side read as a bug. Sorting is what makes it
+ * a ladder rather than the order the formula happens to list.
+ *
+ * Tapping a rung types its figure into Desired dose, so the ladder recomputes around the tapped
+ * value: the rung stays selected and the next doubling is one tap further up.
+ */
+private fun Decimal?.ladder(mix: Concentration?, doseUnit: UnitCode, display: DoseDisplay): ImmutableList<DoseRung> {
+    val dose = this ?: return persistentListOf()
+    return listOf(LADDER_FLOOR, dose / TWO, dose, dose * TWO, dose * THREE)
+        .sorted()
+        .distinctBy(Decimal::toPlainString)
+        .map { rung ->
+            DoseRung(
+                dose = rung.toPlainString(),
+                equivalent = mix?.let { (Quantity(rung, doseUnit) / it).value.asDisplayed(display) },
+                isSelected = rung.compareTo(dose) == 0,
+            )
+        }
+        .toPersistentList()
 }
 
 /**
@@ -231,6 +269,11 @@ private fun String.toDecimalOrNull(): Decimal? = try {
 
 private val ZERO: Decimal = Decimal.parse("0")
 private val ONE: Decimal = Decimal.parse("1")
+private val TWO: Decimal = Decimal.parse("2")
+private val THREE: Decimal = Decimal.parse("3")
+
+/** §4.6.5's fixed bottom rung — the smallest dose the ladder always offers, whatever was typed. */
+private val LADDER_FLOOR: Decimal = Decimal.parse("0.1")
 
 /** The U-100 standard every insulin syringe is graduated in, whatever its capacity (§4.6.2). */
 private val UNITS_PER_ML: Decimal = Decimal.parse("100")

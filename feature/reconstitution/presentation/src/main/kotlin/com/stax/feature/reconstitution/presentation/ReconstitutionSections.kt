@@ -1,5 +1,7 @@
 package com.stax.feature.reconstitution.presentation
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
@@ -26,14 +29,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stax.core.design.system.StaxIcons
+import com.stax.core.design.system.StaxShapes
 import com.stax.core.domain.UnitCode
 
 /**
@@ -90,12 +99,102 @@ internal fun DrawToHero(
                 drawTo = state.drawTo,
                 display = state.display,
             )
+            state.equivalence?.let { equivalence ->
+                EquivalenceChips(
+                    equivalence = equivalence,
+                    doseUnit = state.doseUnit,
+                    // §4.6.3's third chip is the insulin one, and there is no U-100 figure to put on
+                    // it while the dose is being drawn on a barrel graduated in millilitres.
+                    showUnits = state.syringeSize.isInsulin,
+                )
+            }
         }
     }
 }
 
 /**
- * §4.6's progressive disclosure: one row that unfolds Mix (and, with M8-03, the dose ladder).
+ * §4.6.3: the drawn dose said two or three ways, side by side under the syringe.
+ *
+ * Mass, volume and — on an insulin barrel — insulin units are the same dose in the three vocabularies
+ * the bench uses: the protocol is written in one, the syringe is graduated in another, and the vial
+ * label is in the third. Reading across the row is the check that the mix is right.
+ *
+ * The chips carry no tap of their own: they restate what §4.6.2 already drew, and the unit the dose is
+ * *stated* in is §4.6.4's Display tile.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun EquivalenceChips(
+    equivalence: DoseEquivalence,
+    doseUnit: UnitCode,
+    showUnits: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
+    ) {
+        EquivalenceChip(
+            value = equivalence.mass,
+            unit = unitLabel(doseUnit),
+            color = colors.primaryContainer,
+            contentColor = colors.onPrimaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        EquivalenceChip(
+            value = equivalence.volume,
+            unit = unitLabel(UnitCode.ML),
+            color = colors.secondaryContainer,
+            contentColor = colors.onSecondaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        if (showUnits) {
+            EquivalenceChip(
+                value = equivalence.units,
+                unit = stringResource(R.string.reconstitution_units),
+                color = colors.tertiaryContainer,
+                contentColor = colors.onTertiaryContainer,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** One §4.6.3 chip: the figure over its unit, both centred. */
+@Suppress("FunctionName")
+@Composable
+private fun EquivalenceChip(
+    value: String,
+    unit: String,
+    color: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        // The pair is one statement, so it is read as one — "0.25 mg", not "0.25" then "mg".
+        modifier = modifier.clearAndSetSemantics { contentDescription = "$value $unit" },
+        shape = MaterialTheme.shapes.large,
+        color = color,
+        contentColor = contentColor,
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = CHIP_PADDING_V, horizontal = TILE_GAP),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(text = unit, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * §4.6's progressive disclosure: one row that unfolds Mix and the dose ladder.
  *
  * Only Compact shows it — §6.4.2 gives Medium and Expanded the horizontal room to keep the same
  * sections open, so there is nothing there for a "Show calculation" row to reveal.
@@ -173,6 +272,88 @@ internal fun MixSection(
         ) {
             DesiredDoseTile(state, isIconInline, onAction, Modifier.weight(1f))
             DisplayTile(state, isIconInline, onAction, Modifier.weight(1f))
+        }
+    }
+}
+
+/**
+ * §4.6.5's ladder: the five default rungs, scrollable sideways.
+ *
+ * The selected rung breaks shape rather than only colour — `primary` at a `16dp` corner against
+ * outlined pills — because on a row of same-sized capsules the fill alone is easy to lose, and the
+ * shape survives a colour-blind reading of it.
+ *
+ * A tap types the rung's figure into §4.6.4's Desired dose, which is what previews it: the syringe
+ * fill springs to the new dose on §4.6.8's spec, and the ladder recomputes around the tapped value so
+ * the next doubling is one rung further up.
+ */
+@Suppress("FunctionName")
+@Composable
+internal fun DoseLadderSection(
+    state: ReconstitutionState,
+    onAction: (ReconstitutionAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TILE_GAP)) {
+        SectionHeader(text = stringResource(R.string.reconstitution_dose_ladder))
+        Row(
+            // The rungs keep their own width and run off the end — five of them do not fit a Compact
+            // phone, and squeezing them to would cost the figures their legibility (§4.6.5).
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
+        ) {
+            val unit = unitLabel(state.doseUnit)
+            state.ladder.forEach { rung ->
+                DoseRungPill(
+                    rung = rung,
+                    doseUnit = unit,
+                    display = state.display,
+                    onClick = { onAction(ReconstitutionAction.OnDesiredDoseChange(rung.dose)) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One rung (§4.6.5): the dose over what it draws to.
+ *
+ * The second line falls back to the dose's own unit when the mix has no concentration yet — the
+ * ladder still picks doses before there is a diluent to convert them through.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun DoseRungPill(
+    rung: DoseRung,
+    doseUnit: String,
+    display: DoseDisplay,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = modifier.semantics { selected = rung.isSelected },
+        shape = if (rung.isSelected) MaterialTheme.shapes.large else StaxShapes.Pill,
+        color = if (rung.isSelected) colors.primary else colors.surface,
+        contentColor = if (rung.isSelected) colors.onPrimary else colors.onSurface,
+        border = if (rung.isSelected) null else BorderStroke(RUNG_BORDER, colors.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = RUNG_PADDING_H, vertical = RUNG_PADDING_V),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = rung.dose, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            Text(
+                text = rung.equivalent?.let {
+                    stringResource(R.string.reconstitution_rung_equivalent, it, rungUnitLabel(display))
+                } ?: doseUnit,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (rung.isSelected) colors.onPrimary else colors.onSurfaceVariant,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -612,6 +793,15 @@ internal fun drawToUnitLabel(display: DoseDisplay): String = stringResource(
     },
 )
 
+/** §4.6.5's rung: the same unit as "Draw to", shortened to what fits a pill — "10 u", "0.10 mL". */
+@Composable
+private fun rungUnitLabel(display: DoseDisplay): String = stringResource(
+    when (display) {
+        DoseDisplay.MILLILITRES -> R.string.reconstitution_unit_ml
+        DoseDisplay.INSULIN_UNITS -> R.string.reconstitution_units_short
+    },
+)
+
 /** Enough of a field to aim at while it is empty. */
 private val MinFieldWidth = 24.dp
 
@@ -625,6 +815,10 @@ private val HERO_GAP = 12.dp
 private val TILE_PADDING = 12.dp
 private val TILE_GAP = 8.dp
 private val ROW_PADDING = 14.dp
+private val CHIP_PADDING_V = 12.dp
+private val RUNG_PADDING_H = 14.dp
+private val RUNG_PADDING_V = 8.dp
+private val RUNG_BORDER = 1.dp
 private val VALUE_UNIT_GAP = 4.dp
 private val UNIT_BASELINE_NUDGE = 6.dp
 private val UNIT_BUTTON_PADDING = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)

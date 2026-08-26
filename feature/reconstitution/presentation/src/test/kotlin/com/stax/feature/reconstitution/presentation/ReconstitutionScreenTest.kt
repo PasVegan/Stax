@@ -4,10 +4,15 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.isEmpty
@@ -43,14 +48,15 @@ class ReconstitutionScreenTest {
     fun `renders the mix and result sections in a narrow window`() {
         setContent(state().copy(isCalculationExpanded = true))
 
-        composeRule.onNodeWithText(string(R.string.reconstitution_container)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.reconstitution_diluent)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.reconstitution_desired_dose)).assertIsDisplayed()
-        composeRule.onNodeWithText(string(R.string.reconstitution_display)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.reconstitution_container)).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.reconstitution_diluent)).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.reconstitution_desired_dose)).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.reconstitution_display)).performScrollTo().assertIsDisplayed()
         // The typed values survive the reflow whole — a field too narrow for its own content scrolls
-        // and shows "0.25" as "5".
-        composeRule.onNodeWithText("0.25").assertIsDisplayed()
-        composeRule.onNodeWithText("2").assertIsDisplayed()
+        // and shows "0.25" as "5". The dose is on a §4.6.3 chip and a §4.6.5 rung too, so it is the
+        // editable one that is asked for here.
+        composeRule.onNode(hasText("0.25") and hasSetTextAction()).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(hasText("2") and hasSetTextAction()).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -104,6 +110,74 @@ class ReconstitutionScreenTest {
         composeRule.onNodeWithText("20").assertIsDisplayed()
     }
 
+    /** §4.6.3: the chips sit with the syringe, outside the disclosure, at every width. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `states the dose in every unit beside the syringe`() {
+        setContent(state())
+
+        composeRule.onNodeWithContentDescription("0.25 ${string(R.string.reconstitution_unit_mg)}")
+            .assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("0.10 ${string(R.string.reconstitution_unit_ml)}")
+            .assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("10 ${string(R.string.reconstitution_units)}")
+            .assertIsDisplayed()
+    }
+
+    /** §4.6.3: the insulin chip is the third one, and a regular barrel has no U-100 figure to put on it. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `drops the insulin chip on a regular syringe`() {
+        setContent(state().copy(syringeSize = SyringeSize.ML3).recalculated())
+
+        composeRule.onNodeWithContentDescription("0.10 ${string(R.string.reconstitution_unit_ml)}")
+            .assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("10 ${string(R.string.reconstitution_units)}")
+            .assertDoesNotExist()
+    }
+
+    /** M8-03's acceptance, on screen: five rungs, the typed dose lit, and a tap that types the rung. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `picks a dose from the ladder`() {
+        setContent(state().copy(isCalculationExpanded = true))
+
+        scrollLadderIntoView()
+
+        composeRule.onNodeWithText(string(R.string.reconstitution_dose_ladder)).assertIsDisplayed()
+        // The typed dose is on §4.6.4's field as well as its rung, so the rung is asked for by the
+        // selection only §4.6.5 carries.
+        composeRule.onNode(hasText("0.25") and isSelectable()).assertIsSelected()
+        composeRule.onNodeWithText("0.5").assertIsDisplayed().performClick()
+
+        assertThat(actions).containsExactly(ReconstitutionAction.OnDesiredDoseChange("0.5"))
+    }
+
+    /** §4.6: the ladder folds away with Mix — it types into the same Desired dose field. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `folds the ladder away with the rest of the calculation`() {
+        setContent(state())
+
+        composeRule.onNodeWithText(string(R.string.reconstitution_dose_ladder)).assertDoesNotExist()
+    }
+
+    /**
+     * Five rungs do not fit a narrow window, so §4.6.5's row keeps their width and scrolls sideways
+     * rather than squeezing the figures — the rungs that do fit are still tappable where they are.
+     */
+    @Test
+    @Config(qualifiers = NARROW)
+    fun `keeps the ladder tappable in a narrow window`() {
+        setContent(state().copy(isCalculationExpanded = true))
+
+        scrollLadderIntoView()
+
+        composeRule.onNodeWithText("0.1").assertIsDisplayed().performClick()
+
+        assertThat(actions).containsExactly(ReconstitutionAction.OnDesiredDoseChange("0.1"))
+    }
+
     /** §4.6.7: nothing to set before the mix produces a concentration. */
     @Test
     @Config(qualifiers = COMPACT)
@@ -139,7 +213,7 @@ class ReconstitutionScreenTest {
     fun `opens the display picker from its tile`() {
         setContent(state().copy(isCalculationExpanded = true))
 
-        composeRule.onNodeWithText(string(R.string.reconstitution_display)).performClick()
+        composeRule.onNodeWithText(string(R.string.reconstitution_display)).performScrollTo().performClick()
 
         assertThat(actions).containsExactly(
             ReconstitutionAction.OnPickerClick(ReconstitutionPicker.DISPLAY),
@@ -184,6 +258,14 @@ class ReconstitutionScreenTest {
         composeRule
             .onNodeWithText(composeRule.activity.getString(R.string.reconstitution_syringe_regular, "3"))
             .assertIsDisplayed()
+    }
+
+    /**
+     * A rung's closest scrollable ancestor is §4.6.5's own sideways row, so `performScrollTo` on one
+     * never moves the page. Scrolling to the section *below* the ladder is what brings it into view.
+     */
+    private fun scrollLadderIntoView() {
+        composeRule.onNodeWithText(string(R.string.reconstitution_result)).performScrollTo()
     }
 
     private fun insulinBadge(): String =

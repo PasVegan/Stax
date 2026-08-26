@@ -83,8 +83,10 @@ data class ReconstitutionState(
     val doseUnitOptions: ImmutableList<UnitCode> = MASS_UNITS,
     val openPicker: ReconstitutionPicker? = null,
     val isCalculationExpanded: Boolean = false,
-    /** §4.6.2 "Draw to": the dose as a volume or as insulin units, per [display]. */
-    val drawTo: String? = null,
+    /** §4.6.3: the drawn dose stated in every unit that names it, or null until the mix produces one. */
+    val equivalence: DoseEquivalence? = null,
+    /** §4.6.5: the dose rungs, computed off the typed dose. Empty until there is one to compute from. */
+    val ladder: ImmutableList<DoseRung> = persistentListOf(),
     /** §4.6.2: how far up [syringeSize]'s barrel the dose reaches, `0f`..`1f`. */
     val syringeFill: Float = 0f,
     /** §4.6.6: how much active is in one millilitre, in [containerUnit]. */
@@ -92,9 +94,35 @@ data class ReconstitutionState(
     /** §4.6.6: whole doses of [desiredDose] one container yields. */
     val dosesPerContainer: Int? = null,
 ) {
+    /** §4.6.2 "Draw to": the dose as a volume or as insulin units, per [display]. */
+    val drawTo: String? get() = when (display) {
+        DoseDisplay.MILLILITRES -> equivalence?.volume
+        DoseDisplay.INSULIN_UNITS -> equivalence?.units
+    }
+
     /** §4.6.7: nothing to save until the mix actually produces a concentration. */
     val canSave: Boolean get() = concentration != null
 }
+
+/**
+ * §4.6.3's chips: one dose, said three ways.
+ *
+ * [mass] is the dose as it was asked for, in [ReconstitutionState.doseUnit]; [volume] is what that
+ * comes to in the syringe, and [units] the same volume on the U-100 graduation. They are one
+ * computation apart, so they arrive together or not at all — a volume without its mass is a chip row
+ * with a hole in it.
+ */
+data class DoseEquivalence(val mass: String, val volume: String, val units: String)
+
+/**
+ * One rung of §4.6.5's ladder.
+ *
+ * [dose] is both the figure on the pill and the string tapping it types into §4.6.4's Desired dose —
+ * the ladder is a shortcut for that field, not a second source of truth. [equivalent] is what the
+ * rung comes to under §4.6.4's Display ("10" units, "0.10" mL), and is null while the mix has no
+ * concentration to convert through.
+ */
+data class DoseRung(val dose: String, val equivalent: String?, val isSelected: Boolean)
 
 /**
  * The units a reconstituted container can be measured in — the standalone calculator's container

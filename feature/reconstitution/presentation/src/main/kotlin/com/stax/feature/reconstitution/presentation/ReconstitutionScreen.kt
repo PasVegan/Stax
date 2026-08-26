@@ -64,7 +64,8 @@ fun ReconstitutionRoot(
  * calculation", and above it §6.4.2 keeps the same sections open because horizontal space is cheap.
  * The columns those wider panes arrange them into land with M8-05; here every width is one scroll.
  *
- * §4.6.3 / §4.6.5's equivalence chips and dose ladder (M8-03) are not drawn yet.
+ * §4.6.3's chips ride in the hero, under the syringe they restate; §4.6.5's ladder sits with Mix
+ * inside the disclosure, since it types into the same Desired dose field.
  */
 @Suppress("FunctionName")
 @Composable
@@ -102,6 +103,11 @@ fun ReconstitutionScreen(
                             width = contentWidth,
                             onAction = onAction,
                         )
+                        // §4.6.5 sits inside the same disclosure as Mix: it edits the same desired
+                        // dose, and an empty ladder is a dose that has not been typed yet.
+                        if (state.ladder.isNotEmpty()) {
+                            DoseLadderSection(state = state, onAction = onAction)
+                        }
                     }
                     ResultSection(state = state)
                 }

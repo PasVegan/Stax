@@ -42,6 +42,7 @@ import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.StaxMotion
 import com.stax.core.design.system.StaxSupportingPaneScene
+import com.stax.core.domain.Concentration
 import com.stax.feature.compounds.presentation.navigation.CompoundDetailRoute
 import com.stax.feature.compounds.presentation.navigation.CompoundsRoute
 import com.stax.feature.compounds.presentation.navigation.CreateCompoundRoute
@@ -128,6 +129,13 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
         if (chromeHidden) navSuiteState.hide() else navSuiteState.show()
     }
 
+    // §4.6.7 "return to caller": the Reconstitution Helper is closed by the time the form that
+    // opened it composes again, so its mix waits here — the one place that outlives both screens.
+    // Cleared by the form, not on a timer: a caller that never comes back never asked for it. Not
+    // saveable, because neither is the helper's own half-typed mix; a process death loses both, and
+    // the compound row keeps whatever was written to it.
+    var reconstitutionResult by remember { mutableStateOf<Concentration?>(null) }
+
     val selected = TopLevelDestination.entries.firstOrNull { it.route == navState.topLevelRoute }
         ?: TopLevelDestination.Home
 
@@ -169,6 +177,8 @@ fun MainScaffold(onboardingCompleted: Boolean, modifier: Modifier = Modifier) {
         StaxNavDisplay(
             navState = navState,
             onSelectionModeChange = { multiSelectActive = it },
+            reconstitutionResult = reconstitutionResult,
+            onReconstitutionResult = { reconstitutionResult = it },
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -250,6 +260,10 @@ private fun TopLevelDestination.painter(selected: Boolean): Painter = when (this
 private fun StaxNavDisplay(
     navState: MainNavigationState,
     onSelectionModeChange: (Boolean) -> Unit,
+    // §4.6.7's "return to caller", held by the caller of this function because it has to outlive the
+    // helper: what the Reconstitution Helper computed, and where the form that takes it puts it back.
+    reconstitutionResult: Concentration?,
+    onReconstitutionResult: (Concentration?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // List-detail Scene (§6.4.2): Compounds / Protocols list entries pair with their detail entries.
@@ -283,6 +297,8 @@ private fun StaxNavDisplay(
             onCreateCompound = { navState.push(CreateCompoundRoute()) },
             onEditCompound = { compoundId -> navState.push(EditCompoundRoute(compoundId)) },
             onReconstitute = { compoundId -> navState.push(ReconstitutionRoute(compoundId)) },
+            reconstitutionResult = reconstitutionResult,
+            onReconstitutionResultApplied = { onReconstitutionResult(null) },
             // The three ways out of Compound Detail (§4.3.4, §4.3.8, §4.3.9). Each belongs to another
             // feature, so the destination is named here and not there (§10.3).
             onProtocolClick = { protocolId -> navState.push(ProtocolDetailRoute(protocolId)) },
@@ -307,9 +323,9 @@ private fun StaxNavDisplay(
         )
         sitesEntries()
         settingsEntries()
-        reconstitutionEntries(
-            onBack = { navState.goBack() },
-        )
+        // §4.6.7: the helper leaves its mix here and then closes through `onBack`, which is what
+        // "returns to caller" means when the caller is a form still sitting underneath on the stack.
+        reconstitutionEntries(onBack = { navState.goBack() }, onSaved = onReconstitutionResult)
         loggingEntries(
             onBack = { navState.goBack() },
         )

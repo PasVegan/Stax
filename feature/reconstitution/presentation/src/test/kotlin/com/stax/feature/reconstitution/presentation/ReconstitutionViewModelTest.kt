@@ -424,6 +424,8 @@ class ReconstitutionViewModelTest {
             viewModel.onAction(ReconstitutionAction.OnSaveClick)
 
             assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.Saved(concentrationOf("2.5")))
+            // Handing the mix back and leaving are two statements; §4.6.7 asks for both.
+            assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.NavigateBack)
         }
         assertThat(compounds.updated.single().concentration).isEqualTo(concentrationOf("2.5"))
     }
@@ -464,6 +466,7 @@ class ReconstitutionViewModelTest {
             viewModel.onAction(ReconstitutionAction.OnSaveClick)
 
             assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.Saved(concentrationOf("5")))
+            assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.NavigateBack)
         }
         assertThat(compounds.updated).isEmpty()
     }

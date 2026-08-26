@@ -15,8 +15,8 @@ import com.stax.feature.reconstitution.presentation.ReconstitutionRoot
  *
  * [onSaved] is §4.6.7's "return to caller": the helper has written the mix onto the compound and
  * hands it up, and `:app` is what knows which screen was waiting for it — the Create / Edit Compound
- * form, whose concentration field it fills (§4.4.3). It replaces the back-pop rather than following
- * one, so a caller that only pops still gets a screen that leaves.
+ * form, whose concentration field it fills (§4.4.3). [onBack] follows it, so [onSaved] only has to
+ * put the mix somewhere the caller will find it.
  */
 fun EntryProviderScope<NavKey>.reconstitutionEntries(onBack: () -> Unit, onSaved: (Concentration) -> Unit) {
     entry<ReconstitutionRoute> { key ->

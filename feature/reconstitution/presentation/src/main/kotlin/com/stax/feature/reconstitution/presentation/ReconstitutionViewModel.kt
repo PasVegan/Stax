@@ -179,6 +179,9 @@ class ReconstitutionViewModel(private val compoundRepository: CompoundRepository
                 return@launch
             }
             _events.send(ReconstitutionEvent.Saved(concentration))
+            // Two events rather than one: handing the mix back and leaving are separate statements,
+            // and §4.6.1's close already owns the second one.
+            _events.send(ReconstitutionEvent.NavigateBack)
         }
     }
 

@@ -17,7 +17,8 @@ sealed interface ReconstitutionEvent {
      *
      * The concentration travels with the event because "return to caller" means the Create / Edit
      * Compound form comes back with its field filled — and in the standalone calculator there is no
-     * compound row for the form to read it from, only this.
+     * compound row for the form to read it from, only this. [NavigateBack] follows it: leaving is
+     * the same statement it always was.
      */
     data class Saved(val concentration: Concentration) : ReconstitutionEvent
 

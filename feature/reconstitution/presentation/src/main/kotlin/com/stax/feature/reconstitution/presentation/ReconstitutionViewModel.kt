@@ -6,9 +6,11 @@ import com.stax.core.domain.CompoundSupply
 import com.stax.core.domain.Concentration
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.Quantity
+import com.stax.core.domain.Result
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.UnitFamily
 import com.stax.core.domain.repository.CompoundRepository
+import com.stax.core.presentation.toUiText
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -42,7 +44,8 @@ data class ReconstitutionArgs(val compoundId: Long?)
  * here touches a `Double` (§3.0.1). Only the last step — turning a [Decimal] into the digits on a
  * tile — happens in this class, because how many of them to show is a UI question.
  */
-class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: ReconstitutionArgs) : ViewModel() {
+class ReconstitutionViewModel(private val compoundRepository: CompoundRepository, args: ReconstitutionArgs) :
+    ViewModel() {
 
     private val _state = MutableStateFlow(ReconstitutionState())
     val state = _state.asStateFlow()
@@ -56,6 +59,9 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
      * elsewhere would type over them mid-edit.
      */
     private var isSeeded = false
+
+    /** The row being reconstituted, kept so §4.6.7's save writes the mix back onto it. */
+    private var compound: CompoundSupply? = null
 
     init {
         args.compoundId?.let { id ->
@@ -96,8 +102,7 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
 
             ReconstitutionAction.OnPickerDismiss -> _state.update { it.copy(openPicker = null) }
 
-            // §4.6.7 writes the concentration back and returns to the caller — M8-04.
-            ReconstitutionAction.OnSaveClick -> Unit
+            ReconstitutionAction.OnSaveClick -> save()
         }
     }
 
@@ -115,6 +120,7 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
             send(ReconstitutionEvent.NavigateBack)
             return
         }
+        this.compound = compound
         val unit = compound.amountPerContainer.unit
         _state.update { current ->
             current.copy(
@@ -145,6 +151,37 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
         }
     }
 
+    /**
+     * §4.6.7's dock: the mix becomes the compound's concentration, and the caller gets it back.
+     *
+     * What is written is the **exact** quotient, not the three decimals §4.6.6 rounds onto the result
+     * tile: stored values are not rounded for persistence (§3.0.3), and a 5 mg vial in 3 mL is
+     * 1.666… mg/mL however few digits the tile has room for.
+     *
+     * Nothing is written to the Pending [com.stax.core.domain.ScheduledDose] rows of this compound,
+     * and that is the point rather than an omission: a scheduled dose stores the dose it plans, never
+     * the volume that dose comes to, so every pending row already restates itself at the new
+     * concentration the moment this write lands. Logged history does not move with it — a
+     * [com.stax.core.domain.DoseComponent] carries the concentration it was logged at (§3.5).
+     *
+     * The standalone calculator has no compound to write to (§4.4.3), so it only returns the mix —
+     * the Create form is where it lands.
+     */
+    private fun save() {
+        val concentration = _state.value.concentrationOrNull() ?: return
+        val compound = compound
+        viewModelScope.launch {
+            _state.update { it.copy(isSaving = true) }
+            val result = compound?.let { compoundRepository.update(it.copy(concentration = concentration)) }
+            if (result is Result.Error) {
+                _state.update { it.copy(isSaving = false) }
+                _events.send(ReconstitutionEvent.ShowError(result.error.toUiText()))
+                return@launch
+            }
+            _events.send(ReconstitutionEvent.Saved(concentration))
+        }
+    }
+
     private fun send(event: ReconstitutionEvent) {
         viewModelScope.launch { _events.send(event) }
     }
@@ -153,8 +190,7 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
 /**
  * The one derivation the screen is (§4.6.2, §4.6.6), run on every edit.
  *
- * The concentration is normalized to **one millilitre** — "2.5 mg/mL", not "5 mg / 2 mL" — because
- * that is the form §4.6.6 shows, the form the dose volume divides by, and the form M8-04 saves.
+ * The mix itself is [concentrationOrNull]; everything here divides by it or restates it.
  *
  * Any input that is blank, unparseable or non-positive simply leaves the results null: an empty
  * diluent field is a user still typing, not an error to report, and the tiles read "—" until it is a
@@ -162,14 +198,13 @@ class ReconstitutionViewModel(compoundRepository: CompoundRepository, args: Reco
  */
 internal fun ReconstitutionState.recalculated(): ReconstitutionState {
     val container = containerAmount.toDecimalOrNull()?.takeIf { it > ZERO }
-    val diluentMl = diluent.toDecimalOrNull()?.takeIf { it > ZERO }
     val typedDose = desiredDose.toDecimalOrNull()?.takeIf { it > ZERO }
     // Guarded rather than assumed: `Quantity / Concentration` and `convertTo` both throw across unit
     // families, and a crash is a poor answer to a picker the user is still moving.
     val dose = typedDose?.takeIf { doseUnit.family == containerUnit.family }
 
-    val perMl = if (container != null && diluentMl != null) container / diluentMl else null
-    val mix = perMl?.let { Concentration(Quantity(it, containerUnit), Quantity(ONE, UnitCode.ML)) }
+    val mix = concentrationOrNull()
+    val perMl = mix?.amount?.value
     val volume = if (mix != null && dose != null) (Quantity(dose, doseUnit) / mix).value else null
     val dosesPerContainer = if (container != null && dose != null) {
         container / doseUnit.convertTo(containerUnit, dose)
@@ -196,6 +231,21 @@ internal fun ReconstitutionState.recalculated(): ReconstitutionState {
         concentration = perMl?.round(CONCENTRATION_SCALE),
         dosesPerContainer = dosesPerContainer?.floorToInt(),
     )
+}
+
+/**
+ * §4.6.7 / §4.6.6: the mix itself — how much active one millilitre holds.
+ *
+ * Normalized to **one millilitre** — "2.5 mg/mL", not "5 mg / 2 mL" — because that is the form
+ * §4.6.6 shows, the form the dose volume divides by, and the form §4.6.7 stores.
+ *
+ * Null while either input is blank, unparseable or non-positive: an empty diluent field is a user
+ * still typing, not an error to report.
+ */
+internal fun ReconstitutionState.concentrationOrNull(): Concentration? {
+    val container = containerAmount.toDecimalOrNull()?.takeIf { it > ZERO } ?: return null
+    val diluentMl = diluent.toDecimalOrNull()?.takeIf { it > ZERO } ?: return null
+    return Concentration(Quantity(container / diluentMl, containerUnit), Quantity(ONE, UnitCode.ML))
 }
 
 /**

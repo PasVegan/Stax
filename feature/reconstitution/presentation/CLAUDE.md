@@ -25,8 +25,10 @@ chips, dose ladder, and save-concentration action. Pure dosing-math UI on top of
   (`SyringeSizeBadge`). `SyringeSize` (in `ReconstitutionState.kt`) carries the capacity and the
   graduation of each syringe; `next()` is the cycle the badge walks.
 - `reconstitutionPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
-  `reconstitutionEntries` (Nav3 entryProvider extension).
-- Coming: the save write (M8-04), the 2/3-column layouts (M8-05).
+  `reconstitutionEntries(onBack, onSaved)` (Nav3 entryProvider extension).
+- `concentrationOrNull()` (in `ReconstitutionViewModel.kt`) — the mix itself, normalized to one
+  millilitre. `recalculated()` divides by it; §4.6.7's save stores it.
+- Coming: the 2/3-column layouts (M8-05).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas syringe), `navigation-3`, `adaptive`, `android-di-koin`.
@@ -46,6 +48,13 @@ Reconstitution feature.
   around whichever rung was tapped. §4.6.5 speaks of a preview and a confirm; there is no confirm
   affordance on the screen, so a tap does both — it types the dose, and the syringe fill springs to
   it. The selected rung is the one equal to the typed dose, so no selection is stored.
+- §4.6.7's save writes **only** `CompoundSupply.concentration`, and that is the whole of it: a
+  `ScheduledDose` stores the dose it plans, never the volume that dose comes to, so every Pending row
+  restates itself at the new mix without being touched. Logged history does not move with it — a
+  `DoseComponent` carries the concentration it was logged at (§3.5). What is stored is the exact
+  quotient, not §4.6.6's three rounded digits (§3.0.3).
+- `ReconstitutionEvent.Saved` carries the concentration back to `:app`, which hands it to whichever
+  Compound form opened the helper (§4.4.3) — the standalone calculator has no row to read it from.
 - `compoundId == null` is §4.4.3's standalone calculator: the container amount and unit are typed
   instead of read. A compound picker (§9 `reconstitute` shortcut) is not built yet.
 - See spec §4.6, §6.4.2 Reconstitution; ISSUES M8-*.

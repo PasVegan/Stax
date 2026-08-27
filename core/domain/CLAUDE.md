@@ -18,6 +18,8 @@ our own that `:core:data` converts to `PagingData` anyway — buys nothing.
 
 ## Key types
 - Value types: `Decimal`, `UnitCode`, `UnitFamily`, `Quantity`, `Concentration`, `Validation`.
+- Dose rules: `EscalationEngine` — `Escalation.doseAt(daysSinceStart, dosesBefore)` and
+  `Protocol.plannedDoseAt(date, dosesBefore)` (§3.2).
 - Result/errors: `Result<D, E : Error>`, `DataError` (`DataError.Local`), `EmptyResult`.
 - Domain models: `CompoundSupply`, `Protocol`, `ScheduledDose`, `AdministrationEvent`,
   `DoseComponent`, `InjectionSite`, `InventoryTransaction`, `Settings`, `InventoryReadModels`.
@@ -41,4 +43,9 @@ Shared.
 - **No `LocalDateTime`** — `Instant`/`LocalDate`/`LocalTime` (§5.7).
 - Value types carry the unit families + arithmetic; tests (`*Test.kt`) live alongside and must stay
   green (≥90% coverage, M19-02).
-- See spec §3 (domain model), §10.2; ISSUES M1-*, M3-01/M3-03..M3-09.
+- **The escalation rule lives here, not in the generator** (§3.2, M9-02): it is dose math on pure
+  domain types, and a feature that has to show "what will I be taking on the 14th" may not import
+  `:core:data`. It converts before it adds or compares — `maxDose` in `mg` clamps a `mcg` escalation
+  — and takes the cumulative dose count as an argument, since only the caller knows how many doses
+  its schedule has placed by that date (`ScheduledDoseGenerator` counts them, §5.2).
+- See spec §3 (domain model), §10.2; ISSUES M1-*, M3-01/M3-03..M3-09, M9-02.

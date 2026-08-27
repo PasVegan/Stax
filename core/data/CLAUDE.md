@@ -74,5 +74,6 @@ Shared.
 - **A dose's date decides its dose, never the horizon it was generated in**: `AfterXDoses` escalation
   counts the doses the schedule places from `startDate` up to the dose, so regenerating a mid-run
   horizon reproduces exactly the rows a full-range run would — which is what makes the
-  `INSERT OR IGNORE` idempotency meaningful rather than merely non-crashing.
-- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01.
+  `INSERT OR IGNORE` idempotency meaningful rather than merely non-crashing. The generator owns that
+  count; the dose it implies comes from `Protocol.plannedDoseAt` in `:core:domain` (§3.2, M9-02).
+- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01, M9-02.

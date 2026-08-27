@@ -20,6 +20,7 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.plus
 import org.junit.jupiter.api.Test
 import kotlin.time.Instant
@@ -130,6 +131,164 @@ class ScheduledDoseGeneratorTest {
             zone = zone,
         )
         assertThat(doses).hasSize(2)
+    }
+
+    @Test
+    fun `EveryXDays with dosageTimes - generates one dose per time on each dosing day`() {
+        val doses = generator.generate(
+            protocol = protocol(
+                ScheduleType.EVERY_X_DAYS,
+                interval = 3,
+                dosageTimes = listOf(LocalTime(8, 0), LocalTime(20, 0)),
+            ),
+            from = start,
+            until = start.plus(9, DateTimeUnit.DAY),
+            zone = zone,
+        )
+        // Days 0, 3, 6 × 2 times each
+        assertThat(doses).hasSize(6)
+        assertThat(doses.map { it.originalLocalTime }.distinct()).hasSize(2)
+    }
+
+    @Test
+    fun `SpecificWeekdays with dosageTimes - every time is generated`() {
+        val doses = generator.generate(
+            protocol = protocol(
+                ScheduleType.SPECIFIC_WEEKDAYS,
+                selectedWeekdays = setOf(kotlinx.datetime.DayOfWeek.MONDAY),
+                dosageTimes = listOf(LocalTime(8, 0), LocalTime(20, 0)),
+            ),
+            from = start,
+            until = start.plus(7, DateTimeUnit.DAY),
+            zone = zone,
+        )
+        assertThat(doses).hasSize(2)
+    }
+
+    @Test
+    fun `XTimesPerWeek - spreads doses across the week instead of clustering`() {
+        val doses = generator.generate(
+            protocol = protocol(ScheduleType.X_TIMES_PER_WEEK, timesPerWeek = 3),
+            from = start,
+            until = start.plus(7, DateTimeUnit.DAY),
+            zone = zone,
+        )
+        assertThat(doses.map { start.daysUntil(it.originalLocalDate) }).isEqualTo(listOf(0, 3, 5))
+    }
+
+    @Test
+    fun `XTimesPerMonth - count holds for values that do not divide 30`() {
+        listOf(1, 2, 3, 4, 5, 7, 11).forEach { timesPerMonth ->
+            val doses = generator.generate(
+                protocol = protocol(ScheduleType.X_TIMES_PER_MONTH, timesPerMonth = timesPerMonth),
+                from = start,
+                until = start.plus(30, DateTimeUnit.DAY),
+                zone = zone,
+            )
+            assertThat(doses, name = "timesPerMonth=$timesPerMonth").hasSize(timesPerMonth)
+        }
+    }
+
+    @Test
+    fun `XTimesPerWeek - count holds for every value`() {
+        (1..7).forEach { timesPerWeek ->
+            val doses = generator.generate(
+                protocol = protocol(ScheduleType.X_TIMES_PER_WEEK, timesPerWeek = timesPerWeek),
+                from = start,
+                until = start.plus(7, DateTimeUnit.DAY),
+                zone = zone,
+            )
+            assertThat(doses, name = "timesPerWeek=$timesPerWeek").hasSize(timesPerWeek)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Protocol status gate
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `paused protocol - generates nothing`() {
+        val doses = generator.generate(
+            protocol = protocol(ScheduleType.DAILY, status = ProtocolStatus.PAUSED),
+            from = start,
+            until = start.plus(7, DateTimeUnit.DAY),
+            zone = zone,
+        )
+        assertThat(doses).isEmpty()
+    }
+
+    @Test
+    fun `completed protocol - generates nothing`() {
+        val doses = generator.generate(
+            protocol = protocol(ScheduleType.DAILY, status = ProtocolStatus.COMPLETED),
+            from = start,
+            until = start.plus(7, DateTimeUnit.DAY),
+            zone = zone,
+        )
+        assertThat(doses).isEmpty()
+    }
+
+    @Test
+    fun `archived protocol - generates nothing`() {
+        val doses = generator.generate(
+            protocol = protocol(ScheduleType.DAILY, deletedAt = now),
+            from = start,
+            until = start.plus(7, DateTimeUnit.DAY),
+            zone = zone,
+        )
+        assertThat(doses).isEmpty()
+    }
+
+    // -----------------------------------------------------------------------
+    // Horizon
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `generateHorizon - covers seven days from today`() {
+        val doses = generator.generateHorizon(protocol(ScheduleType.DAILY), zone, today = start)
+        assertThat(doses).hasSize(7)
+        assertThat(doses.last().originalLocalDate).isEqualTo(start.plus(6, DateTimeUnit.DAY))
+    }
+
+    @Test
+    fun `generateHorizon - starts at startDate when the protocol has not started yet`() {
+        val futureStart = start.plus(10, DateTimeUnit.DAY)
+        val doses = generator.generateHorizon(
+            protocol = protocol(ScheduleType.DAILY, startDate = futureStart),
+            zone = zone,
+            today = start,
+        )
+        assertThat(doses).hasSize(7)
+        assertThat(doses.first().originalLocalDate).isEqualTo(futureStart)
+    }
+
+    @Test
+    fun `generateHorizon - never generates before startDate for a protocol already running`() {
+        val doses = generator.generateHorizon(
+            protocol = protocol(ScheduleType.DAILY),
+            zone = zone,
+            today = start.plus(3, DateTimeUnit.DAY),
+        )
+        assertThat(doses.first().originalLocalDate).isEqualTo(start.plus(3, DateTimeUnit.DAY))
+    }
+
+    // -----------------------------------------------------------------------
+    // Idempotency (§5.2 — (protocolId, scheduledAt) uniqueness)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `overlapping ranges produce identical rows for the shared dates`() {
+        val proto = protocol(ScheduleType.DAILY, dosageTimes = listOf(LocalTime(8, 0)))
+        val first = generator.generate(proto, start, start.plus(7, DateTimeUnit.DAY), zone, createdAt = now)
+        val second = generator.generate(
+            proto,
+            start.plus(3, DateTimeUnit.DAY),
+            start.plus(10, DateTimeUnit.DAY),
+            zone,
+            createdAt = now,
+        )
+        val shared = second.filter { it.originalLocalDate < start.plus(7, DateTimeUnit.DAY) }
+        assertThat(shared).isEqualTo(first.drop(3))
     }
 
     // -----------------------------------------------------------------------
@@ -291,6 +450,80 @@ class ScheduledDoseGeneratorTest {
         assertThat(dose).isEqualTo(defaultDose)
     }
 
+    @Test
+    fun `escalation AfterXDoses - dose is the same whatever range it is generated in`() {
+        val esc = Escalation(
+            startDose = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+            targetDose = Quantity(Decimal.parse("2.0"), UnitCode.MG),
+            increaseAmount = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+            increaseEvery = EscalationIncreaseEvery.AFTER_X_DOSES,
+            increaseEveryValue = 4,
+            maxDose = null,
+            stopAtTarget = false,
+        )
+        val proto = protocol(ScheduleType.DAILY, escalation = esc)
+
+        val fromStart = generator.generate(proto, start, start.plus(12, DateTimeUnit.DAY), zone, createdAt = now)
+        val horizonOnly = generator.generate(
+            proto,
+            start.plus(8, DateTimeUnit.DAY),
+            start.plus(12, DateTimeUnit.DAY),
+            zone,
+            createdAt = now,
+        )
+
+        // Doses 0–3 = 0.25, 4–7 = 0.5, 8–11 = 0.75 — day 8 onwards must agree either way.
+        assertThat(horizonOnly.map { it.plannedDoseValue.toPlainString() })
+            .isEqualTo(listOf("0.75", "0.75", "0.75", "0.75"))
+        assertThat(horizonOnly).isEqualTo(fromStart.drop(8))
+    }
+
+    @Test
+    fun `escalation AfterXDoses - counts every dose of the day, not every day`() {
+        val esc = Escalation(
+            startDose = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+            targetDose = Quantity(Decimal.parse("2.0"), UnitCode.MG),
+            increaseAmount = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+            increaseEvery = EscalationIncreaseEvery.AFTER_X_DOSES,
+            increaseEveryValue = 2,
+            maxDose = null,
+            stopAtTarget = false,
+        )
+        val proto = protocol(
+            ScheduleType.DAILY,
+            dosageTimes = listOf(LocalTime(8, 0), LocalTime(20, 0)),
+            escalation = esc,
+        )
+        val doses = generator.generate(proto, start, start.plus(2, DateTimeUnit.DAY), zone, createdAt = now)
+
+        assertThat(doses.map { it.plannedDoseValue.toPlainString() })
+            .isEqualTo(listOf("0.25", "0.25", "0.5", "0.5"))
+    }
+
+    @Test
+    fun `escalation AfterXDoses - break days do not advance the counter`() {
+        val esc = Escalation(
+            startDose = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+            targetDose = Quantity(Decimal.parse("2.0"), UnitCode.MG),
+            increaseAmount = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+            increaseEvery = EscalationIncreaseEvery.AFTER_X_DOSES,
+            increaseEveryValue = 5,
+            maxDose = null,
+            stopAtTarget = false,
+        )
+        val proto = protocol(
+            ScheduleType.DAILY,
+            protocolBreak = ProtocolBreak(daysOn = 5, daysOff = 2),
+            escalation = esc,
+        )
+        // Days 5–6 are off, so the 5 doses of week 1 are all at startDose and week 2 steps up once.
+        val doses = generator.generate(proto, start, start.plus(14, DateTimeUnit.DAY), zone, createdAt = now)
+
+        assertThat(doses).hasSize(10)
+        assertThat(doses.map { it.plannedDoseValue.toPlainString() })
+            .isEqualTo(List(5) { "0.25" } + List(5) { "0.5" })
+    }
+
     // -----------------------------------------------------------------------
     // Entity fields
     // -----------------------------------------------------------------------
@@ -347,6 +580,9 @@ class ScheduledDoseGeneratorTest {
         protocolBreak: ProtocolBreak? = null,
         escalation: Escalation? = null,
         endDate: LocalDate? = null,
+        startDate: LocalDate = start,
+        status: ProtocolStatus = ProtocolStatus.ACTIVE,
+        deletedAt: Instant? = null,
     ): Protocol = Protocol(
         id = 1L,
         name = "Test protocol",
@@ -364,7 +600,7 @@ class ScheduledDoseGeneratorTest {
         dosageTimes = dosageTimes,
         escalation = escalation,
         protocolBreak = protocolBreak,
-        startDate = start,
+        startDate = startDate,
         endDate = endDate,
         reminderEnabled = false,
         reminderOffsetMinutes = 0,
@@ -372,8 +608,8 @@ class ScheduledDoseGeneratorTest {
         injectionSiteRestriction = null,
         siteCooldownDays = null,
         notes = null,
-        status = ProtocolStatus.ACTIVE,
-        deletedAt = null,
+        status = status,
+        deletedAt = deletedAt,
         createdAt = now,
         updatedAt = now,
     )

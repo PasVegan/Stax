@@ -179,6 +179,18 @@ class ProtocolRepositoryTest {
     }
 
     @Test
+    fun `update does not re-seed doses for a paused protocol`() = runTest {
+        val id = (repository.create(dailyProtocol()) as Result.Success).data
+        repository.pause(id)
+        database.scheduledDoseDao().deletePendingUnloggedForProtocol(id)
+
+        val updated = repository.observeById(id).first()!!.copy(name = "Renamed", status = ProtocolStatus.PAUSED)
+        repository.update(updated)
+
+        assertThat(database.scheduledDoseDao().observeByProtocolId(id).first()).isEmpty()
+    }
+
+    @Test
     fun `update replaces dosage times`() = runTest {
         val id = (repository.create(dailyProtocol()) as Result.Success).data
         val updated = repository.observeById(id).first()!!.copy(

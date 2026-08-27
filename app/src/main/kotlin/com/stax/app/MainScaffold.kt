@@ -59,6 +59,7 @@ import com.stax.feature.onboarding.presentation.navigation.NotificationGateRoute
 import com.stax.feature.onboarding.presentation.navigation.OnboardingRoute
 import com.stax.feature.onboarding.presentation.navigation.onboardingEntries
 import com.stax.feature.protocols.presentation.navigation.CreateProtocolRoute
+import com.stax.feature.protocols.presentation.navigation.EditProtocolRoute
 import com.stax.feature.protocols.presentation.navigation.ProtocolDetailRoute
 import com.stax.feature.protocols.presentation.navigation.ProtocolsRoute
 import com.stax.feature.protocols.presentation.navigation.protocolsEntries
@@ -315,6 +316,11 @@ private fun StaxNavDisplay(
         protocolsEntries(
             onProtocolClick = { protocolId -> navState.showDetail(ProtocolDetailRoute(protocolId)) },
             onCreateProtocol = { navState.push(CreateProtocolRoute()) },
+            onEditProtocol = { protocolId -> navState.push(EditProtocolRoute(protocolId)) },
+            // §4.0.2's empty compound picker: a protocol needs a compound, and Create Compound
+            // belongs to another feature — so the protocols module names the intent and this names
+            // the destination (§10.3).
+            onCreateCompound = { navState.push(CreateCompoundRoute()) },
             onBack = { navState.goBack() },
             // §4.14 step 3 is the last step, so finishing or skipping it ends onboarding: persist
             // the completion (onboarding's own business, hence the callback) and hand off to the

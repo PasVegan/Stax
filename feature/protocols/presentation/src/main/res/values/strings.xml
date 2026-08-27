@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Create / Edit Protocol app bar (§4.9.1, §4.14 step 3) -->
+    <string name="protocol_form_title_create">New protocol</string>
+    <string name="protocol_form_title_edit">Edit protocol</string>
+    <string name="protocol_form_title_onboarding">Create your first protocol · 3 of 3</string>
+    <string name="protocol_form_close">Close</string>
+    <string name="protocol_form_skip">Skip</string>
+
+    <!-- Edit-mode warning banner (§4.9.2) -->
+    <string name="protocol_form_edit_banner_title">Saving regenerates pending doses</string>
+    <string name="protocol_form_edit_banner_supporting">Logged history (Taken / Skipped / Missed) stays intact.</string>
+
+    <!-- Section headers (§4.9.3) -->
+    <string name="protocol_form_section_compound">Compound</string>
+    <string name="protocol_form_section_route">Route</string>
+    <string name="protocol_form_section_dose">Planned dose</string>
+    <string name="protocol_form_section_schedule">Schedule</string>
+    <string name="protocol_form_section_duration">Duration</string>
+    <string name="protocol_form_section_reminder">Reminder</string>
+    <string name="protocol_form_section_site">Site restriction</string>
+    <string name="protocol_form_section_notes">Notes</string>
+    <string name="protocol_form_section_forecast">Forecast &amp; warnings</string>
+    <string name="protocol_form_section_lifecycle">Lifecycle</string>
+
+    <string name="protocol_form_optional">Optional</string>
+
+    <!-- Compound card (§4.9.3) -->
+    <string name="protocol_form_compound_empty">Pick a compound</string>
+    <string name="protocol_form_compound_empty_supporting">Every protocol doses one compound</string>
+    <!-- "5 mg vial": amount, unit, container type -->
+    <string name="protocol_form_compound_size">%1$s %2$s %3$s</string>
+    <!-- "2.5 mg/mL": amount, unit, per-unit -->
+    <string name="protocol_form_concentration">%1$s %2$s/%3$s</string>
+
+    <!-- Route segments (§4.9.3) -->
+    <string name="protocol_form_route_sc">SC</string>
+    <string name="protocol_form_route_im">IM</string>
+    <string name="protocol_form_route_oral">Oral</string>
+    <string name="protocol_form_route_topical">Topical</string>
+
+    <!-- Planned dose (§4.9.3) -->
+    <string name="protocol_form_dose_placeholder">0.00</string>
+    <string name="protocol_form_equivalent">Equivalent: %1$s</string>
+    <string name="protocol_form_equivalent_with_units">Equivalent: %1$s · %2$d insulin units</string>
+    <!-- "0.10 mL": amount, unit -->
+    <string name="protocol_form_equivalent_volume">%1$s %2$s</string>
+
+    <!-- Schedule chips + their inputs (§4.9.3) -->
+    <string name="protocol_form_schedule_daily">Daily</string>
+    <string name="protocol_form_schedule_every_x_days">Every X days</string>
+    <string name="protocol_form_schedule_weekdays">Weekdays</string>
+    <string name="protocol_form_schedule_times_week">Times/week</string>
+    <string name="protocol_form_schedule_times_day">Times/day</string>
+    <string name="protocol_form_schedule_times_month">Times/month</string>
+    <string name="protocol_form_schedule_interval_label">Every N days</string>
+    <string name="protocol_form_schedule_per_day_label">Doses per day</string>
+    <string name="protocol_form_schedule_per_week_label">Doses per week</string>
+    <string name="protocol_form_schedule_per_month_label">Doses per month</string>
+
+    <!-- Times of day (§4.9.3) -->
+    <string name="protocol_form_add_time">Add time</string>
+    <string name="protocol_form_time_picker_title">Dose time</string>
+    <string name="protocol_form_no_specific_time">No specific time — doses show as “Today”.</string>
+    <!-- Content description of a time pill; tapping it removes that time -->
+    <string name="protocol_form_time_remove">%1$s, remove</string>
+
+    <!-- Next-7-days preview (11b) -->
+    <string name="protocol_form_preview_title">Next 7 days · %1$s</string>
+    <plurals name="protocol_form_preview_doses">
+        <item quantity="one">%1$d dose</item>
+        <item quantity="other">%1$d doses</item>
+    </plurals>
+
+    <!-- Duration (§4.9.3) -->
+    <string name="protocol_form_start">Start</string>
+    <string name="protocol_form_end">End</string>
+    <string name="protocol_form_end_open_ended">Open-ended</string>
+    <string name="protocol_form_date_confirm">OK</string>
+    <string name="protocol_form_date_clear">Clear</string>
+
+    <!-- Reminder (§4.9.3) -->
+    <string name="protocol_form_reminder_title">Notify at dose time</string>
+    <!-- "Offset: 0 min before · normal style" -->
+    <string name="protocol_form_reminder_supporting">Offset: %1$d min before · %2$s</string>
+    <string name="protocol_form_style_silent">silent style</string>
+    <string name="protocol_form_style_normal">normal style</string>
+    <string name="protocol_form_style_persistent">persistent style</string>
+    <string name="protocol_form_bucket_morning">Morning 9am</string>
+    <string name="protocol_form_bucket_afternoon">Afternoon 1pm</string>
+    <string name="protocol_form_bucket_evening">Evening 7pm</string>
+
+    <!-- Site restriction (§4.9.3) -->
+    <string name="protocol_form_site_label">Body region</string>
+    <string name="protocol_form_site_none">No restriction</string>
+    <string name="protocol_form_site_only">%1$s only</string>
+    <string name="protocol_form_site_supporting">Rotation suggestions limited to this region</string>
+    <string name="protocol_form_region_abdomen">Abdomen</string>
+    <string name="protocol_form_region_quadriceps">Quadriceps</string>
+    <string name="protocol_form_region_glute">Glute</string>
+    <string name="protocol_form_region_delt">Delt</string>
+    <string name="protocol_form_region_forearm">Forearm</string>
+    <string name="protocol_form_region_hamstring">Hamstring</string>
+    <string name="protocol_form_region_lower_back">Lower back</string>
+    <string name="protocol_form_region_thigh">Thigh</string>
+    <string name="protocol_form_region_upper_arm">Upper arm</string>
+
+    <!-- Notes (§4.9.3) -->
+    <string name="protocol_form_notes">Protocol notes</string>
+    <string name="protocol_form_notes_placeholder">Any timing, ramping or rotation notes…</string>
+
+    <!-- Forecast &amp; warnings (§4.9.3, 11b) -->
+    <string name="protocol_form_forecast_title">Inventory forecast</string>
+    <string name="protocol_form_forecast_empty">Pick a compound and a dose to see how long your stock lasts.</string>
+    <string name="protocol_form_forecast_doses_left">doses left</string>
+    <string name="protocol_form_forecast_days_left">days left</string>
+    <string name="protocol_form_forecast_run_out">run-out</string>
+    <!-- "63 d" -->
+    <string name="protocol_form_forecast_days">%1$d d</string>
+    <string name="protocol_form_forecast_expiry_title">Batch expires before protocol end</string>
+    <!-- "Jul 14 expiry · Aug 02 run-out" -->
+    <string name="protocol_form_forecast_expiry_supporting">%1$s expiry · %2$s run-out</string>
+    <plurals name="protocol_form_forecast_reorder_title">
+        <item quantity="one">Order %1$d more %2$s by %3$s</item>
+        <item quantity="other">Order %1$d more %2$s by %3$s</item>
+    </plurals>
+    <string name="protocol_form_forecast_reorder_supporting">Avoid shortage; covers protocol through %1$s</string>
+
+    <!-- Lifecycle (§4.9.5) -->
+    <string name="protocol_form_pause">Pause protocol</string>
+    <string name="protocol_form_duplicate">Duplicate protocol</string>
+    <string name="protocol_form_archive">Archive protocol</string>
+    <string name="protocol_form_archive_title">Archive this protocol?</string>
+    <string name="protocol_form_archive_supporting">Pending doses are removed. Logged history is kept.</string>
+
+    <!-- Bottom dock (§4.9.4) -->
+    <string name="protocol_form_cancel">Cancel</string>
+    <string name="protocol_form_save">Save protocol</string>
+    <string name="protocol_form_save_changes">Save changes</string>
+
+    <!-- Discard confirmation (§4.4.5's rule, inherited by §4.9) -->
+    <string name="protocol_form_discard_title">Discard changes?</string>
+    <string name="protocol_form_discard">Discard</string>
+    <string name="protocol_form_keep_editing">Keep editing</string>
+
+    <!-- Picker sheets (§4.0.2) -->
+    <string name="protocol_form_picker_compound">Pick compound</string>
+    <string name="protocol_form_picker_region">Pick body region</string>
+    <string name="protocol_form_picker_search">Search compounds</string>
+    <string name="protocol_form_picker_close">Close picker</string>
+    <string name="protocol_form_picker_clear">Clear search</string>
+    <string name="protocol_form_picker_empty">Nothing to pick</string>
+    <string name="protocol_form_picker_add_compound">Add compound</string>
+
+    <!-- Save validation -->
+    <string name="protocol_form_error_compound_required">Pick the compound this protocol doses</string>
+    <string name="protocol_form_error_dose_not_positive">Enter a dose greater than zero</string>
+    <string name="protocol_form_error_schedule_count">Enter a whole number this schedule can use</string>
+    <string name="protocol_form_error_weekdays_required">Select at least one weekday</string>
+    <string name="protocol_form_error_start_required">Pick a start date</string>
+    <string name="protocol_form_error_end_before_start">End must be after the start date</string>
+
+    <!-- Unit names (§3.0.3) -->
+    <string name="protocol_form_unit_mcg">mcg</string>
+    <string name="protocol_form_unit_mg">mg</string>
+    <string name="protocol_form_unit_g">g</string>
+    <string name="protocol_form_unit_iu">IU</string>
+    <string name="protocol_form_unit_ml">mL</string>
+    <string name="protocol_form_unit_capsule">capsule</string>
+    <string name="protocol_form_unit_tablet">tablet</string>
+    <string name="protocol_form_unit_scoop">scoop</string>
+    <string name="protocol_form_unit_drop">drop</string>
+
+    <!-- Category names (§3.1) -->
+    <string name="protocol_form_category_peptide">Peptide</string>
+    <string name="protocol_form_category_supplement">Supplement</string>
+    <string name="protocol_form_category_hormone">Hormone</string>
+    <string name="protocol_form_category_medication">Medication</string>
+
+    <!-- Container types (§3.1) -->
+    <string name="protocol_form_container_vial">vial</string>
+    <string name="protocol_form_container_bottle">bottle</string>
+    <string name="protocol_form_container_blister">blister</string>
+    <string name="protocol_form_container_packet">packet</string>
+    <string name="protocol_form_container_tub">tub</string>
+    <string name="protocol_form_container_ampoule">ampoule</string>
+
+</resources>

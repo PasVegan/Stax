@@ -20,3 +20,7 @@ data class ProtocolDetailRoute(val protocolId: Long) : NavKey
  */
 @Serializable
 data class CreateProtocolRoute(val onboarding: Boolean = false) : NavKey
+
+/** Edit the protocol identified by [protocolId] (§4.9, Edit mode). */
+@Serializable
+data class EditProtocolRoute(val protocolId: Long) : NavKey

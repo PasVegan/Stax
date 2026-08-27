@@ -84,8 +84,13 @@ class ProtocolFormViewModel(
     /** The auto-saved draft (§4.4.5's rule, which §4.9 inherits). Cleared once the form is done with. */
     private var savedDraft: ProtocolFormDraft? by savedStateHandle.saved(key = DRAFT_KEY) { null }
 
-    /** What the form was loaded with. The discard prompt is "the draft differs from this". */
-    private var baseline = ProtocolFormDraft()
+    /**
+     * What the form was loaded with. The discard prompt is "the draft differs from this".
+     *
+     * Create opens on today (§4.9.3 Duration), so today *is* the baseline — otherwise the form would
+     * count as changed before the user had touched anything. Edit replaces this once it loads.
+     */
+    private var baseline = ProtocolFormDraft(startDate = today())
 
     /** The protocol being edited, kept whole for the fields §4.9.3 cannot edit but must not drop. */
     private var loaded: Protocol? = null
@@ -94,7 +99,7 @@ class ProtocolFormViewModel(
     private var compounds: List<CompoundSupply> = emptyList()
 
     private val _state = MutableStateFlow(
-        (savedDraft ?: ProtocolFormDraft(startDate = today())).let { draft ->
+        (savedDraft ?: baseline).let { draft ->
             ProtocolFormState(
                 draft = draft,
                 isEdit = args.protocolId != null,
@@ -110,9 +115,6 @@ class ProtocolFormViewModel(
     val events = _events.receiveAsFlow()
 
     init {
-        // Create mode has no protocol to load, so its baseline is the empty form it opened with —
-        // otherwise "start date = today" would read as an unsaved change before the user touched it.
-        if (args.protocolId == null) baseline = _state.value.draft.copy(touched = emptySet())
         observeCompounds()
         observeSettings()
         args.protocolId?.let(::load)

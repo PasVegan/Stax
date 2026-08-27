@@ -168,7 +168,7 @@ private fun Quantity.isPositive(): Boolean = value > Zero
 private fun Quantity.isNonNegative(): Boolean = value >= Zero
 
 private fun Quantity.convertValueToOrNull(target: UnitCode): Decimal? = try {
-    unit.convertTo(target, value)
+    valueIn(target)
 } catch (_: IllegalArgumentException) {
     null
 }

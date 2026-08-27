@@ -286,6 +286,18 @@ maxDose: Quantity?
 stopAtTarget: Boolean
 ```
 
+**Current dose** (computed, not stored — the escalation rule engine):
+```
+counter = AfterXDoses ? doses the schedule placed since startDate : days since startDate
+steps   = counter / increaseEveryValue            // integer division; EveryXWeeks divides by value × 7
+dose    = min(startDose + increaseAmount × steps, ceiling)
+ceiling = min(maxDose, targetDose if stopAtTarget)   // whichever are set; neither set = no clamp
+```
+- The dose is expressed in `startDose`'s unit; `increaseAmount`, `maxDose` and `targetDose` are converted into that unit before they are added or compared, so a rule mixing `mg` and `mcg` still clamps correctly.
+- A date before `startDate` reads as day 0, i.e. `startDose`.
+- `stopAtTarget == false` means the escalation keeps climbing past `targetDose` — only `maxDose` stops it.
+- `AfterXDoses` counts the doses the protocol's schedule actually places, break off-days excluded, which is what makes a date's dose independent of the horizon that generated it (§5.2).
+
 ```
 ProtocolBreak:
 daysOn: Int                           // ≥ 1

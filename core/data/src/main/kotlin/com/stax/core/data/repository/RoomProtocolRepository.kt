@@ -17,14 +17,9 @@ import com.stax.core.domain.Result
 import com.stax.core.domain.repository.ProtocolRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.todayIn
 import kotlin.time.Clock
-
-/** Number of days ahead the repository generates when seeding or re-seeding doses (§5.2). */
-private const val HORIZON_DAYS = 7
 
 class RoomProtocolRepository(
     private val database: StaxDatabase,
@@ -142,15 +137,13 @@ class RoomProtocolRepository(
     // -----------------------------------------------------------------------
 
     /**
-     * Generates a [HORIZON_DAYS]-day batch of [ScheduledDoseEntity] rows starting from today
-     * (or [Protocol.startDate] if it's later) and inserts them with IGNORE-on-conflict.
+     * Generates the §5.2 horizon for [protocol] and inserts it with IGNORE-on-conflict. Paused,
+     * completed and archived protocols generate nothing — the generator decides, so every caller
+     * of it (here and `GenerateScheduledDosesWorker`) agrees on when a protocol is dosing.
      */
     private suspend fun generateAndInsert(protocol: Protocol) {
         val zone = TimeZone.currentSystemDefault()
-        val today = Clock.System.now().toLocalDateTime(zone).date
-        val from = maxOf(today, protocol.startDate)
-        val until = from.plus(HORIZON_DAYS, DateTimeUnit.DAY)
-        val entities = generator.generate(protocol, from, until, zone)
+        val entities = generator.generateHorizon(protocol, zone, Clock.System.todayIn(zone))
         if (entities.isNotEmpty()) scheduledDoseDao.insertManyOrIgnore(entities)
     }
 

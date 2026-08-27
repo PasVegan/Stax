@@ -27,3 +27,10 @@ data class Quantity(val value: Decimal, val unit: UnitCode) {
 
     override fun toString(): String = "${value.toPlainString()} ${unit.name.lowercase()}"
 }
+
+/**
+ * This quantity's value re-expressed in [target].
+ *
+ * @throws IllegalArgumentException when [UnitCode.convertTo] cannot bridge the two units.
+ */
+fun Quantity.valueIn(target: UnitCode): Decimal = unit.convertTo(target, value)

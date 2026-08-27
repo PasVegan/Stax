@@ -5,6 +5,7 @@ import assertk.assertThat
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
+import assertk.assertions.isInstanceOf
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import com.stax.core.domain.CompoundCategory
@@ -409,6 +410,96 @@ class ReconstitutionViewModelTest {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // §4.6.7 Save
+    // -----------------------------------------------------------------------
+
+    /** M8-04: the mix becomes the compound's concentration, and the caller gets it back. */
+    @Test
+    fun `saves the mix as the compound's concentration and returns it`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.events.test {
+            viewModel.onAction(ReconstitutionAction.OnSaveClick)
+
+            assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.Saved(concentrationOf("2.5")))
+            // Handing the mix back and leaving are two statements; §4.6.7 asks for both.
+            assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.NavigateBack)
+        }
+        assertThat(compounds.updated.single().concentration).isEqualTo(concentrationOf("2.5"))
+    }
+
+    /** §3.0.3: stored values are not rounded — 5 mg in 3 mL is 1.666…, not the tile's three digits. */
+    @Test
+    fun `stores the exact quotient rather than the figure the result tile rounds`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("3"))
+
+        viewModel.onAction(ReconstitutionAction.OnSaveClick)
+
+        assertThat(viewModel.state.value.concentration).isEqualTo("1.667")
+        assertThat(compounds.updated.single().concentration?.amount?.value)
+            .isEqualTo(Decimal.parse("5") / Decimal.parse("3"))
+    }
+
+    /** The rest of the compound is the row as it stands — save sets a concentration, nothing else. */
+    @Test
+    fun `leaves every other field of the compound alone`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.onAction(ReconstitutionAction.OnSaveClick)
+
+        assertThat(compounds.updated.single())
+            .isEqualTo(compound().copy(concentration = concentrationOf("2.5")))
+    }
+
+    /** §4.4.3's standalone calculator has no row to write to; the mix still goes back to the form. */
+    @Test
+    fun `returns the mix without a write in the standalone calculator`() = runTest {
+        val viewModel = viewModel(compoundId = null)
+        viewModel.onAction(ReconstitutionAction.OnContainerAmountChange("10"))
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.events.test {
+            viewModel.onAction(ReconstitutionAction.OnSaveClick)
+
+            assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.Saved(concentrationOf("5")))
+            assertThat(awaitItem()).isEqualTo(ReconstitutionEvent.NavigateBack)
+        }
+        assertThat(compounds.updated).isEmpty()
+    }
+
+    /** A failed write keeps the user on the screen with the dock live again (§4.6.7). */
+    @Test
+    fun `reports a failed write and stays put`() = runTest {
+        compounds.updateError = DataError.Local.DISK_FULL
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.events.test {
+            viewModel.onAction(ReconstitutionAction.OnSaveClick)
+
+            // UiText.StringResource has no equality of its own, so the type is what can be asserted.
+            assertThat(awaitItem()).isInstanceOf<ReconstitutionEvent.ShowError>()
+        }
+        assertThat(viewModel.state.value.isSaving).isFalse()
+        assertThat(viewModel.state.value.canSave).isTrue()
+    }
+
+    /** A second tap while the write is in flight is a second write; the dock refuses it. */
+    @Test
+    fun `takes no second tap while saving`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(ReconstitutionAction.OnDiluentChange("2"))
+
+        viewModel.onAction(ReconstitutionAction.OnSaveClick)
+
+        assertThat(viewModel.state.value.isSaving).isTrue()
+        assertThat(viewModel.state.value.canSave).isFalse()
+    }
+
     @Test
     fun `unfolds the calculation`() = runTest {
         val viewModel = viewModel()
@@ -452,6 +543,8 @@ class ReconstitutionViewModelTest {
 
     private class FakeCompoundRepository : CompoundRepository {
         val stored = MutableStateFlow<CompoundSupply?>(null)
+        val updated = mutableListOf<CompoundSupply>()
+        var updateError: DataError.Local? = null
 
         override fun observeAll(): Flow<List<CompoundSupply>> = throw NotImplementedError()
 
@@ -463,7 +556,10 @@ class ReconstitutionViewModelTest {
         override suspend fun update(
             compound: CompoundSupply,
             capOpenedContainer: Boolean,
-        ): EmptyResult<DataError.Local> = throw NotImplementedError()
+        ): EmptyResult<DataError.Local> {
+            updated += compound
+            return updateError?.let { Result.Error(it) } ?: Result.Success(Unit)
+        }
 
         override suspend fun archive(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
 

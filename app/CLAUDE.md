@@ -95,5 +95,11 @@ Shared.
 - App Startup eager/deferred split is performance-critical (§2.3.4) — keep `KoinInitializer` +
   `ThemeInitializer` eager; everything else deferred. Cold-start SLO < 400ms (§2.3.2).
 - Cross-feature nav callbacks live here; feature modules never import each other.
+- **Screen results** (§4.6.7 so far) are held by `MainScaffold`, not by a nav argument: the
+  Reconstitution Helper is closed by the time the Compound form that opened it composes again, so
+  `reconstitutionResult` waits in the scaffold — the one place that outlives both — and the form
+  clears it once it has applied it. `remember` rather than `rememberSaveable`, because the helper's
+  own half-typed mix is not saveable either; process death loses both and the compound row keeps
+  whatever was written to it.
 - R8/ProGuard config lands here at M20-01 (skill `r8-analyzer`, §2.3.9).
 - See spec §4.0, §10.3, §2.3.4; ISSUES M0-09, M5-02.

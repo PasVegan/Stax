@@ -198,6 +198,16 @@ class ReconstitutionScreenTest {
         assertThat(actions).containsExactly(ReconstitutionAction.OnSaveClick)
     }
 
+    /** §4.6.7: one tap is one write — the dock goes dead for as long as the write is in flight. */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `disables the save dock while the write is in flight`() {
+        setContent(state().copy(isSaving = true))
+
+        composeRule.onNodeWithText(string(R.string.reconstitution_save)).assertIsNotEnabled()
+        assertThat(actions).isEmpty()
+    }
+
     @Test
     @Config(qualifiers = COMPACT)
     fun `closes from the app bar`() {

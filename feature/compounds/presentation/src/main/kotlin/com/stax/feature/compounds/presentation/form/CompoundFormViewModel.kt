@@ -184,6 +184,18 @@ class CompoundFormViewModel(
         is CompoundFormAction.Edit.OnConcentrationChange ->
             updateDraft(CompoundFormField.CONCENTRATION) { it.copy(concentrationAmount = action.value) }
 
+        // §4.6.7: the helper's units come with its figure, because "2.5" means nothing without them —
+        // a vial measured in IU comes back as IU/mL, and typing the number alone into a mg/mL row
+        // would be a thousandfold error dressed up as a default.
+        is CompoundFormAction.Edit.OnConcentrationCalculated ->
+            updateDraft(CompoundFormField.CONCENTRATION) {
+                it.copy(
+                    concentrationAmount = action.concentration.amount.value.toPlainString(),
+                    concentrationUnit = action.concentration.amount.unit,
+                    concentrationPerUnit = action.concentration.per.unit,
+                )
+            }
+
         is CompoundFormAction.Edit.OnBatchNumberChange -> updateDraft { it.copy(batchNumber = action.value) }
         is CompoundFormAction.Edit.OnSupplierChange -> updateDraft { it.copy(supplier = action.value) }
         is CompoundFormAction.Edit.OnNotesChange -> updateDraft { it.copy(notes = action.value) }

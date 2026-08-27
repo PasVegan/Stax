@@ -14,12 +14,18 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -27,8 +33,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
+import com.stax.core.domain.Concentration
 import com.stax.core.domain.UnitCode
 import com.stax.core.presentation.ObserveAsEvents
+import com.stax.core.presentation.asString
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -41,18 +50,32 @@ import org.koin.core.parameter.parametersOf
 fun ReconstitutionRoot(
     args: ReconstitutionArgs,
     onBack: () -> Unit,
+    onSaved: (Concentration) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ReconstitutionViewModel = koinViewModel { parametersOf(args) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    ObserveAsEvents(viewModel.events, key1 = onBack) { event ->
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    ObserveAsEvents(viewModel.events, key1 = onBack, key2 = onSaved) { event ->
         when (event) {
             ReconstitutionEvent.NavigateBack -> onBack()
+            is ReconstitutionEvent.Saved -> onSaved(event.concentration)
+            is ReconstitutionEvent.ShowError -> scope.launch {
+                snackbarHostState.showSnackbar(context.asString(event.message))
+            }
         }
     }
 
-    ReconstitutionScreen(state = state, onAction = viewModel::onAction, modifier = modifier)
+    ReconstitutionScreen(
+        state = state,
+        onAction = viewModel::onAction,
+        modifier = modifier,
+        snackbarHostState = snackbarHostState,
+    )
 }
 
 /**
@@ -73,6 +96,7 @@ fun ReconstitutionScreen(
     state: ReconstitutionState,
     onAction: (ReconstitutionAction) -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     Box(
         modifier = modifier
@@ -114,6 +138,11 @@ fun ReconstitutionScreen(
             }
             SaveDock(state = state, onAction = onAction)
         }
+        // Above the dock rather than under it: a snackbar the save button covers says nothing.
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SNACKBAR_DOCK_GAP),
+        )
     }
 }
 
@@ -157,7 +186,7 @@ private fun ReconstitutionTopBar(state: ReconstitutionState, onAction: (Reconsti
 
 /**
  * §4.6.7: the sticky dock. Disabled until the mix actually produces a concentration — there is
- * nothing to set before that. The write itself lands with M8-04.
+ * nothing to set before that — and again while the write is in flight, so one save is one write.
  */
 @Suppress("FunctionName")
 @Composable
@@ -193,6 +222,9 @@ private fun SaveDock(state: ReconstitutionState, onAction: (ReconstitutionAction
 private val DISCLOSURE_MAX_WIDTH = 520.dp
 
 private val DOCK_ICON_GAP = 8.dp
+
+/** Roughly the dock's own height, so a snackbar clears the button it is reporting on. */
+private val SNACKBAR_DOCK_GAP = 88.dp
 
 @Preview(name = "Compact", showBackground = true, widthDp = 411, heightDp = 914)
 @Preview(name = "Medium", showBackground = true, widthDp = 700, heightDp = 900)

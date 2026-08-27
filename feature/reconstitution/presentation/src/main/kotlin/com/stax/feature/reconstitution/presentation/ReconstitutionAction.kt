@@ -29,6 +29,6 @@ sealed interface ReconstitutionAction {
     data class OnPickerClick(val picker: ReconstitutionPicker) : ReconstitutionAction
     data object OnPickerDismiss : ReconstitutionAction
 
-    /** §4.6.7's dock. The write itself lands with M8-04. */
+    /** §4.6.7's dock: write the mix onto the compound and hand it back to the caller. */
     data object OnSaveClick : ReconstitutionAction
 }

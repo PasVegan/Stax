@@ -48,6 +48,7 @@ import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxShapes
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
+import com.stax.core.domain.Concentration
 import com.stax.core.domain.ContainerType
 import com.stax.core.presentation.ObserveAsEvents
 import com.stax.core.presentation.asString
@@ -75,10 +76,22 @@ fun CompoundFormRoot(
     args: CompoundFormArgs,
     onDone: () -> Unit,
     onReconstitute: (Long?) -> Unit,
+    reconstitutionResult: Concentration?,
+    onReconstitutionResultApplied: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CompoundFormViewModel = koinViewModel { parametersOf(args) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // §4.6.7 "return to caller": the helper closed over this form and left its mix with `:app`, which
+    // is where a result from a screen that is already gone can wait. Applied once and handed back,
+    // or every later recomposition would type it in again over whatever the user did next.
+    LaunchedEffect(reconstitutionResult) {
+        reconstitutionResult?.let {
+            viewModel.onAction(CompoundFormAction.Edit.OnConcentrationCalculated(it))
+            onReconstitutionResultApplied()
+        }
+    }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

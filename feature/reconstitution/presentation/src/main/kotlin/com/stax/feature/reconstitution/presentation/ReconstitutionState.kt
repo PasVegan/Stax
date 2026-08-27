@@ -93,6 +93,8 @@ data class ReconstitutionState(
     val concentration: String? = null,
     /** §4.6.6: whole doses of [desiredDose] one container yields. */
     val dosesPerContainer: Int? = null,
+    /** §4.6.7: the write is in flight, so the dock takes no second tap. */
+    val isSaving: Boolean = false,
 ) {
     /** §4.6.2 "Draw to": the dose as a volume or as insulin units, per [display]. */
     val drawTo: String? get() = when (display) {
@@ -101,7 +103,7 @@ data class ReconstitutionState(
     }
 
     /** §4.6.7: nothing to save until the mix actually produces a concentration. */
-    val canSave: Boolean get() = concentration != null
+    val canSave: Boolean get() = concentration != null && !isSaving
 }
 
 /**

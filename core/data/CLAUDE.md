@@ -20,7 +20,8 @@ never on this module.
   `RoomInventoryRepository`, `RoomSettingsRepository`).
 - `mapper/*Mappers` — Entity↔Domain (+ `EnumMappers`). No DTOs (offline-only).
 - `preferences/ThemePreferences` — DataStore theme cache read by `ThemeInitializer`.
-- `scheduler/ScheduledDoseGenerator` — protocol → scheduled doses (§5.2).
+- `scheduler/ScheduledDoseGenerator` — protocol → scheduled doses (§5.2); `generateHorizon` for the
+  7-day window, `generate(from, until)` for an explicit range.
 - `di/CoreDataModule` — Koin bindings (`singleOf(::RoomX) { bind<XRepository>() }`).
 
 ## Applicable skills
@@ -66,4 +67,12 @@ Shared.
   stay the delta-0 audit markers §5.3 defines — they cannot carry it. Closing an already-empty
   container books nothing: the deduction that emptied it is in the ledger already, and booking it
   twice is exactly the drift §5.8.0's reconcile worker exists to catch.
+- **`ScheduledDoseGenerator` decides who doses, not its callers** (§5.2, M9-01): it is pure and
+  takes the whole `Protocol`, so the status gate (`Active` + `deletedAt == null`) lives inside it and
+  `RoomProtocolRepository` and `GenerateScheduledDosesWorker` cannot disagree. That is also why
+  editing a paused protocol no longer re-seeds the doses the pause removed.
+- **A dose's date decides its dose, never the horizon it was generated in**: `AfterXDoses` escalation
+  counts the doses the schedule places from `startDate` up to the dose, so regenerating a mid-run
+  horizon reproduces exactly the rows a full-range run would — which is what makes the
+  `INSERT OR IGNORE` idempotency meaningful rather than merely non-crashing.
 - See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01.

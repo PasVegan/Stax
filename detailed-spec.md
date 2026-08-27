@@ -1596,8 +1596,10 @@ If exact alarm scheduling throws `SecurityException`, treat it as permission rev
 ### 5.2 ScheduledDose generation
 
 `GenerateScheduledDosesWorker` ensures 7-day horizon. Generation respects:
-- **Schedule type + dosageTimes**: empty `dosageTimes` → single dose per day w/ `hasTimeOfDay=false`, `scheduledAt = startOfDay(date)`.
-- **Active Escalation rule**: applies current dose at the time the rule fires (computed against `startDate` + accumulated doses).
+- **Protocol status**: only `Active`, non-archived (`deletedAt == null`) protocols generate. A paused or completed protocol produces nothing, so editing one never re-seeds the doses its pause removed.
+- **Schedule type + dosageTimes**: empty `dosageTimes` → single dose per day w/ `hasTimeOfDay=false`, `scheduledAt = startOfDay(date)`. A non-empty `dosageTimes` yields one dose per time on *every* day the schedule selects, not just on `Daily` ones. `XTimesPerDay` without `dosageTimes` spreads `timesPerDay` doses evenly over the day, since `(protocolId, scheduledAt)` uniqueness needs them distinct.
+- **Cycle spreading**: `XTimesPerWeek` / `XTimesPerMonth` place their `n` doses on the days of a 7- / 30-day cycle anchored at `startDate` where `(dayInCycle × n) mod cycle < n` — exactly `n` doses per cycle, spread as evenly as whole days allow (3×/week = days 0, 3, 5 — never clustered on days 0, 1, 2).
+- **Active Escalation rule**: applies current dose at the time the rule fires (computed against `startDate` + accumulated doses). `AfterXDoses` counts the doses this schedule places between `startDate` and the dose being generated — breaks and off-days excluded — so a date's dose does not depend on which horizon generated it.
 - **ProtocolBreak**: skip generation during off-days (compute on/off cycle from `startDate`).
 - **endDate**: no generation past it; on `endDate` passing, set `Protocol.status = Completed`.
 

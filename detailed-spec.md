@@ -2088,12 +2088,15 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 - **Compact**: single-column scroll.
 - **Medium**: two-column.
   - **Left** (`fillMaxWidth(0.5)`): syringe hero card + equivalence chips + dose ladder (sticky in left column as user scrolls right column).
-  - **Right** (`fillMaxWidth(0.5)`): Mix inputs + Result tiles + Save dock.
-  - Progressive disclosure (§4.6 lead-in) collapses by default at Compact only; at Medium+ default to expanded, since horizontal space is cheap.
+  - **Right** (`fillMaxWidth(0.5)`): Mix inputs + Result tiles.
+  - Progressive disclosure (§4.6 lead-in) collapses by default at Compact only; at Medium+ default to expanded, since horizontal space is cheap. It exists only in the single column: it is there to queue sections behind one another, and columns are the alternative to queueing them.
 - **Expanded**: three-column.
   - **Left** (`360dp`): syringe hero + equivalence chips, sticky.
   - **Center** (`fillRemainder`): Mix inputs, full table layout (4 fields visible in one row instead of 2×2 grid).
-  - **Right** (`320dp`): Result tiles + Dose ladder + Save dock.
+  - **Right** (`320dp`): Result tiles + Dose ladder.
+- **The Save dock spans the whole screen at every width**, pinned below the columns rather than sitting inside one of them — it is the screen's one commit, and a dock that only spans a half-width column reads as an action on that column.
+- **The column count is measured on the pane, not the window** — the same rule the Compound detail follows above, for the same reason. This screen opens as a pane beside the navigation rail, so a Medium window hands it about `593dp` and an Expanded one at its lower bound about `744dp`. Thresholds: two columns from `520dp` of pane width, three from `1024dp`. The three-column figure is the sum of what the three columns need (`360` + `320` + `280dp` of centre, plus padding and gaps), not a breakpoint: below it the two fixed side columns would leave nothing between them, so the pane keeps the Medium halves — a phone in landscape is Expanded and gets two columns.
+- **The Mix grid unfolds on the width of its own column**, not on the breakpoint (the same rule as §4.4.3's Stock row): four tiles in one row from `480dp` of column width, the 2×2 grid below it. The centre column is only as wide as the two fixed side columns leave it, and four tiles in a narrow one are four fields too narrow to read their own contents. On today's windows that centre column is around `320dp`, so the one-line table is what the layout grows into rather than what it usually shows — a narrower navigation rail or a wider window is what reaches it, and neither is this screen's to arrange.
 
 ##### Create / Edit Compound (§4.4)
 

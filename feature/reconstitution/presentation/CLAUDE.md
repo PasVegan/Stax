@@ -28,7 +28,8 @@ chips, dose ladder, and save-concentration action. Pure dosing-math UI on top of
   `reconstitutionEntries(onBack, onSaved)` (Nav3 entryProvider extension).
 - `concentrationOrNull()` (in `ReconstitutionViewModel.kt`) — the mix itself, normalized to one
   millilitre. `recalculated()` divides by it; §4.6.7's save stores it.
-- Coming: the 2/3-column layouts (M8-05).
+- `SingleColumn` / `TwoColumn` / `ThreeColumn` (in `ReconstitutionScreen.kt`) — §6.4.2's layouts, one
+  per column count, picked in `ReconstitutionScreen`'s `BoxWithConstraints`.
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas syringe), `navigation-3`, `adaptive`, `android-di-koin`.
@@ -41,9 +42,16 @@ Reconstitution feature.
   (§3.0.1). The screen orchestrates; the arithmetic is domain-owned.
 - The syringe fill animates on `StaxMotion.syringeFillSpec()` (spring, damping 0.8 / stiffness 380,
   §4.6.8). `syringeFill` is a ratio the ViewModel computes in `Decimal`; the composable only draws it.
-- Adaptive: 1/2/3 columns Compact/Medium/Expanded (§6.4.2) — M8-05. Today every width is one
-  scroll, and §4.6's "Show calculation" disclosure appears only below a `600dp` **pane** width,
-  since §6.4.2 keeps the same sections open from Medium up.
+- Adaptive (§6.4.2): 1/2/3 columns, chosen on the **pane's** width — `TWO_COLUMN_MIN_WIDTH` (`520dp`)
+  and `THREE_COLUMN_MIN_WIDTH` (`1024dp`) in `ReconstitutionScreen.kt`. The rail takes its side of the
+  window before this screen sees any of it, so a window-measured breakpoint promises room the pane does
+  not have; `1024dp` is what the three columns actually need (`360` + `320` + a centre worth having),
+  which means an Expanded *window* at its lower bound still gets two columns. Each column scrolls on
+  its own. §4.6's "Show calculation" disclosure belongs to the single column alone.
+- The Mix grid becomes §6.4.2's one-line table at `MIX_ROW_MIN_WIDTH` (`480dp`) of its own column's
+  width, never on the breakpoint — the centre column is only what the two fixed side columns leave.
+- The dose ladder follows the field it types into as far as the room allows: inside the disclosure at
+  one column, in the syringe's column at two, back beside the Result at three.
 - §4.6.5's ladder is `[0.1, dose/2, dose, dose x2, dose x3]`, sorted and de-duplicated, recomputed
   around whichever rung was tapped. §4.6.5 speaks of a preview and a confirm; there is no confirm
   affordance on the screen, so a tap does both — it types the dose, and the syringe fill springs to

@@ -47,6 +47,7 @@ object StaxIcons {
     val Inventory2: Painter @Composable get() = painterResource(R.drawable.ic_inventory_2)
     val LightMode: Painter @Composable get() = painterResource(R.drawable.ic_light_mode)
     val Medication: Painter @Composable get() = painterResource(R.drawable.ic_medication)
+    val Monitoring: Painter @Composable get() = painterResource(R.drawable.ic_monitoring)
     val MoreVert: Painter @Composable get() = painterResource(R.drawable.ic_more_vert)
     val Notifications: Painter @Composable get() = painterResource(R.drawable.ic_notifications)
     val Pause: Painter @Composable get() = painterResource(R.drawable.ic_pause)

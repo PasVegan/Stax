@@ -72,6 +72,13 @@ depends on nothing — every feature consumes it.
   the exit animation has run, so dismissing looks the same at every width. Callers pass content only.
   Insets: the bottom-sheet branch takes Material's `modalWindowInsets`, the side sheet
   `safeDrawingPadding()` inside its own surface — both include the IME.
+- `StaxPickerSheet` / `StaxPickerRow` / `StaxPickerEmptyState` — the reusable **picker bottom sheet**
+  of §4.0.2: title + close, an optional search field (the caller decides — §4.0.2 says "only when
+  item count > 5"), and a `LazyColumn` of avatar + name + meta + `chevron_right` rows that pick and
+  close. Built on `StaxAdaptiveSheet` with §4.0.2's narrower `360dp` side sheet. The field is a plain
+  `TextField`, not an M3 `SearchBar`: a `SearchBar` expands to own the window, which inside a modal
+  sheet is two surfaces competing for the same space. Used by the Compound picker and Body region
+  picker (§4.9.3); the full-screen Site picker (§4.12.7) is deliberately **not** this.
 - `AdaptiveFab` — the app's primary FAB (§6.4.6): floating bottom-end of its pane with a `16dp`
   inset at **every** width, extended (icon + label, label kept at every width) when `label` is passed.
   Place as the last child of a `fillMaxSize` overlay over screen content. Deliberately **not** the

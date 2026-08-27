@@ -21,7 +21,9 @@ never on this module.
 - `mapper/*Mappers` — Entity↔Domain (+ `EnumMappers`). No DTOs (offline-only).
 - `preferences/ThemePreferences` — DataStore theme cache read by `ThemeInitializer`.
 - `scheduler/ScheduledDoseGenerator` — protocol → scheduled doses (§5.2); `generateHorizon` for the
-  7-day window, `generate(from, until)` for an explicit range.
+  7-day window, `generate(from, until)` for an explicit range. **Which** days dose, and at what
+  times, is `:core:domain`'s `ScheduleEngine` (`Protocol.dosingTimesOn`) — a screen previewing an
+  unsaved schedule (§4.9.3) reads the same rule; this class only turns those days into rows.
 - `di/CoreDataModule` — Koin bindings (`singleOf(::RoomX) { bind<XRepository>() }`).
 
 ## Applicable skills

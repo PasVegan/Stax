@@ -5,6 +5,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
@@ -13,9 +15,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.unit.Dp
 import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.isEmpty
+import assertk.assertions.isEqualTo
+import assertk.assertions.isLessThan
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.domain.UnitCode
 import org.junit.Rule
@@ -33,6 +39,11 @@ import org.robolectric.annotation.Config
  * reflow measured itself with a `BoxWithConstraints` inside a row sized to its tallest tile — a
  * combination that cannot be measured and took the screen down on every device narrow enough to hit
  * it. Rendering at [NARROW] is the whole of that regression test.
+ *
+ * §6.4.2's column counts are asserted from where the sections land rather than from a flag: the
+ * layout *is* the left edge of each section, so comparing those edges is the only reading of it that
+ * a rearrangement cannot pass by accident. Every tap the screen carries is exercised at each column
+ * count too — a section that moved column still has to work where it moved to.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -270,6 +281,152 @@ class ReconstitutionScreenTest {
             .assertIsDisplayed()
     }
 
+    // -----------------------------------------------------------------------
+    // §6.4.2 column counts
+    // -----------------------------------------------------------------------
+
+    /**
+     * §6.4.2 Compact: one column — the section headers share a left edge, and the hero is above them
+     * rather than beside them. The headers are what is measured because the hero's own label is inset
+     * by the card's padding, which says nothing about which column the card is in.
+     */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `stacks every section in one column at Compact`() {
+        setContent(state().copy(isCalculationExpanded = true))
+
+        val mix = leftEdgeOf(string(R.string.reconstitution_mix))
+        assertThat(leftEdgeOf(string(R.string.reconstitution_dose_ladder))).isEqualTo(mix)
+        assertThat(leftEdgeOf(string(R.string.reconstitution_result))).isEqualTo(mix)
+        assertThat(topEdgeOf(string(R.string.reconstitution_draw_to)))
+            .isLessThan(topEdgeOf(string(R.string.reconstitution_mix)))
+    }
+
+    /** §6.4.2 Medium: syringe + ladder left, Mix + Result right. */
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `splits into two columns at Medium`() {
+        setContent(state())
+
+        val mix = leftEdgeOf(string(R.string.reconstitution_mix))
+        assertThat(leftEdgeOf(string(R.string.reconstitution_draw_to))).isLessThan(mix)
+        assertThat(leftEdgeOf(string(R.string.reconstitution_dose_ladder))).isLessThan(mix)
+        assertThat(leftEdgeOf(string(R.string.reconstitution_result))).isEqualTo(mix)
+    }
+
+    /** §6.4.2 Expanded: syringe, then Mix, then the Result the ladder is read against. */
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `splits into three columns at Expanded`() {
+        setContent(state())
+
+        val mix = leftEdgeOf(string(R.string.reconstitution_mix))
+        val result = leftEdgeOf(string(R.string.reconstitution_result))
+        assertThat(leftEdgeOf(string(R.string.reconstitution_draw_to))).isLessThan(mix)
+        assertThat(mix).isLessThan(result)
+        assertThat(leftEdgeOf(string(R.string.reconstitution_dose_ladder))).isEqualTo(result)
+    }
+
+    /**
+     * §6.4.2's third column is measured on the pane, not the window: an Expanded window at its lower
+     * bound has already given the navigation rail its side, and what is left would be the two fixed
+     * side columns and nothing between them. That pane keeps the Medium halves.
+     */
+    @Test
+    @Config(qualifiers = EXPANDED_LOWER_BOUND)
+    fun `keeps two columns in a pane too narrow for three`() {
+        setContent(state())
+
+        val mix = leftEdgeOf(string(R.string.reconstitution_mix))
+        assertThat(leftEdgeOf(string(R.string.reconstitution_draw_to))).isLessThan(mix)
+        assertThat(leftEdgeOf(string(R.string.reconstitution_result))).isEqualTo(mix)
+    }
+
+    /** §6.4.2 Expanded: the Mix grid unfolds to one line once the centre column can hold four tiles. */
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `lays the mix out in a single row at Expanded`() {
+        setContent(state())
+
+        val container = leftEdgeOf(string(R.string.reconstitution_container))
+        val diluent = leftEdgeOf(string(R.string.reconstitution_diluent))
+        val desiredDose = leftEdgeOf(string(R.string.reconstitution_desired_dose))
+        assertThat(container).isLessThan(diluent)
+        assertThat(diluent).isLessThan(desiredDose)
+        assertThat(desiredDose).isLessThan(leftEdgeOf(string(R.string.reconstitution_display)))
+    }
+
+    /** §4.6.4's own arrangement, two by two, wherever the room for one line is not there. */
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `keeps the mix in a two by two grid at Medium`() {
+        setContent(state())
+
+        val container = leftEdgeOf(string(R.string.reconstitution_container))
+        assertThat(container).isLessThan(leftEdgeOf(string(R.string.reconstitution_diluent)))
+        assertThat(leftEdgeOf(string(R.string.reconstitution_desired_dose))).isEqualTo(container)
+        assertThat(topEdgeOf(string(R.string.reconstitution_container)))
+            .isLessThan(topEdgeOf(string(R.string.reconstitution_desired_dose)))
+    }
+
+    // -----------------------------------------------------------------------
+    // Every tap, at every column count
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `carries every interaction in the two-column layout`() {
+        assertEveryInteractionWorks()
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `carries every interaction in the three-column layout`() {
+        assertEveryInteractionWorks()
+    }
+
+    /**
+     * Every tap §4.6 puts on the screen, run one after another on a single rendering: the diluent is
+     * typed, a rung types a dose, both §4.6.4 pickers open, the badge cycles the barrel, the dock
+     * saves and the app bar closes. A column layout that dropped a section or buried it under another
+     * fails here on the section it lost.
+     */
+    private fun assertEveryInteractionWorks() {
+        setContent(state())
+
+        composeRule.onNode(hasText("2") and hasSetTextAction()).performTextReplacement("3")
+        composeRule.onNodeWithText("0.5").performClick()
+        composeRule.onNodeWithText(string(R.string.reconstitution_display)).performClick()
+        // "mg" is on the read-only Container tile as well as on the dose picker, and only one of the
+        // two is a button.
+        composeRule.onNode(hasText(string(R.string.reconstitution_unit_mg)) and hasClickAction())
+            .performClick()
+        composeRule.onNodeWithText(insulinBadge()).performClick()
+        composeRule.onNodeWithText(string(R.string.reconstitution_save)).assertIsEnabled().performClick()
+        composeRule.onNodeWithContentDescription(string(R.string.reconstitution_close)).performClick()
+
+        assertThat(actions).containsExactly(
+            ReconstitutionAction.OnDiluentChange("3"),
+            ReconstitutionAction.OnDesiredDoseChange("0.5"),
+            ReconstitutionAction.OnPickerClick(ReconstitutionPicker.DISPLAY),
+            ReconstitutionAction.OnPickerClick(ReconstitutionPicker.DOSE_UNIT),
+            ReconstitutionAction.OnCycleSyringeSize,
+            ReconstitutionAction.OnSaveClick,
+            ReconstitutionAction.OnCloseClick,
+        )
+    }
+
+    /** An open picker draws over whichever column its tile sits in, and picks from there. */
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `picks a dose unit from the open menu in the three-column layout`() {
+        setContent(state().copy(openPicker = ReconstitutionPicker.DOSE_UNIT))
+
+        composeRule.onNodeWithText(string(R.string.reconstitution_unit_mcg)).performClick()
+
+        assertThat(actions).containsExactly(ReconstitutionAction.OnDoseUnitSelected(UnitCode.MCG))
+    }
+
     /**
      * A rung's closest scrollable ancestor is §4.6.5's own sideways row, so `performScrollTo` on one
      * never moves the page. Scrolling to the section *below* the ladder is what brings it into view.
@@ -277,6 +434,10 @@ class ReconstitutionScreenTest {
     private fun scrollLadderIntoView() {
         composeRule.onNodeWithText(string(R.string.reconstitution_result)).performScrollTo()
     }
+
+    private fun leftEdgeOf(text: String): Dp = composeRule.onNodeWithText(text).getUnclippedBoundsInRoot().left
+
+    private fun topEdgeOf(text: String): Dp = composeRule.onNodeWithText(text).getUnclippedBoundsInRoot().top
 
     private fun insulinBadge(): String =
         composeRule.activity.getString(R.string.reconstitution_syringe_insulin, 100, "1")
@@ -314,6 +475,13 @@ class ReconstitutionScreenTest {
          */
         const val MEDIUM = "w593dp-h841dp"
 
+        /** Pixel Tablet landscape (§6.4.8) — wide enough for §6.4.2's third column. */
         const val EXPANDED = "w1280dp-h800dp"
+
+        /**
+         * What an Expanded window at its lower bound leaves this screen: Pixel 10 Pro Fold inner
+         * landscape (`841dp`, §6.4.8) less the navigation rail.
+         */
+        const val EXPANDED_LOWER_BOUND = "w745dp-h673dp"
     }
 }

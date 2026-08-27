@@ -654,7 +654,7 @@ Goal: working `NavigationSuiteScaffold` with 5 destinations swapping between bot
 ### M9-03 · Create / Edit Protocol screen
 - **Depends on**: M3-05, M9-01.
 - **Spec refs**: §4.9, §6.4.2 Create Protocol.
-- **Description**: Form with all sections from §4.9.3. Compound picker via §4.0.2. Body region picker via §4.0.2. Live Forecast & warnings card. Edit-mode warning banner + Lifecycle section. Adaptive layouts per §6.4.2 (2-col Medium; 2-col Expanded with sticky Forecast inset).
+- **Description**: Form with all sections from §4.9.3. Compound picker via §4.0.2. Body region picker via §4.0.2. Live Forecast & warnings card, including 11b's next-7-days preview strip and reorder row. Edit-mode warning banner + Lifecycle section. Adaptive layouts per §6.4.2 (2-col Medium; 2-col Expanded with sticky Forecast inset). Requires the §4.0.2 picker sheet in `:core:design-system`, and the schedule rule (`Protocol.dosingTimesOn`, §5.2) in `:core:domain` — the live preview and forecast read it, and a feature module may not import `:core:data`.
 - **Acceptance**: Save Create generates 7-day Pending rows; Save Edit calls Pending-regen scope rule.
 
 ### M9-04 · Pause-with-unsaved-changes flow

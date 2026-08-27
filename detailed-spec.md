@@ -1050,6 +1050,8 @@ Same as §4.3.5 (truncated 2 lines + Show more).
 
 #### 4.9.3 Sections
 
+**Name** — no field. `Protocol.name` (§3.2) is required but the form has no input for it: a created protocol is named after the compound it doses, which is what identifies it on the list (§4.7.3), and an edit keeps whatever the protocol is already called. Likewise, the form has no control for `escalation`, `protocolBreak` or `siteCooldownDays`, so an edit carries all three through untouched — saving here never flattens a titration.
+
 **Compound** (required):
 - Card `primary-container`, rounded-square avatar + compound name + meta (`{category} · {amountPerContainer}{unit} {containerType} · {concentration}`). Trailing `expand_more` → opens **Compound picker** (§4.0.2 reusable pattern).
 
@@ -1072,6 +1074,10 @@ Same as §4.3.5 (truncated 2 lines + Show more).
   - List of time pills (selected = `secondary-container`, leading `schedule`).
   - "Add time" outlined pill → opens Time Picker.
   - **Empty list allowed** = "no specific time" (dose appears as "Today" on dashboard).
+- **Next-7-days preview** (`11b`, live-computed, below Times of day):
+  - Card `surface-container`. Header: `calendar_month` + "Next 7 days · {n} doses".
+  - 7 equal-grow day cells from today (or `startDate` if it is later): weekday initial + day of month, a `primary-container` fill and a `primary` dot on the days the schedule doses.
+  - It reads the **same schedule rule the generator does** (`Protocol.dosingTimesOn`, §5.2) over the same 7-day horizon Save will write, so the count it shows is the number of Pending rows the save produces.
 
 **Duration**:
 - 2-column row: **Start** date box + **End** (Optional) date box. Each box: `surface-container`, "Start" / "End" label + value row w/ `today` icon. Tap → Material Date Picker.
@@ -1091,7 +1097,9 @@ Same as §4.3.5 (truncated 2 lines + Show more).
 - Section header.
 - Card `surface-container`. Header: `monitoring` + "Inventory forecast".
 - 3 stat tiles (equal-grow): doses left (primary-container) / days left (secondary-container) / run-out date (tertiary-container).
-- **Warning row** (`error-container`): "Batch expires before protocol end" + "Jul 14 expiry · Aug 02 run-out".
+- **Warning row** (`error-container`): "Batch expires before protocol end" + "Jul 14 expiry · Aug 02 run-out". Shown when `compound.batchExpiryDate < runOutDate`.
+- **Reorder row** (`11b`, `secondary-container`, leading `inventory_2`): "Order {n} more {containerType} by {date}" + "Avoid shortage; covers protocol through {endDate}". Shown only for a protocol with an `endDate` its current stock cannot reach: `n = ceil((doses from runOutDate to endDate × plannedDose) / amountPerContainer)`, and the order-by date is `runOutDate − 7 d` (never before today) so the order has time to arrive.
+- Derivation: `dosesLeft = floor(totalStock / plannedDose)` where `totalStock = (numberOfContainers × amountPerContainer) + currentOpened.remainingAmount`, the dose converted into the stock's unit first (§3.0.4). `runOutDate` is found by walking the schedule from today until those doses are spent; past a 2-year horizon the days-left and run-out tiles read "—" rather than a number nobody plans around.
 
 #### 4.9.4 Bottom dock
 - **Cancel** (text button) + **Save protocol** (filled `primary`, leading `check`, equal-grow).
@@ -1101,10 +1109,10 @@ Same as §4.3.5 (truncated 2 lines + Show more).
 
 Below Forecast & warnings:
 - Section header "Lifecycle".
-- 3 buttons full-width:
-  - **Pause protocol** (`secondary-container`, leading `pause`)
-  - **Duplicate protocol** (`surface-container`, leading `add_circle`)
-  - **Archive protocol** (`error-container`, leading `delete`)
+- 3 buttons full-width, each with a trailing `chevron_right`:
+  - **Pause protocol** (`secondary-container`, leading `pause`) → `status = Paused`, then leave the form.
+  - **Duplicate protocol** (`surface-container`, leading `add_circle`) → inserts a copy of **what is on screen** (unsaved edits included) with a `" (copy)"` name suffix and `status = Active`, then leave the form. The user is looking at the form, so a duplicate that dropped their edits would be the surprising one.
+  - **Archive protocol** (`error-container`, leading `delete`) → confirmation dialog → soft-delete (§5.5), then leave the form.
 
 #### 4.9.6 Pause-with-unsaved-changes flow
 If user taps Pause while form has unsaved changes → dialog "Save changes before pausing?" with **Save + Pause** (primary) / **Pause without saving** / **Cancel**.

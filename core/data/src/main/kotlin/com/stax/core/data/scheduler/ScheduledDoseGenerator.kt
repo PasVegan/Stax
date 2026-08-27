@@ -3,12 +3,12 @@ package com.stax.core.data.scheduler
 import com.stax.core.data.mapper.toEntity
 import com.stax.core.database.ScheduledDoseEntity
 import com.stax.core.database.ScheduledDoseStatus
-import com.stax.core.domain.Decimal
 import com.stax.core.domain.EscalationIncreaseEvery
 import com.stax.core.domain.Protocol
 import com.stax.core.domain.ProtocolStatus
 import com.stax.core.domain.Quantity
 import com.stax.core.domain.ScheduleType
+import com.stax.core.domain.plannedDoseAt
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -39,10 +39,11 @@ private const val MINUTES_PER_DAY = 24 * 60
  *   empty `dosageTimes` yields one dose at start-of-day with `hasTimeOfDay = false`.
  * - [com.stax.core.domain.ProtocolBreak]: off-days skipped (in-break formula, §3.2).
  * - `endDate`: no generation past it.
- * - Escalation (§3.2): dose computed from the elapsed time since `startDate`, or — for
- *   [EscalationIncreaseEvery.AFTER_X_DOSES] — from the doses this schedule places between
- *   `startDate` and the dose being generated, so the same date always yields the same dose
- *   whatever range it is generated in.
+ * - Escalation (§3.2): the rule itself is [com.stax.core.domain.plannedDoseAt] in `:core:domain`;
+ *   this class only feeds it the counter it cannot know — for
+ *   [EscalationIncreaseEvery.AFTER_X_DOSES], the doses this schedule places between `startDate` and
+ *   the dose being generated, so the same date always yields the same dose whatever range it is
+ *   generated in.
  * - Only `Active`, non-archived protocols generate; a paused or completed one yields nothing.
  * - Wall-clock components are captured per §5.7 (`originalLocalDate/Time/Zone`).
  *
@@ -213,28 +214,9 @@ class ScheduledDoseGenerator {
     }
 
     /**
-     * Computes the planned dose for [date] / [doseIndex] accounting for escalation.
-     * Falls back to [Protocol.plannedDose] when no escalation is defined.
+     * The planned dose for [date] / [doseIndex] — the escalation rule engine's
+     * [plannedDoseAt] (§3.2), which falls back to [Protocol.plannedDose] without an escalation.
      */
-    internal fun computePlannedDose(protocol: Protocol, date: LocalDate, doseIndex: Int): Quantity {
-        val esc = protocol.escalation ?: return protocol.plannedDose
-        val daysSinceStart = protocol.startDate.daysUntil(date).coerceAtLeast(0)
-
-        val increaseCount = when (esc.increaseEvery) {
-            EscalationIncreaseEvery.EVERY_X_DAYS ->
-                daysSinceStart / esc.increaseEveryValue
-
-            EscalationIncreaseEvery.EVERY_X_WEEKS ->
-                daysSinceStart / (esc.increaseEveryValue * DAYS_PER_WEEK)
-
-            EscalationIncreaseEvery.AFTER_X_DOSES ->
-                doseIndex / esc.increaseEveryValue
-        }
-
-        val dose = esc.startDose + esc.increaseAmount * Decimal.parse(increaseCount.toString())
-
-        val clamped = esc.maxDose?.let { max -> if (dose.value > max.value) max else dose } ?: dose
-
-        return if (esc.stopAtTarget && clamped.value >= esc.targetDose.value) esc.targetDose else clamped
-    }
+    internal fun computePlannedDose(protocol: Protocol, date: LocalDate, doseIndex: Int): Quantity =
+        protocol.plannedDoseAt(date, doseIndex)
 }

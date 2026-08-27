@@ -240,13 +240,15 @@ internal fun ShowCalculationRow(
 /**
  * §4.6.4's Mix grid: container, diluent, desired dose, display.
  *
- * Two rows of two at Compact, which is the arrangement §4.6.4 draws; §6.4.2's Expanded layout puts
- * all four on one line, and that reflow lands with M8-05.
+ * Two rows of two, which is the arrangement §4.6.4 draws, until the grid is given [MIX_ROW_MIN_WIDTH]
+ * — then it becomes §6.4.2's Expanded table and all four sit on one line.
  *
  * [width] is the room the grid was given, and the tiles reflow on it rather than on the breakpoint —
- * see [MixTile]. It is passed in rather than measured here because the rows size themselves off their
- * tallest tile (`IntrinsicSize.Min`), and a `BoxWithConstraints` inside one of those cannot be
- * measured at all.
+ * see [MixTile]. That is what makes the single row the *column's* decision rather than the window's:
+ * §6.4.2's centre column is only as wide as the two side columns leave it, and four tiles in a narrow
+ * one would be four fields too narrow to read their own contents. It is passed in rather than measured
+ * here because the rows size themselves off their tallest tile (`IntrinsicSize.Min`), and a
+ * `BoxWithConstraints` inside one of those cannot be measured at all.
  */
 @Suppress("FunctionName")
 @Composable
@@ -256,24 +258,40 @@ internal fun MixSection(
     onAction: (ReconstitutionAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isIconInline = (width - TILE_GAP) / 2 < ICON_INLINE_MIN_WIDTH
+    val isSingleRow = width >= MIX_ROW_MIN_WIDTH
+    val perRow = if (isSingleRow) SINGLE_ROW_TILES else GRID_ROW_TILES
+    val isIconInline = (width - TILE_GAP * (perRow - 1)) / perRow < ICON_INLINE_MIN_WIDTH
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TILE_GAP)) {
         SectionHeader(text = stringResource(R.string.reconstitution_mix))
-        Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
-        ) {
-            ContainerTile(state, isIconInline, onAction, Modifier.weight(1f))
-            DiluentTile(state, isIconInline, onAction, Modifier.weight(1f))
-        }
-        Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
-        ) {
-            DesiredDoseTile(state, isIconInline, onAction, Modifier.weight(1f))
-            DisplayTile(state, isIconInline, onAction, Modifier.weight(1f))
+        if (isSingleRow) {
+            TileRow {
+                ContainerTile(state, isIconInline, onAction, Modifier.weight(1f))
+                DiluentTile(state, isIconInline, onAction, Modifier.weight(1f))
+                DesiredDoseTile(state, isIconInline, onAction, Modifier.weight(1f))
+                DisplayTile(state, isIconInline, onAction, Modifier.weight(1f))
+            }
+        } else {
+            TileRow {
+                ContainerTile(state, isIconInline, onAction, Modifier.weight(1f))
+                DiluentTile(state, isIconInline, onAction, Modifier.weight(1f))
+            }
+            TileRow {
+                DesiredDoseTile(state, isIconInline, onAction, Modifier.weight(1f))
+                DisplayTile(state, isIconInline, onAction, Modifier.weight(1f))
+            }
         }
     }
+}
+
+/** One line of §4.6.4 tiles, every tile as tall as the tallest — a label that wraps lifts the row. */
+@Suppress("FunctionName")
+@Composable
+private fun TileRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
+        content = content,
+    )
 }
 
 /**
@@ -807,6 +825,15 @@ private val MinFieldWidth = 24.dp
 
 /** Below this a §4.6.4 tile puts its icon on the label's line — see `MixTile`. */
 private val ICON_INLINE_MIN_WIDTH = 132.dp
+
+/**
+ * The width at which §4.6.4's grid unfolds into §6.4.2's one-line table: four tiles of about `128dp`
+ * once the gaps are out, which is the narrowest [MixTile] renders a typed "0.25" whole at.
+ */
+private val MIX_ROW_MIN_WIDTH = 480.dp
+
+private const val SINGLE_ROW_TILES = 4
+private const val GRID_ROW_TILES = 2
 
 internal val SCREEN_PADDING = 16.dp
 internal val SECTION_GAP = 16.dp

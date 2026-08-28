@@ -336,25 +336,8 @@ class ScheduledDoseGeneratorTest {
         assertThat(doses).hasSize(5)
     }
 
-    @Test
-    fun `isInBreak - returns false on day 0 to daysOn-1`() {
-        val proto = protocol(ScheduleType.DAILY, protocolBreak = ProtocolBreak(daysOn = 3, daysOff = 2))
-        assertThat(generator.isInBreak(proto, start)).isEqualTo(false)
-        assertThat(generator.isInBreak(proto, start.plus(2, DateTimeUnit.DAY))).isEqualTo(false)
-    }
-
-    @Test
-    fun `isInBreak - returns true on off days`() {
-        val proto = protocol(ScheduleType.DAILY, protocolBreak = ProtocolBreak(daysOn = 3, daysOff = 2))
-        assertThat(generator.isInBreak(proto, start.plus(3, DateTimeUnit.DAY))).isEqualTo(true)
-        assertThat(generator.isInBreak(proto, start.plus(4, DateTimeUnit.DAY))).isEqualTo(true)
-    }
-
-    @Test
-    fun `isInBreak - resets after full cycle`() {
-        val proto = protocol(ScheduleType.DAILY, protocolBreak = ProtocolBreak(daysOn = 3, daysOff = 2))
-        assertThat(generator.isInBreak(proto, start.plus(5, DateTimeUnit.DAY))).isEqualTo(false)
-    }
+    // The in-break formula itself moved to `:core:domain` with the schedule rule (§3.2, §5.2);
+    // `ScheduleEngineTest` pins it there. What stays here is what it does to generated rows, above.
 
     // -----------------------------------------------------------------------
     // endDate respected

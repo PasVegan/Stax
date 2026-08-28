@@ -64,6 +64,7 @@ private fun StaxIconsCatalogPreview() {
                 IconCell("Inventory2", StaxIcons.Inventory2)
                 IconCell("LightMode", StaxIcons.LightMode)
                 IconCell("Medication", StaxIcons.Medication)
+                IconCell("Monitoring", StaxIcons.Monitoring)
                 IconCell("MoreVert", StaxIcons.MoreVert)
                 IconCell("Notifications", StaxIcons.Notifications)
                 IconCell("Pause", StaxIcons.Pause)

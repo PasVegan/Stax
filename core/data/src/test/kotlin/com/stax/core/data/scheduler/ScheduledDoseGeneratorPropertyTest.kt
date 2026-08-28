@@ -15,6 +15,7 @@ import com.stax.core.domain.Route
 import com.stax.core.domain.Schedule
 import com.stax.core.domain.ScheduleType
 import com.stax.core.domain.UnitCode
+import com.stax.core.domain.isInBreak
 import com.stax.core.domain.valueIn
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
@@ -123,7 +124,7 @@ class ScheduledDoseGeneratorPropertyTest {
             val date = dose.originalLocalDate
             assertThat(date >= protocol.startDate, name = "seed $seed: $date before start").isTrue()
             protocol.endDate?.let { assertThat(date <= it, name = "seed $seed: $date after end").isTrue() }
-            assertThat(generator.isInBreak(protocol, date), name = "seed $seed: $date in break").isFalse()
+            assertThat(protocol.isInBreak(date), name = "seed $seed: $date in break").isFalse()
         }
     }
 

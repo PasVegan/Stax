@@ -15,6 +15,8 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.paneInsets
+import com.stax.feature.protocols.presentation.form.ProtocolFormArgs
+import com.stax.feature.protocols.presentation.form.ProtocolFormRoot
 
 /**
  * Contributes the Protocols feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -25,10 +27,16 @@ import com.stax.core.design.system.paneInsets
  *
  * Protocols list + detail are tagged as the list-detail Scene's panes (§6.4.2): two panes at 600dp+,
  * single-pane push below.
+ *
+ * [onCreateCompound] is §4.0.2's empty-picker CTA: a protocol needs a compound, and with none to pick
+ * the only useful thing left is Create Compound — which belongs to another feature, so this module
+ * names the intent and `:app` names the destination.
  */
 fun EntryProviderScope<NavKey>.protocolsEntries(
     onProtocolClick: (Long) -> Unit,
     onCreateProtocol: () -> Unit,
+    onEditProtocol: (Long) -> Unit,
+    onCreateCompound: () -> Unit,
     onBack: () -> Unit,
     onFinishOnboarding: () -> Unit,
 ) {
@@ -45,28 +53,37 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
     }
     entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane(PROTOCOLS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Protocol #${key.protocolId}") {
+            // §4.8.2's Edit quick action, until Protocol Detail itself lands (M9-06).
+            Button(onClick = { onEditProtocol(key.protocolId) }) { Text(text = "Edit") }
             Button(onClick = onBack) { Text(text = "Back") }
         }
     }
     entry<CreateProtocolRoute> { key ->
         // Onboarding step 3 reuses this form (§4.14 step 3): same screen, app bar titled
-        // "Create your first protocol · 3 of 3" with Skip in its trailing slot. It is the last step,
-        // so Save and Skip both end the flow and both report it through [onFinishOnboarding] — the
-        // real app bar and Save arrive with the form itself (M9-03), which is a placeholder for now.
-        val title = if (key.onboarding) "Create your first protocol · 3 of 3" else "New protocol"
-        PlaceholderScreen(title = title) {
-            if (key.onboarding) {
-                Button(onClick = onFinishOnboarding) { Text(text = "Skip") }
-            } else {
-                Button(onClick = onBack) { Text(text = "Cancel") }
-            }
-        }
+        // "Create your first protocol · 3 of 3" with Skip in its trailing slot, driven by the flag.
+        // It is the last step, so a saved protocol and Skip both end the flow through one callback.
+        ProtocolFormRoot(
+            args = ProtocolFormArgs(protocolId = null, isOnboarding = key.onboarding),
+            onDone = if (key.onboarding) onFinishOnboarding else onBack,
+            onCreateCompound = onCreateCompound,
+        )
+    }
+    entry<EditProtocolRoute> { key ->
+        ProtocolFormRoot(
+            args = ProtocolFormArgs(protocolId = key.protocolId),
+            onDone = onBack,
+            onCreateCompound = onCreateCompound,
+        )
     }
 }
 
-/** Placeholder id used to demonstrate the list → detail push until the real list lands. */
+/**
+ * Identifies the Protocols list-detail scene. Each scaffold scene in the app's single `NavDisplay`
+ * needs its own key or they share one `AnimatedContent` slot and crash (see `StaxListDetailScene`).
+ */
 private const val PROTOCOLS_SCENE_KEY = "protocols"
 
+/** Placeholder id used to demonstrate the list → detail push until the real list lands. */
 private const val SAMPLE_PROTOCOL_ID = 1L
 
 @Suppress("FunctionName")

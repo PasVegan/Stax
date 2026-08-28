@@ -757,6 +757,8 @@ class ProtocolFormViewModelTest {
             return Result.Success(Unit)
         }
 
+        override suspend fun duplicate(id: Long) = throw NotImplementedError()
+
         override suspend fun pause(id: Long): EmptyResult<DataError.Local> {
             paused = id
             return Result.Success(Unit)

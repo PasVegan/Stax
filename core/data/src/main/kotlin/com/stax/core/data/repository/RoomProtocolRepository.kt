@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
+import com.stax.core.domain.ProtocolStatus as DomainProtocolStatus
 
 class RoomProtocolRepository(
     private val database: StaxDatabase,
@@ -104,6 +105,32 @@ class RoomProtocolRepository(
     }
 
     // -----------------------------------------------------------------------
+    // Duplicate  (§4.7.4, §5.8.5 transaction boundary)
+    // -----------------------------------------------------------------------
+
+    override suspend fun duplicate(id: Long): Result<Long, DataError.Local> = runTx {
+        val entity = protocolDao.getById(id) ?: throw NotFoundException()
+        val dosageTimes = dosageTimeDao.getByProtocolId(id).map { it.time }
+        // A copy always starts running (§4.7.4), even when taken from a paused, completed or
+        // archived original — a duplicate the user cannot see in the tab they made it from would
+        // read as nothing having happened.
+        val copy = entity.toDomain(dosageTimes).copy(
+            name = entity.name + COPY_SUFFIX,
+            status = DomainProtocolStatus.ACTIVE,
+            deletedAt = null,
+        )
+
+        val now = Clock.System.now()
+        val newId = protocolDao.insert(copy.toEntity().copy(id = 0, createdAt = now, updatedAt = now))
+
+        val withId = copy.copy(id = newId)
+        dosageTimeDao.insertAll(withId.toDosageTimeEntities())
+        generateAndInsert(withId)
+
+        newId
+    }
+
+    // -----------------------------------------------------------------------
     // Pause
     // -----------------------------------------------------------------------
 
@@ -171,4 +198,9 @@ class RoomProtocolRepository(
     }
 
     private class NotFoundException : Exception()
+
+    private companion object {
+        /** §4.7.4's name suffix. Mirrors `RoomCompoundRepository`'s. */
+        const val COPY_SUFFIX = " (copy)"
+    }
 }

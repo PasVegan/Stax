@@ -159,6 +159,8 @@ class ProtocolFormDraftPersistenceTest {
 
         override suspend fun archive(id: Long) = throw NotImplementedError()
 
+        override suspend fun duplicate(id: Long) = throw NotImplementedError()
+
         override suspend fun pause(id: Long) = throw NotImplementedError()
 
         override suspend fun resume(id: Long) = throw NotImplementedError()

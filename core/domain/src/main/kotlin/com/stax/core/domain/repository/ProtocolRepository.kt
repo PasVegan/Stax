@@ -52,6 +52,15 @@ interface ProtocolRepository {
     /** Soft-deletes the protocol by setting `deletedAt` and purges pending doses (§5.5). */
     suspend fun archive(id: Long): EmptyResult<DataError.Local>
 
+    /**
+     * Creates a copy of the protocol with a fresh ID, a `" (copy)"` name suffix, new timestamps,
+     * `status = Active` and its own 7-day dose horizon (§4.7.4). Schedule, dosage times, escalation
+     * and break carry over untouched — the copy is the same protocol, started again.
+     *
+     * @return the auto-generated ID of the duplicate.
+     */
+    suspend fun duplicate(id: Long): Result<Long, DataError.Local>
+
     /** Sets `status = Paused`. No dose generation while paused. */
     suspend fun pause(id: Long): EmptyResult<DataError.Local>
 

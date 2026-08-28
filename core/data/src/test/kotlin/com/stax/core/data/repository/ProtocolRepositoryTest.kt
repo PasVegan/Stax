@@ -7,11 +7,13 @@ import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
+import assertk.assertions.isNotEqualTo
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.stax.core.data.scheduler.ScheduledDoseGenerator
 import com.stax.core.database.ScheduledDoseStatus
 import com.stax.core.database.StaxDatabase
+import com.stax.core.domain.DataError
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.Protocol
 import com.stax.core.domain.ProtocolStatus
@@ -24,6 +26,7 @@ import com.stax.core.domain.UnitCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -277,6 +280,64 @@ class ProtocolRepositoryTest {
         val pending = database.scheduledDoseDao().observeByProtocolId(id).first()
             .count { it.status == ScheduledDoseStatus.PENDING }
         assertThat(pending).isEqualTo(0)
+    }
+
+    // -----------------------------------------------------------------------
+    // duplicate  (§4.7.4)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `duplicate copies the protocol under a copy name`() = runTest {
+        val id = (repository.create(dailyProtocol()) as Result.Success).data
+
+        val copyId = (repository.duplicate(id) as Result.Success).data
+
+        val copy = database.protocolDao().getById(copyId)!!
+        assertThat(copyId).isNotEqualTo(id)
+        assertThat(copy.name).isEqualTo("Sema weekly (copy)")
+        assertThat(copy.plannedDoseValue).isEqualTo(Decimal.parse("0.25"))
+    }
+
+    @Test
+    fun `duplicate copies the dosage times`() = runTest {
+        val protocol = dailyProtocol().copy(dosageTimes = listOf(LocalTime(8, 0), LocalTime(20, 0)))
+        val id = (repository.create(protocol) as Result.Success).data
+
+        val copyId = (repository.duplicate(id) as Result.Success).data
+
+        val times = database.protocolDosageTimeDao().getByProtocolId(copyId).map { it.time }
+        assertThat(times).containsExactly(LocalTime(8, 0), LocalTime(20, 0))
+    }
+
+    @Test
+    fun `duplicate of a paused protocol starts Active and generates its own horizon`() = runTest {
+        val id = (repository.create(dailyProtocol()) as Result.Success).data
+        repository.pause(id)
+
+        val copyId = (repository.duplicate(id) as Result.Success).data
+
+        assertThat(database.protocolDao().getById(copyId)!!.status).isEqualTo(DbProtocolStatus.ACTIVE)
+        val doses = database.scheduledDoseDao().observeByProtocolId(copyId).first()
+        assertThat(doses).hasSize(7)
+    }
+
+    @Test
+    fun `duplicate of an archived protocol is not archived`() = runTest {
+        val id = (repository.create(dailyProtocol()) as Result.Success).data
+        repository.archive(id)
+
+        val copyId = (repository.duplicate(id) as Result.Success).data
+
+        assertThat(database.protocolDao().getById(copyId)!!.deletedAt).isNull()
+        assertThat(repository.observeAll().first().map { it.id }).containsExactly(copyId)
+    }
+
+    @Test
+    fun `duplicate returns NOT_FOUND for an unknown id`() = runTest {
+        val result = repository.duplicate(id = 404L)
+
+        assertThat(result).isInstanceOf(Result.Error::class)
+        assertThat((result as Result.Error).error).isEqualTo(DataError.Local.NOT_FOUND)
     }
 
     // -----------------------------------------------------------------------

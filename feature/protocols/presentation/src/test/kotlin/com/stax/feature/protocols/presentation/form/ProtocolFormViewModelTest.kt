@@ -459,6 +459,92 @@ class ProtocolFormViewModelTest {
         assertThat(protocols.paused).isEqualTo(PROTOCOL_ID)
     }
 
+    // §4.9.6 — the three answers to "Save changes before pausing?", one DB state each.
+
+    @Test
+    fun `Pause on a changed form asks before it decides what happens to the edits`() = runTest {
+        protocols.stored.value = storedProtocol()
+        val viewModel = viewModel(args = ProtocolFormArgs(protocolId = PROTOCOL_ID))
+        viewModel.onAction(ProtocolFormAction.Edit.OnDoseChange("0.5"))
+
+        viewModel.onAction(ProtocolFormAction.OnPauseClick)
+
+        assertThat(viewModel.state.value.isPauseDialogOpen).isTrue()
+        assertThat(protocols.paused).isNull()
+        assertThat(protocols.updated).isNull()
+    }
+
+    /**
+     * Save + Pause is one `update` carrying `status = Paused`, not an update followed by a pause: the
+     * regen §5.4 runs inside it then finds a paused protocol and generates nothing (§5.2).
+     */
+    @Test
+    fun `Save + Pause writes the edits and the paused status in the same update`() = runTest {
+        protocols.stored.value = storedProtocol()
+        val viewModel = viewModel(args = ProtocolFormArgs(protocolId = PROTOCOL_ID))
+        viewModel.onAction(ProtocolFormAction.Edit.OnDoseChange("0.5"))
+        viewModel.onAction(ProtocolFormAction.OnPauseClick)
+
+        viewModel.events.test {
+            viewModel.onAction(ProtocolFormAction.OnPauseSaveConfirm)
+            assertThat(awaitItem()).isEqualTo(ProtocolFormEvent.Done)
+        }
+
+        val updated = protocols.updated
+        assertThat(updated?.id).isEqualTo(PROTOCOL_ID)
+        assertThat(updated?.status).isEqualTo(ProtocolStatus.PAUSED)
+        assertThat(updated?.plannedDose).isEqualTo(Quantity(Decimal.parse("0.5"), UnitCode.MG))
+        assertThat(protocols.paused).isNull()
+        assertThat(viewModel.state.value.isPauseDialogOpen).isFalse()
+    }
+
+    @Test
+    fun `Pause without saving pauses the stored protocol and leaves the edits unwritten`() = runTest {
+        protocols.stored.value = storedProtocol()
+        val viewModel = viewModel(args = ProtocolFormArgs(protocolId = PROTOCOL_ID))
+        viewModel.onAction(ProtocolFormAction.Edit.OnDoseChange("0.5"))
+        viewModel.onAction(ProtocolFormAction.OnPauseClick)
+
+        viewModel.events.test {
+            viewModel.onAction(ProtocolFormAction.OnPauseDiscardConfirm)
+            assertThat(awaitItem()).isEqualTo(ProtocolFormEvent.Done)
+        }
+
+        assertThat(protocols.paused).isEqualTo(PROTOCOL_ID)
+        assertThat(protocols.updated).isNull()
+    }
+
+    @Test
+    fun `Cancel leaves the protocol running and the edits on screen`() = runTest {
+        protocols.stored.value = storedProtocol()
+        val viewModel = viewModel(args = ProtocolFormArgs(protocolId = PROTOCOL_ID))
+        viewModel.onAction(ProtocolFormAction.Edit.OnDoseChange("0.5"))
+        viewModel.onAction(ProtocolFormAction.OnPauseClick)
+
+        viewModel.onAction(ProtocolFormAction.Overlay.OnPauseDismiss)
+
+        assertThat(viewModel.state.value.isPauseDialogOpen).isFalse()
+        assertThat(viewModel.state.value.draft.doseAmount).isEqualTo("0.5")
+        assertThat(protocols.paused).isNull()
+        assertThat(protocols.updated).isNull()
+    }
+
+    /** Save + Pause is still a save, so a form it cannot write stays open with its fields marked. */
+    @Test
+    fun `Save + Pause on an invalid form rejects the fields instead of pausing`() = runTest {
+        protocols.stored.value = storedProtocol()
+        val viewModel = viewModel(args = ProtocolFormArgs(protocolId = PROTOCOL_ID))
+        viewModel.onAction(ProtocolFormAction.Edit.OnDoseChange(""))
+        viewModel.onAction(ProtocolFormAction.OnPauseClick)
+
+        viewModel.onAction(ProtocolFormAction.OnPauseSaveConfirm)
+
+        assertThat(viewModel.state.value.errors[ProtocolFormField.DOSE])
+            .isEqualTo(ProtocolFormError.DOSE_NOT_POSITIVE)
+        assertThat(protocols.updated).isNull()
+        assertThat(protocols.paused).isNull()
+    }
+
     @Test
     fun `Duplicate creates a copy of what is on screen, Active and suffixed`() = runTest {
         protocols.stored.value = storedProtocol()

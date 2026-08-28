@@ -32,6 +32,9 @@ import com.stax.feature.protocols.presentation.list.ProtocolsListRoot
  * [onCreateCompound] is §4.0.2's empty-picker CTA: a protocol needs a compound, and with none to pick
  * the only useful thing left is Create Compound — which belongs to another feature, so this module
  * names the intent and `:app` names the destination.
+ *
+ * [onSelectionModeChange] is §4.7.4's hidden bottom nav: the nav suite is `:app`'s chrome, so the
+ * list reports when its multi-select dock is up and `:app` decides what to do about the bar.
  */
 fun EntryProviderScope<NavKey>.protocolsEntries(
     onProtocolClick: (Long) -> Unit,
@@ -40,6 +43,7 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
     onCreateCompound: () -> Unit,
     onBack: () -> Unit,
     onFinishOnboarding: () -> Unit,
+    onSelectionModeChange: (Boolean) -> Unit,
 ) {
     entry<ProtocolsRoute>(
         metadata = StaxListDetailScene.listPane(
@@ -47,11 +51,15 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
             detailPlaceholder = { PlaceholderScreen(title = "Select a protocol") },
         ),
     ) {
-        ProtocolsListRoot(onProtocolClick = onProtocolClick, onCreateProtocol = onCreateProtocol)
+        ProtocolsListRoot(
+            onProtocolClick = onProtocolClick,
+            onCreateProtocol = onCreateProtocol,
+            onSelectionModeChange = onSelectionModeChange,
+        )
     }
     entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane(PROTOCOLS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Protocol #${key.protocolId}") {
-            // §4.8.2's Edit quick action, until Protocol Detail itself lands (M9-06).
+            // §4.8.2's Edit quick action, until Protocol Detail itself lands (M9-07).
             Button(onClick = { onEditProtocol(key.protocolId) }) { Text(text = "Edit") }
             Button(onClick = onBack) { Text(text = "Back") }
         }

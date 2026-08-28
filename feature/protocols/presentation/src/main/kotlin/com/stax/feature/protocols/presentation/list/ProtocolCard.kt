@@ -2,8 +2,11 @@ package com.stax.feature.protocols.presentation.list
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -21,11 +24,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,38 +62,48 @@ import java.util.Locale as JavaLocale
  * chips, and the titration bar when the protocol escalates.
  *
  * The whole card is the tap target — it opens Protocol Detail (§4.8).
+ *
+ * In multi-select mode (§4.7.4) a checkbox circle takes the lead and shifts the name right; a
+ * selected card fills with `secondary-container`. [onLongClick] is what enters the mode, so the
+ * search overlay simply leaves it out and its cards never long-press into a selection.
  */
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList")
 @Composable
-internal fun ProtocolCard(item: ProtocolListItemUi, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun ProtocolCard(
+    item: ProtocolListItemUi,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+) {
+    val shape = MaterialTheme.shapes.large
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        // Clipped before it is made clickable so the ripple follows the card's corners; `Card`'s own
+        // `onClick` overload cannot carry a long press, which is what enters multi-select (§4.7.4).
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = stringResource(R.string.protocols_card_select),
+            )
+            .semantics { if (isSelectionMode) selected = isSelected },
+        shape = shape,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
+        ),
     ) {
         Column(
             modifier = Modifier.padding(CARD_PADDING),
             verticalArrangement = Arrangement.spacedBy(SECTION_GAP),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(SECTION_GAP)) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = item.metaLine(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = META_MAX_LINES,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                StatusPill(pill = item.pill)
-            }
+            CardHeader(item = item, isSelectionMode = isSelectionMode, isSelected = isSelected)
             // Two chips rarely fit one line inside a `360dp` list pane (§6.4.2), so they wrap instead
             // of scrolling — a chip half off the edge of a card reads as a layout bug.
             FlowRow(
@@ -99,6 +115,33 @@ internal fun ProtocolCard(item: ProtocolListItemUi, onClick: () -> Unit, modifie
             }
             item.titration?.let { TitrationBar(titration = it) }
         }
+    }
+}
+
+/** §4.7.3's top row: the multi-select checkbox, name + meta line, and the status pill. */
+@Suppress("FunctionName")
+@Composable
+private fun CardHeader(item: ProtocolListItemUi, isSelectionMode: Boolean, isSelected: Boolean) {
+    Row(horizontalArrangement = Arrangement.spacedBy(SECTION_GAP)) {
+        if (isSelectionMode) {
+            SelectionCheckbox(isSelected = isSelected, modifier = Modifier.align(Alignment.CenterVertically))
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = item.metaLine(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = META_MAX_LINES,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        StatusPill(pill = item.pill)
     }
 }
 
@@ -137,6 +180,41 @@ private fun StatusPill(pill: ProtocolPill, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = PILL_PADDING, vertical = LABEL_GAP),
             style = MaterialTheme.typography.labelLarge,
         )
+    }
+}
+
+/**
+ * The card's leading checkbox in multi-select mode (§4.7.4): an outlined circle, filled with
+ * `primary` and a `check` once selected. Not itself clickable — the whole card is the target, and its
+ * `selected` semantics is what a screen reader announces.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun SelectionCheckbox(isSelected: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(CHECKBOX_SIZE)
+            .then(
+                if (isSelected) {
+                    Modifier.background(color = MaterialTheme.colorScheme.primary, shape = StaxShapes.Pill)
+                } else {
+                    Modifier.border(
+                        width = OUTLINE_WIDTH,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = StaxShapes.Pill,
+                    )
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isSelected) {
+            Icon(
+                painter = StaxIcons.Check,
+                contentDescription = null,
+                modifier = Modifier.size(CHECKBOX_ICON_SIZE),
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
     }
 }
 
@@ -318,3 +396,5 @@ private val LABEL_GAP = 4.dp
 private val PILL_PADDING = 12.dp
 private val CHIP_ICON_SIZE = 16.dp
 private val OUTLINE_WIDTH = 1.dp
+private val CHECKBOX_SIZE = 40.dp
+private val CHECKBOX_ICON_SIZE = 24.dp

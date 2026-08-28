@@ -1,5 +1,6 @@
 package com.stax.feature.protocols.presentation.list
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,13 +16,19 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,9 +41,13 @@ import com.stax.core.design.system.paneInsets
 import com.stax.core.domain.Route
 import com.stax.core.domain.ScheduleType
 import com.stax.core.presentation.ObserveAsEvents
+import com.stax.core.presentation.asString
 import com.stax.feature.protocols.presentation.R
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 import org.koin.androidx.compose.koinViewModel
@@ -51,19 +62,40 @@ import kotlin.time.Instant
 fun ProtocolsListRoot(
     onProtocolClick: (Long) -> Unit,
     onCreateProtocol: () -> Unit,
+    onSelectionModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProtocolsListViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Multi-select replaces the bottom nav with its own dock (§4.7.4), and the chrome belongs to
+    // `:app` — so the screen reports the mode and `:app` hides the bar. Reported on dispose too:
+    // navigating out of the list while a selection stands must not leave the bar hidden behind it.
+    DisposableEffect(state.isSelectionMode, onSelectionModeChange) {
+        onSelectionModeChange(state.isSelectionMode)
+        onDispose { onSelectionModeChange(false) }
+    }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     ObserveAsEvents(viewModel.events, key1 = onProtocolClick, key2 = onCreateProtocol) { event ->
         when (event) {
             is ProtocolsListEvent.NavigateToProtocolDetail -> onProtocolClick(event.protocolId)
             ProtocolsListEvent.NavigateToCreateProtocol -> onCreateProtocol()
+            is ProtocolsListEvent.ShowError -> scope.launch {
+                snackbarHostState.showSnackbar(context.asString(event.message))
+            }
         }
     }
 
-    ProtocolsListScreen(state = state, onAction = viewModel::onAction, modifier = modifier)
+    ProtocolsListScreen(
+        state = state,
+        onAction = viewModel::onAction,
+        modifier = modifier,
+        snackbarHostState = snackbarHostState,
+    )
 }
 
 /**
@@ -74,6 +106,10 @@ fun ProtocolsListRoot(
  * — `360dp` at Medium, `400dp` at Expanded — and the layout is the same at every breakpoint: one
  * full-width card per line, wrapping its own chips when the pane is too narrow for them side by
  * side.
+ *
+ * Multi-select (§4.7.4) is a mode of this same pane: the contextual bar takes over the app bar and
+ * the chip row, the dock takes over the bottom, and the FAB steps aside — a screen with two primary
+ * actions on it has none.
  */
 @Suppress("FunctionName")
 @Composable
@@ -81,39 +117,28 @@ fun ProtocolsListScreen(
     state: ProtocolsListState,
     onAction: (ProtocolsListAction) -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            // Both branches open with a bar of their own — the app bar, the search bar — so the
-            // status bar is theirs to claim and draw their container behind (§2.3.6). The pane still
-            // takes the sides and the bottom.
+            // Every branch below opens with a bar of its own — the app bar, the contextual bar, the
+            // search bar — so the status bar is theirs to claim and draw their container behind
+            // (§2.3.6). The pane still takes the sides and the bottom.
             .paneInsets(claimTop = false),
     ) {
         if (state.isSearchOpen) {
             ProtocolsSearchOverlay(state = state, onAction = onAction)
         } else {
-            Column(modifier = Modifier.fillMaxSize()) {
-                ProtocolsTopBar(onSearchClick = { onAction(ProtocolsListAction.OnSearchClick) })
-                ProtocolsFilterRow(selected = state.filter, onAction = onAction)
-                if (state.items.isEmpty() && !state.isLoading) {
-                    ProtocolsEmptyState(
-                        filter = state.filter,
-                        hasAnyProtocol = state.hasAnyProtocol,
-                        onAction = onAction,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    ProtocolsList(
-                        items = state.items,
-                        onProtocolClick = { onAction(ProtocolsListAction.OnProtocolClick(it)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+            // Back leaves multi-select before it leaves the screen (§4.7.4) — the selection is the
+            // nearest thing the gesture can dismiss.
+            BackHandler(enabled = state.isSelectionMode) {
+                onAction(ProtocolsListAction.Selection.OnDismiss)
             }
+            ProtocolsPane(state = state, onAction = onAction)
             // §7's hero carries the same "New protocol" CTA, and a screen showing that action twice
             // has one too many — so the FAB steps aside for exactly as long as the hero is up.
-            if (state.hasAnyProtocol || state.isLoading) {
+            if ((state.hasAnyProtocol || state.isLoading) && !state.isSelectionMode) {
                 AdaptiveFab(
                     onClick = { onAction(ProtocolsListAction.OnCreateProtocolClick) },
                     label = { Text(text = stringResource(R.string.protocols_new)) },
@@ -121,6 +146,64 @@ fun ProtocolsListScreen(
                     Icon(painter = StaxIcons.Add, contentDescription = null)
                 }
             }
+        }
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (state.isArchiveDialogOpen) {
+        ArchiveProtocolsDialog(
+            selectedCount = state.selectedIds.size,
+            onConfirm = { onAction(ProtocolsListAction.Selection.Batch.OnArchiveConfirm) },
+            onDismiss = { onAction(ProtocolsListAction.Selection.OnArchiveDismiss) },
+        )
+    }
+}
+
+/**
+ * The pane's own stack, top to bottom: whichever app bar the mode calls for, the cards or the empty
+ * state in their place, and — in multi-select only — the dock (§4.7.4).
+ */
+@Suppress("FunctionName")
+@Composable
+private fun ProtocolsPane(
+    state: ProtocolsListState,
+    onAction: (ProtocolsListAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        if (state.isSelectionMode) {
+            ProtocolsSelectionTopBar(
+                selectedCount = state.selectedIds.size,
+                isMenuOpen = state.isSelectionMenuOpen,
+                onDismiss = { onAction(ProtocolsListAction.Selection.OnDismiss) },
+                onMenuClick = { onAction(ProtocolsListAction.Selection.OnMenuClick) },
+                onMenuDismiss = { onAction(ProtocolsListAction.Selection.OnMenuDismiss) },
+                onSelectAll = { onAction(ProtocolsListAction.Selection.OnSelectAll) },
+                onInvert = { onAction(ProtocolsListAction.Selection.OnInvert) },
+            )
+        } else {
+            ProtocolsTopBar(onSearchClick = { onAction(ProtocolsListAction.OnSearchClick) })
+            ProtocolsFilterRow(selected = state.filter, onAction = onAction)
+        }
+        if (state.items.isEmpty() && !state.isLoading) {
+            ProtocolsEmptyState(
+                filter = state.filter,
+                hasAnyProtocol = state.hasAnyProtocol,
+                onAction = onAction,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            ProtocolsList(
+                items = state.items,
+                selectedIds = state.selectedIds,
+                isSelectionMode = state.isSelectionMode,
+                onProtocolClick = { onAction(ProtocolsListAction.OnProtocolClick(it)) },
+                onProtocolLongPress = { onAction(ProtocolsListAction.Selection.OnLongPress(it)) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (state.isSelectionMode) {
+            ProtocolsSelectionDock(state = state, onAction = onAction)
         }
     }
 }
@@ -173,11 +256,14 @@ private fun ProtocolsFilterRow(
 }
 
 /** The cards themselves (§4.7.3). */
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList")
 @Composable
 private fun ProtocolsList(
     items: List<ProtocolListItemUi>,
+    selectedIds: ImmutableSet<Long>,
+    isSelectionMode: Boolean,
     onProtocolClick: (Long) -> Unit,
+    onProtocolLongPress: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -187,12 +273,20 @@ private fun ProtocolsList(
             top = SCREEN_PADDING,
             end = SCREEN_PADDING,
             // Extra room at the bottom so the last card can be scrolled clear of the floating FAB.
-            bottom = LIST_BOTTOM_PADDING,
+            // The dock replaces the FAB in multi-select and takes its own space in the Column, so
+            // the reserve goes away with it.
+            bottom = if (isSelectionMode) SCREEN_PADDING else LIST_BOTTOM_PADDING,
         ),
         verticalArrangement = Arrangement.spacedBy(CARD_GAP),
     ) {
         items(items = items, key = { it.id }) { item ->
-            ProtocolCard(item = item, onClick = { onProtocolClick(item.id) })
+            ProtocolCard(
+                item = item,
+                onClick = { onProtocolClick(item.id) },
+                isSelectionMode = isSelectionMode,
+                isSelected = item.id in selectedIds,
+                onLongClick = { onProtocolLongPress(item.id) },
+            )
         }
     }
 }
@@ -278,6 +372,21 @@ private fun ProtocolsListScreenSearchPreview() {
         Surface {
             ProtocolsListScreen(
                 state = previewState().copy(isSearchOpen = true, searchQuery = "sema"),
+                onAction = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Multi-select · Compact", showBackground = true, widthDp = 411, heightDp = 914)
+@Preview(name = "Multi-select · Medium list pane", showBackground = true, widthDp = 360, heightDp = 841)
+@Suppress("FunctionName", "UnusedPrivateMember")
+@Composable
+private fun ProtocolsListScreenSelectionPreview() {
+    StaxTheme(dynamicColor = false) {
+        Surface {
+            ProtocolsListScreen(
+                state = previewState().copy(selectedIds = persistentSetOf(1L, 2L)),
                 onAction = {},
             )
         }

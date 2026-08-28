@@ -2,12 +2,14 @@ package com.stax.feature.protocols.presentation.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stax.core.domain.DataError
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.Escalation
 import com.stax.core.domain.EscalationIncreaseEvery
 import com.stax.core.domain.Protocol
 import com.stax.core.domain.ProtocolStatus
 import com.stax.core.domain.Quantity
+import com.stax.core.domain.Result
 import com.stax.core.domain.Schedule
 import com.stax.core.domain.ScheduleType
 import com.stax.core.domain.ScheduledDose
@@ -18,8 +20,12 @@ import com.stax.core.domain.repository.CompoundRepository
 import com.stax.core.domain.repository.ProtocolRepository
 import com.stax.core.domain.repository.ScheduledDoseRepository
 import com.stax.core.domain.valueIn
+import com.stax.core.presentation.toUiText
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +55,7 @@ import kotlin.time.Clock
  * the system clock; production resolves the default.
  */
 class ProtocolsListViewModel(
-    protocolRepository: ProtocolRepository,
+    private val protocolRepository: ProtocolRepository,
     compoundRepository: CompoundRepository,
     scheduledDoseRepository: ScheduledDoseRepository,
     private val today: () -> LocalDate = { Clock.System.todayIn(TimeZone.currentSystemDefault()) },
@@ -104,13 +110,132 @@ class ProtocolsListViewModel(
 
             is ProtocolsListAction.OnSearchQueryChange -> update { it.copy(searchQuery = action.query) }
 
-            is ProtocolsListAction.OnProtocolClick -> send(
-                ProtocolsListEvent.NavigateToProtocolDetail(action.protocolId),
-            )
+            // While multi-select is on the card tap is the toggle (§4.7.4) — navigating away instead
+            // would abandon a selection the user is still building.
+            is ProtocolsListAction.OnProtocolClick -> if (_state.value.isSelectionMode) {
+                toggleSelection(action.protocolId)
+            } else {
+                send(ProtocolsListEvent.NavigateToProtocolDetail(action.protocolId))
+            }
 
             ProtocolsListAction.OnCreateProtocolClick -> send(ProtocolsListEvent.NavigateToCreateProtocol)
+
+            is ProtocolsListAction.Selection -> onSelectionAction(action)
         }
     }
+
+    /** Multi-select mode (§4.7.4). */
+    private fun onSelectionAction(action: ProtocolsListAction.Selection) {
+        when (action) {
+            is ProtocolsListAction.Selection.OnLongPress -> toggleSelection(action.protocolId)
+
+            ProtocolsListAction.Selection.OnDismiss -> exitSelection()
+
+            ProtocolsListAction.Selection.OnMenuClick -> _state.update { it.copy(isSelectionMenuOpen = true) }
+
+            ProtocolsListAction.Selection.OnMenuDismiss -> _state.update { it.copy(isSelectionMenuOpen = false) }
+
+            // Both overflow entries work on the tab's *visible* result list, which is also the only
+            // thing the dock can act on — the contextual bar hides the chips and the search icon, so
+            // nothing outside it can reach the selection.
+            ProtocolsListAction.Selection.OnSelectAll -> _state.update {
+                it.copy(
+                    selectedIds = it.items.map(ProtocolListItemUi::id).toPersistentSet(),
+                    isSelectionMenuOpen = false,
+                )
+            }
+
+            ProtocolsListAction.Selection.OnInvert -> _state.update {
+                it.copy(
+                    selectedIds = it.items.filterNot { item -> item.id in it.selectedIds }
+                        .map(ProtocolListItemUi::id)
+                        .toPersistentSet(),
+                    isSelectionMenuOpen = false,
+                )
+            }
+
+            ProtocolsListAction.Selection.OnArchiveClick -> _state.update { it.copy(isArchiveDialogOpen = true) }
+
+            ProtocolsListAction.Selection.OnArchiveDismiss -> _state.update { it.copy(isArchiveDialogOpen = false) }
+
+            is ProtocolsListAction.Selection.Batch -> onBatchAction(action)
+        }
+    }
+
+    /**
+     * The five writing dock actions (§4.7.4). Pause, Resume and Complete each narrow the selection to
+     * what they apply to; Duplicate and Archive take all of it.
+     */
+    private fun onBatchAction(action: ProtocolsListAction.Selection.Batch) {
+        when (action) {
+            ProtocolsListAction.Selection.Batch.OnPause -> runOnSelection(
+                matching = { it.pill == ProtocolPill.ACTIVE || it.pill == ProtocolPill.IN_BREAK },
+                operation = protocolRepository::pause,
+            )
+
+            ProtocolsListAction.Selection.Batch.OnResume -> runOnSelection(
+                matching = { it.pill == ProtocolPill.PAUSED },
+                operation = protocolRepository::resume,
+            )
+
+            ProtocolsListAction.Selection.Batch.OnComplete -> runOnSelection(
+                matching = { it.pill != ProtocolPill.COMPLETED },
+                operation = protocolRepository::complete,
+            )
+
+            ProtocolsListAction.Selection.Batch.OnDuplicate ->
+                runOnSelection(operation = protocolRepository::duplicate)
+
+            ProtocolsListAction.Selection.Batch.OnArchiveConfirm ->
+                runOnSelection(operation = protocolRepository::archive)
+        }
+    }
+
+    private fun toggleSelection(protocolId: Long) {
+        _state.update { it.copy(selectedIds = it.selectedIds.toggle(protocolId)) }
+    }
+
+    /** Clears the selection, which is what multi-select mode is, plus the menu and dialog it carried. */
+    private fun exitSelection() {
+        _state.update {
+            it.copy(selectedIds = persistentSetOf(), isSelectionMenuOpen = false, isArchiveDialogOpen = false)
+        }
+    }
+
+    /**
+     * Runs [operation] over the selected protocols [matching] keeps, then leaves multi-select
+     * whatever happened (§4.7.4). The incompatible part of the selection is skipped rather than
+     * blocking the whole batch: §4.7.4's Pause "applies only to selected Active protocols", and the
+     * dock is disabled only when that part is empty.
+     *
+     * The ids are snapshotted first because the repository re-emits as it goes and the whole batch
+     * has to run against what the user actually ticked. Every protocol is attempted even after one
+     * fails — a batch that stopped half-way would leave the user guessing which cards it got to —
+     * but only the first failure is reported, because one message per protocol in a batch of ten is
+     * noise.
+     */
+    private fun runOnSelection(
+        matching: (ProtocolListItemUi) -> Boolean = { true },
+        operation: suspend (Long) -> Result<*, DataError.Local>,
+    ) {
+        val current = _state.value
+        val ids = current.items.filter { it.id in current.selectedIds && matching(it) }.map { it.id }
+        exitSelection()
+        viewModelScope.launch {
+            ids
+                .mapNotNull { id ->
+                    when (val result = operation(id)) {
+                        is Result.Error -> result.error
+                        is Result.Success -> null
+                    }
+                }
+                .firstOrNull()
+                ?.let { _events.send(ProtocolsListEvent.ShowError(it.toUiText())) }
+        }
+    }
+
+    private fun ImmutableSet<Long>.toggle(value: Long): ImmutableSet<Long> =
+        toPersistentSet().let { if (value in it) it.remove(value) else it.add(value) }
 
     /** Applies a filter or query change and re-derives the result list from it in one step. */
     private fun update(transform: (ProtocolsListState) -> ProtocolsListState) {

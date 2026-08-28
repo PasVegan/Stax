@@ -42,6 +42,18 @@ interface AdministrationEventRepository {
     /** §4.3.6's badge: this compound's Taken + Partial components, all-time and chip-independent. */
     fun observeLoggedDoseCount(compoundSupplyId: Long): Flow<Int>
 
+    /**
+     * Emits one protocol's dose history as pages, newest first (§4.8.7) — the doses logged against
+     * this protocol, whichever compound each named.
+     *
+     * Paged for the same reason the compound history is, but unfiltered: §4.8.7 carries the header
+     * and the rows of §4.3.6/§4.3.8 without §4.3.7's status chips.
+     */
+    fun pagedHistoryForProtocol(protocolId: Long): Flow<PagingData<CompoundHistoryEntry>>
+
+    /** §4.8.7's badge: this protocol's Taken + Partial components, all-time. */
+    fun observeLoggedDoseCountForProtocol(protocolId: Long): Flow<Int>
+
     suspend fun log(event: AdministrationEvent, components: List<DoseComponent>): Result<Long, DataError.Local>
 
     suspend fun edit(id: Long, edits: AdministrationEventEdit): EmptyResult<DataError.Local>

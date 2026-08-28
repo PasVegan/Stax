@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -37,6 +38,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxShapes
 import com.stax.core.domain.Route
@@ -165,7 +167,14 @@ internal fun ColumnScope.RouteSection(state: ProtocolFormState, onAction: (Proto
                 onClick = { onAction(ProtocolFormAction.Pick.OnRouteSelected(route)) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = Route.entries.size),
             ) {
-                Text(text = routeLabel(route), maxLines = 1)
+                // A quarter of §6.4.2's Medium column is not wide enough for "Topical" at the label
+                // size, and a clipped route reads as a different route — so the label shrinks to fit
+                // rather than losing its last letters.
+                Text(
+                    text = routeLabel(route),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = SEGMENT_MIN_FONT_SIZE),
+                )
             }
         }
     }
@@ -615,6 +624,9 @@ private fun transparentFieldColors() = TextFieldDefaults.colors(
     focusedIndicatorColor = Color.Transparent,
     unfocusedIndicatorColor = Color.Transparent,
 )
+
+/** Floor for the auto-sized route segments; below it the label would be smaller than its neighbours' body text. */
+private val SEGMENT_MIN_FONT_SIZE = 11.sp
 
 private const val META_SEPARATOR = " · "
 private val AVATAR_PADDING = 10.dp

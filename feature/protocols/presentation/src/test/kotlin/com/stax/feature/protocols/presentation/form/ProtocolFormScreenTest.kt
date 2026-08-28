@@ -116,7 +116,7 @@ class ProtocolFormScreenTest {
 
     /** §6.4.2 Expanded: the forecast sits above the sections it used to sit under. */
     @Test
-    @Config(qualifiers = EXPANDED)
+    @Config(qualifiers = EXPANDED_TALL)
     fun `the forecast is pinned above the right column at Expanded`() {
         setScreen(state())
 
@@ -126,6 +126,24 @@ class ProtocolFormScreenTest {
             .getUnclippedBoundsInRoot()
 
         assertThat(reminder.top.value).isGreaterThan(forecast.top.value)
+    }
+
+    /**
+     * Expanded is a *width* class, and phone landscape is 914 × 411dp. A card that cannot scroll is
+     * clipped mid-tile in that much height, so the pin needs the height for it — below which the
+     * forecast goes back under the sections, where it is at least readable.
+     */
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `the forecast is not pinned when the window is too short for it`() {
+        setScreen(state())
+
+        val forecast = composeRule.onNodeWithText(string(R.string.protocol_form_forecast_title))
+            .getUnclippedBoundsInRoot()
+        val reminder = composeRule.onNodeWithText(string(R.string.protocol_form_reminder_title))
+            .getUnclippedBoundsInRoot()
+
+        assertThat(forecast.top.value).isGreaterThan(reminder.top.value)
     }
 
     // -----------------------------------------------------------------------
@@ -287,7 +305,7 @@ class ProtocolFormScreenTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @Config(qualifiers = EXPANDED)
+    @Config(qualifiers = EXPANDED_TALL)
     fun `the forecast shows its three tiles and both notices`() {
         setScreen(state())
 
@@ -302,7 +320,7 @@ class ProtocolFormScreenTest {
     }
 
     @Test
-    @Config(qualifiers = EXPANDED)
+    @Config(qualifiers = EXPANDED_TALL)
     fun `the forecast says what it is waiting for before a compound and dose are in`() {
         setScreen(state(forecast = null))
 
@@ -503,8 +521,11 @@ class ProtocolFormScreenTest {
         /** Pixel 10 Pro Fold inner portrait — Medium (§6.4.8). */
         const val MEDIUM = "w673dp-h841dp"
 
-        /** Pixel 10 landscape — Expanded (§6.4.8). */
+        /** Pixel 10 landscape — Expanded, and the shortest of the Expanded profiles (§6.4.8). */
         const val EXPANDED = "w914dp-h411dp"
+
+        /** Pixel 10 Pro Fold inner landscape — Expanded with the height to pin a card (§6.4.8). */
+        const val EXPANDED_TALL = "w841dp-h673dp"
 
         /** Rounding + the gutter between the columns; an even split is not a pixel-exact half. */
         const val EVEN_SPLIT_TOLERANCE = 32f

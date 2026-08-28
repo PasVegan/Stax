@@ -254,7 +254,12 @@ private fun TwoColumnForm(
     onAction: (ProtocolFormAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isForecastPinned = isExpandedWidth()
+    // §6.4.2 asks for the pinned forecast at Expanded, but Expanded is a *width* class: phone
+    // landscape is 914 × 411dp, and a card that cannot scroll is clipped mid-tile in 411dp of height
+    // once the app bar, the banner and the dock have taken their share. So the pin also needs the
+    // height for it; without it the card goes back into the right column's scroll, where it is at
+    // least readable.
+    val isForecastPinned = isExpandedWidth() && isTallEnoughToPin()
     Column(modifier = modifier.padding(horizontal = SCREEN_PADDING)) {
         if (state.isEdit) {
             Column { EditWarningBanner() }
@@ -559,6 +564,12 @@ private fun isTwoColumn(): Boolean = currentWindowAdaptiveInfoV2().windowSizeCla
 @Composable
 private fun isExpandedWidth(): Boolean = currentWindowAdaptiveInfoV2().windowSizeClass
     .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+
+/** Whether there is enough height for a card that does not scroll to be worth pinning (§6.4.2). */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun isTallEnoughToPin(): Boolean = currentWindowAdaptiveInfoV2().windowSizeClass
+    .isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
 
 /** §6.4.2 splits the form evenly: neither column has the longer fields, so neither earns the width. */
 private const val COLUMN_WEIGHT = 1f

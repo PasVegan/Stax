@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +24,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.domain.ReminderBucket
 import com.stax.feature.protocols.presentation.R
@@ -249,11 +251,14 @@ private fun RowScope.ForecastTile(value: String, label: String, container: Color
         color = container,
     ) {
         Column(modifier = Modifier.padding(TILE_PADDING)) {
+            // A third of §6.4.2's right column is narrow, and "Dec 27" is the longest of the three
+            // values — clipped to "Dec" it is a different date, so the figure shrinks to fit instead.
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineSmall,
                 color = content,
                 maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = TILE_MIN_FONT_SIZE),
             )
             Text(
                 text = label,
@@ -355,6 +360,9 @@ private fun LifecycleButton(icon: Painter, label: String, container: Color, cont
 }
 
 /** What a tile shows when the stock outlives the forecast horizon — not a number anyone plans around. */
+/** Floor for the auto-sized tile figures; below it they stop reading as the card's headline. */
+private val TILE_MIN_FONT_SIZE = 14.sp
+
 private const val BEYOND_HORIZON = "—"
 private const val NOTES_MIN_LINES = 3
 private val TILE_PADDING = 12.dp

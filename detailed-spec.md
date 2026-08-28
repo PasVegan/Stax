@@ -2136,7 +2136,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 - **Medium**: two-column.
   - **Left column**: Compound + Route + Planned dose + Schedule + Times of day + Duration.
   - **Right column**: Reminder + Site restriction + Notes + Forecast & warnings (live-updated as user changes left column).
-- **Expanded**: same two-column, plus Forecast & warnings becomes a sticky inset card at top-right corner of the right column (visible while user scrolls left column).
+- **Expanded**: same two-column, plus Forecast & warnings becomes a sticky inset card at top-right corner of the right column (visible while user scrolls left column). Expanded is a *width* class, so the pin also requires Medium height (≥480dp): phone landscape is 914 × 411dp, and a card that cannot scroll is clipped mid-tile once the app bar, the edit banner and the dock have taken their share of that. Below it the card goes back into the right column's scroll, i.e. the Medium arrangement.
 
 ##### Log Dose forms (§4.10.2 variants a/b/c)
 

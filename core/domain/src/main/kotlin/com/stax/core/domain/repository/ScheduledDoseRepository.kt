@@ -14,6 +14,12 @@ interface ScheduledDoseRepository {
     /** Emits pending unlogged doses for [date] in [zone], sorted with all-day doses last. */
     fun observePending(date: LocalDate, zone: TimeZone): Flow<List<ScheduledDose>>
 
+    /**
+     * Emits the earliest still-pending dose of every protocol that has one, at most one row each —
+     * the next-dose chip of every card on the protocols list (§4.7.3) in a single read.
+     */
+    fun observeNextPendingPerProtocol(): Flow<List<ScheduledDose>>
+
     /** Emits all generated doses for [protocolId], including historical rows. */
     fun observeForProtocol(protocolId: Long): Flow<List<ScheduledDose>>
 

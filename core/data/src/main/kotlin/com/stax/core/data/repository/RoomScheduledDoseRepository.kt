@@ -25,6 +25,9 @@ class RoomScheduledDoseRepository(private val dao: ScheduledDoseDao) : Scheduled
         return dao.observePendingForDate(from, until).map { rows -> rows.map { it.toDomain() } }
     }
 
+    override fun observeNextPendingPerProtocol(): Flow<List<ScheduledDose>> =
+        dao.observeNextPendingPerProtocol().map { rows -> rows.map { it.toDomain() } }
+
     override fun observeForProtocol(protocolId: Long): Flow<List<ScheduledDose>> =
         dao.observeByProtocolId(protocolId).map { rows -> rows.map { it.toDomain() } }
 

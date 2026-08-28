@@ -39,6 +39,12 @@ class RoomProtocolRepository(
         }
     }
 
+    override fun observeArchived(): Flow<List<Protocol>> = protocolDao.observeArchivedWithDosageTimes().map { rows ->
+        rows.map { row ->
+            row.protocol.toDomain(row.dosageTimeEntities.map { it.time })
+        }
+    }
+
     override fun observeById(id: Long): Flow<Protocol?> = protocolDao.observeByIdWithDosageTimes(id).map { row ->
         row?.protocol?.toDomain(row.dosageTimeEntities.map { it.time })
     }

@@ -19,6 +19,12 @@ interface ProtocolRepository {
     /** Emits the active (non-deleted) protocols, each with its dosage times. */
     fun observeAll(): Flow<List<Protocol>>
 
+    /**
+     * Emits the soft-deleted protocols — the Archived tab of the protocols list (§4.7.2), which is
+     * derived from `deletedAt != null` and not from a [com.stax.core.domain.ProtocolStatus] value.
+     */
+    fun observeArchived(): Flow<List<Protocol>>
+
     /** Emits the protocol with [id], or null if not found (includes soft-deleted rows). */
     fun observeById(id: Long): Flow<Protocol?>
 

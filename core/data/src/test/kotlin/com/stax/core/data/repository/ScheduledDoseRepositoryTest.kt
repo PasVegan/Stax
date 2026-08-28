@@ -113,6 +113,17 @@ class ScheduledDoseRepositoryTest {
     }
 
     @Test
+    fun `observeNextPendingPerProtocol emits only the earliest pending dose`() = runTest {
+        val next = insertDose(
+            scheduledAt = Instant.parse("2026-06-06T08:00:00Z"),
+            status = DbScheduledDoseStatus.PENDING,
+        )
+        insertDose(scheduledAt = Instant.parse("2026-06-07T08:00:00Z"), status = DbScheduledDoseStatus.PENDING)
+
+        assertThat(repository.observeNextPendingPerProtocol().first().map { it.id }).containsExactly(next)
+    }
+
+    @Test
     fun `snooze updates scheduledAt and preserves originalLocalTime`() = runTest {
         val originalScheduledAt = Instant.parse("2026-06-06T08:00:00Z")
         val id = insertDose(

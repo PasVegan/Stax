@@ -191,4 +191,77 @@
     <string name="protocol_form_container_tub">tub</string>
     <string name="protocol_form_container_ampoule">ampoule</string>
 
+    <!-- ===================== Protocols list (§4.7) ===================== -->
+
+    <!-- App bar (§4.7.1) -->
+    <string name="protocols_title">Protocols</string>
+    <string name="protocols_search">Search protocols</string>
+    <string name="protocols_search_close">Close search</string>
+    <string name="protocols_search_clear">Clear search</string>
+    <string name="protocols_search_empty_title">No matches</string>
+    <string name="protocols_search_empty_supporting">Try a different name.</string>
+
+    <!-- Filter chips (§4.7.2) -->
+    <string name="protocols_filter_active">Active</string>
+    <string name="protocols_filter_paused">Paused</string>
+    <string name="protocols_filter_completed">Completed</string>
+    <string name="protocols_filter_archived">Archived</string>
+
+    <!-- Card status pill (§4.7.3) -->
+    <string name="protocols_pill_active">Active</string>
+    <string name="protocols_pill_in_break">In break</string>
+    <string name="protocols_pill_paused">Paused</string>
+    <string name="protocols_pill_completed">Completed</string>
+
+    <!-- Card meta line (§4.7.3) -->
+    <string name="protocols_meta">%1$s · %2$s</string>
+    <string name="protocols_meta_dose">%1$s %2$s</string>
+    <string name="protocols_meta_titration">%1$s → %2$s</string>
+
+    <!-- Schedule chip (§4.7.3) -->
+    <string name="protocols_schedule_daily">Daily</string>
+    <string name="protocols_schedule_weekly">Weekly</string>
+    <plurals name="protocols_schedule_every_x_days">
+        <item quantity="one">Every day</item>
+        <item quantity="other">Every %d days</item>
+    </plurals>
+    <plurals name="protocols_schedule_times_per_day">
+        <item quantity="one">Once a day</item>
+        <item quantity="other">%d× a day</item>
+    </plurals>
+    <plurals name="protocols_schedule_times_per_week">
+        <item quantity="one">Once a week</item>
+        <item quantity="other">%d× a week</item>
+    </plurals>
+    <plurals name="protocols_schedule_times_per_month">
+        <item quantity="one">Once a month</item>
+        <item quantity="other">%d× a month</item>
+    </plurals>
+
+    <!-- Next-dose chip (§4.7.3) -->
+    <string name="protocols_day_and_time">%1$s %2$s</string>
+    <string name="protocols_today">Today</string>
+    <string name="protocols_yesterday">Yesterday</string>
+    <string name="protocols_tomorrow">Tomorrow</string>
+    <plurals name="protocols_next_dose_break_in_days">
+        <item quantity="one">In %d d (break)</item>
+        <item quantity="other">In %d d (break)</item>
+    </plurals>
+    <string name="protocols_next_dose_in_break">In break</string>
+    <string name="protocols_next_dose_none">No dose scheduled</string>
+
+    <!-- Titration bar (§4.7.3) -->
+    <string name="protocols_titration">Titration</string>
+    <string name="protocols_titration_value">%1$s / %2$s</string>
+
+    <!-- FAB (§4.7.5) -->
+    <string name="protocols_new">New protocol</string>
+
+    <!-- Empty states (§7) -->
+    <string name="protocols_empty_title">No protocols yet</string>
+    <string name="protocols_empty_filtered_active">No active protocols.</string>
+    <string name="protocols_empty_filtered_paused">No paused protocols.</string>
+    <string name="protocols_empty_filtered_completed">No completed protocols.</string>
+    <string name="protocols_empty_filtered_archived">No archived protocols.</string>
+
 </resources>

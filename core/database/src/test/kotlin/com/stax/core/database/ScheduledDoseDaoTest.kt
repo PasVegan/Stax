@@ -3,6 +3,7 @@ package com.stax.core.database
 import androidx.room.Room
 import assertk.assertThat
 import assertk.assertions.containsExactly
+import assertk.assertions.containsExactlyInAnyOrder
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
 import com.stax.core.domain.Decimal
@@ -201,6 +202,50 @@ class ScheduledDoseDaoTest {
         val rows = scheduledDoseDao.observeByProtocolId(protocolId).first()
         assertThat(rows[0].originalLocalTime).isEqualTo(LocalTime.parse("08:00"))
         assertThat(rows[1].originalLocalTime).isNull()
+    }
+
+    @Test
+    fun `observeNextPendingPerProtocol returns the earliest pending dose of each protocol`() = runTest {
+        val (_, first) = insertProtocol(name = "Sema")
+        val (_, second) = insertProtocol(name = "Tirz")
+        scheduledDoseDao.insertOrIgnore(
+            scheduledDose(protocolId = first, scheduledAt = Instant.parse("2026-06-08T08:00:00Z")),
+        )
+        val firstNext = scheduledDoseDao.insertOrIgnore(
+            scheduledDose(protocolId = first, scheduledAt = Instant.parse("2026-06-06T08:00:00Z")),
+        )
+        val secondNext = scheduledDoseDao.insertOrIgnore(
+            scheduledDose(protocolId = second, scheduledAt = Instant.parse("2026-06-07T08:00:00Z")),
+        )
+
+        assertThat(scheduledDoseDao.observeNextPendingPerProtocol().first().map { it.id })
+            .containsExactlyInAnyOrder(firstNext, secondNext)
+    }
+
+    @Test
+    fun `observeNextPendingPerProtocol skips logged and non-pending doses`() = runTest {
+        val (_, protocolId) = insertProtocol()
+        scheduledDoseDao.insertOrIgnore(
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-05T08:00:00Z"),
+                status = ScheduledDoseStatus.TAKEN,
+                administrationEventId = null,
+            ),
+        )
+        scheduledDoseDao.insertOrIgnore(
+            scheduledDose(
+                protocolId = protocolId,
+                scheduledAt = Instant.parse("2026-06-06T08:00:00Z"),
+                administrationEventId = 1,
+            ),
+        )
+        val next = scheduledDoseDao.insertOrIgnore(
+            scheduledDose(protocolId = protocolId, scheduledAt = Instant.parse("2026-06-07T08:00:00Z")),
+        )
+
+        assertThat(scheduledDoseDao.observeNextPendingPerProtocol().first().map { it.id })
+            .containsExactly(next)
     }
 
     private suspend fun insertProtocol(name: String = "Titration"): Pair<Long, Long> {

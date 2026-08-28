@@ -489,6 +489,8 @@ class CompoundDetailViewModelTest {
 
         override fun observeAll(): Flow<List<Protocol>> = throw NotImplementedError()
 
+        override fun observeArchived(): Flow<List<Protocol>> = throw NotImplementedError()
+
         override fun observeById(id: Long): Flow<Protocol?> = throw NotImplementedError()
 
         override fun observeByCompoundSupplyId(compoundSupplyId: Long): Flow<List<Protocol>> = byCompound
@@ -511,6 +513,8 @@ class CompoundDetailViewModelTest {
 
         override fun observePending(date: LocalDate, zone: TimeZone): Flow<List<ScheduledDose>> =
             throw NotImplementedError()
+
+        override fun observeNextPendingPerProtocol(): Flow<List<ScheduledDose>> = throw NotImplementedError()
 
         override fun observeForProtocol(protocolId: Long): Flow<List<ScheduledDose>> =
             byProtocol.getOrPut(protocolId) { MutableStateFlow(emptyList()) }

@@ -42,6 +42,11 @@ Protocols feature.
   generator uses — so what the form previews is what Save writes.
 - **Save is the repository's job** (§4.9.7): `create` generates the 7-day Pending horizon, `update`
   runs §5.4's pending-regen scope rule. The ViewModel only picks which of the two to call.
+- **§4.9.6 Save + Pause is one write, not two.** `update(protocol.copy(status = Paused))` lands the
+  edits and runs §5.4's regen against an already-paused protocol, which generates nothing (§5.2). An
+  `update` followed by a `pause` would rebuild the horizon for a protocol about to stop dosing.
+  "Pause without saving" is the plain `pause`, and Cancel writes nothing. An untouched form never
+  sees the dialog.
 - **§4.9.3 has no control for `name`, `escalation`, `protocolBreak` or `siteCooldownDays`.** A created
   protocol takes its compound's name; an edit carries all four through from the loaded protocol
   untouched. Dropping any of them would silently flatten a titration.

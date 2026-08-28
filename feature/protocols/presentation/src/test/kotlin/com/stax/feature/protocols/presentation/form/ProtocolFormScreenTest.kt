@@ -381,6 +381,34 @@ class ProtocolFormScreenTest {
         assertThat(actions).contains(ProtocolFormAction.OnDiscardConfirm)
     }
 
+    /**
+     * §4.9.6. Three answers in a dialog built for two, so each is clicked here at every breakpoint
+     * profile — what the wrapping does to the button row must never cost one of them its tap target.
+     */
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the pause dialog offers all three answers at Compact`() {
+        assertPauseDialogAnswersAllThree()
+    }
+
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `the pause dialog offers all three answers at Medium`() {
+        assertPauseDialogAnswersAllThree()
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `the pause dialog offers all three answers at Expanded`() {
+        assertPauseDialogAnswersAllThree()
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED_TALL)
+    fun `the pause dialog offers all three answers at Expanded with height`() {
+        assertPauseDialogAnswersAllThree()
+    }
+
     @Test
     @Config(qualifiers = COMPACT)
     fun `the archive dialog asks before it soft-deletes`() {
@@ -460,6 +488,22 @@ class ProtocolFormScreenTest {
     // Harness
     // -----------------------------------------------------------------------
 
+    /** §4.9.6's dialog, checked the same way at each breakpoint: all three answers visible and tappable. */
+    private fun assertPauseDialogAnswersAllThree() {
+        setScreen(state(isEdit = true, isPauseDialogOpen = true))
+
+        composeRule.onNodeWithText(string(R.string.protocol_form_pause_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocol_form_pause_save)).assertIsDisplayed().performClick()
+        composeRule.onNodeWithText(string(R.string.protocol_form_pause_discard)).assertIsDisplayed().performClick()
+        // The dock has a Cancel of its own behind the scrim; the dialog's is the one composed last.
+        composeRule.onAllNodesWithText(string(R.string.protocol_form_cancel)).onLast()
+            .assertIsDisplayed().performClick()
+
+        assertThat(actions).contains(ProtocolFormAction.OnPauseSaveConfirm)
+        assertThat(actions).contains(ProtocolFormAction.OnPauseDiscardConfirm)
+        assertThat(actions).contains(ProtocolFormAction.Overlay.OnPauseDismiss)
+    }
+
     /** Clicks a node wherever it is in the form, without asking a scroll container to bring it up. */
     private fun SemanticsNodeInteraction.click() = performSemanticsAction(SemanticsActions.OnClick)
 
@@ -487,6 +531,7 @@ class ProtocolFormScreenTest {
         openPicker: ProtocolFormPicker? = null,
         pickerCompounds: List<CompoundPickUi> = listOf(COMPOUND),
         isDiscardDialogOpen: Boolean = false,
+        isPauseDialogOpen: Boolean = false,
         isArchiveDialogOpen: Boolean = false,
     ) = ProtocolFormState(
         draft = ProtocolFormDraft(
@@ -509,6 +554,7 @@ class ProtocolFormScreenTest {
         errors = errors,
         openPicker = openPicker,
         isDiscardDialogOpen = isDiscardDialogOpen,
+        isPauseDialogOpen = isPauseDialogOpen,
         isArchiveDialogOpen = isArchiveDialogOpen,
     )
 

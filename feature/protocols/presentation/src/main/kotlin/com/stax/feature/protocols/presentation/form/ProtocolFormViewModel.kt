@@ -133,6 +133,8 @@ class ProtocolFormViewModel(
             -> onDosageTime(action)
 
             ProtocolFormAction.OnPauseClick,
+            ProtocolFormAction.OnPauseSaveConfirm,
+            ProtocolFormAction.OnPauseDiscardConfirm,
             ProtocolFormAction.OnDuplicateClick,
             ProtocolFormAction.OnArchiveClick,
             ProtocolFormAction.OnArchiveConfirm,
@@ -181,10 +183,31 @@ class ProtocolFormViewModel(
         }
     }
 
-    /** §4.9.5 Lifecycle: Pause and Duplicate act at once; Archive asks first (§5.5). */
+    /**
+     * §4.9.5 Lifecycle: Duplicate acts at once; Archive asks first (§5.5), and so does Pause when the
+     * form holds unsaved edits (§4.9.6) — pausing would otherwise throw them away without a word.
+     */
     private fun onLifecycle(action: ProtocolFormAction) {
         when (action) {
-            ProtocolFormAction.OnPauseClick -> lifecycle { protocolRepository.pause(it) }
+            ProtocolFormAction.OnPauseClick -> if (_state.value.isDirty) {
+                _state.update { it.copy(isPauseDialogOpen = true) }
+            } else {
+                pause()
+            }
+
+            // §4.9.6 Save + Pause: one `update` carrying `status = Paused`, so the edits land and
+            // §5.4's regen finds a paused protocol — which generates nothing (§5.2). Two writes would
+            // leave a window where the horizon is rebuilt for a protocol about to be paused.
+            ProtocolFormAction.OnPauseSaveConfirm -> {
+                _state.update { it.copy(isPauseDialogOpen = false) }
+                save(pausing = true)
+            }
+
+            ProtocolFormAction.OnPauseDiscardConfirm -> {
+                _state.update { it.copy(isPauseDialogOpen = false) }
+                pause()
+            }
+
             ProtocolFormAction.OnDuplicateClick -> duplicate()
             ProtocolFormAction.OnArchiveClick -> _state.update { it.copy(isArchiveDialogOpen = true) }
             ProtocolFormAction.OnArchiveConfirm -> {
@@ -258,6 +281,7 @@ class ProtocolFormViewModel(
             is ProtocolFormAction.Overlay.OnDateSelected -> onDateSelected(action.date)
 
             ProtocolFormAction.Overlay.OnDiscardDismiss -> _state.update { it.copy(isDiscardDialogOpen = false) }
+            ProtocolFormAction.Overlay.OnPauseDismiss -> _state.update { it.copy(isPauseDialogOpen = false) }
             ProtocolFormAction.Overlay.OnArchiveDismiss -> _state.update { it.copy(isArchiveDialogOpen = false) }
         }
     }
@@ -537,7 +561,7 @@ class ProtocolFormViewModel(
      * Create inserts and generates the 7-day Pending horizon; Edit updates and runs §5.4's
      * pending-regen scope rule. Both belong to `ProtocolRepository`, which is why neither appears here.
      */
-    private fun save() {
+    private fun save(pausing: Boolean = false) {
         val draft = _state.value.draft
         val errors = validate(draft)
         if (errors.isNotEmpty()) {
@@ -549,7 +573,9 @@ class ProtocolFormViewModel(
             }
             return
         }
-        val protocol = draft.toProtocol(id = args.protocolId ?: 0L) ?: return
+        val protocol = draft.toProtocol(id = args.protocolId ?: 0L)
+            ?.let { if (pausing) it.copy(status = ProtocolStatus.PAUSED) else it }
+            ?: return
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, errors = persistentMapOf()) }
             val result: Result<*, DataError.Local> = if (args.protocolId == null) {
@@ -588,6 +614,8 @@ class ProtocolFormViewModel(
         }
     }
 
+    private fun pause() = lifecycle { protocolRepository.pause(it) }
+
     /** §4.9.5 Pause / Archive: one write against the stored protocol, then the form is done with. */
     private fun lifecycle(write: suspend (Long) -> EmptyResult<DataError.Local>) {
         val protocolId = args.protocolId ?: return
@@ -606,7 +634,9 @@ class ProtocolFormViewModel(
     /** Drops the auto-saved draft and closes. Leaving it behind would resurrect it on the next Create. */
     private fun finish() {
         savedDraft = null
-        _state.update { it.copy(isDiscardDialogOpen = false, isArchiveDialogOpen = false) }
+        _state.update {
+            it.copy(isDiscardDialogOpen = false, isPauseDialogOpen = false, isArchiveDialogOpen = false)
+        }
         viewModelScope.launch { _events.send(ProtocolFormEvent.Done) }
     }
 

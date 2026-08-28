@@ -117,6 +117,8 @@ data class ProtocolFormState(
     val openDateField: ProtocolDateField? = null,
     val isTimePickerOpen: Boolean = false,
     val isDiscardDialogOpen: Boolean = false,
+    /** §4.9.6: Pause on a form with unsaved changes asks what to do with them first. */
+    val isPauseDialogOpen: Boolean = false,
     /** §4.9.5: Archive is a soft-delete, and it still asks first. */
     val isArchiveDialogOpen: Boolean = false,
     val isSaving: Boolean = false,

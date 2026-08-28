@@ -1115,7 +1115,14 @@ Below Forecast & warnings:
   - **Archive protocol** (`error-container`, leading `delete`) → confirmation dialog → soft-delete (§5.5), then leave the form.
 
 #### 4.9.6 Pause-with-unsaved-changes flow
-If user taps Pause while form has unsaved changes → dialog "Save changes before pausing?" with **Save + Pause** (primary) / **Pause without saving** / **Cancel**.
+If user taps Pause while form has unsaved changes → dialog "Save changes before pausing?" with **Save + Pause** (primary) / **Pause without saving** / **Cancel**. An untouched form skips the dialog and pauses straight away.
+
+Each answer writes something different:
+- **Save + Pause** — one update carrying `status = Paused`, so §4.9.7's edit path runs once: the edits land, §5.4's pending-regen purges the Pending rows, and regeneration yields nothing because the protocol it reads is already paused (§5.2). Two writes (update, then pause) would rebuild a horizon for a protocol about to stop dosing.
+- **Pause without saving** — `status = Paused` only. The edits are dropped, and the Pending rows the protocol already had are left where they are, exactly as Pause from an untouched form leaves them.
+- **Cancel** — nothing is written and the form stays open with its edits intact.
+
+Save + Pause is still a save, so a form that fails validation (§4.9.3) marks its fields and stays open rather than pausing.
 
 #### 4.9.7 Save behavior
 - **Create**: insert Protocol row; generate ScheduledDoses for next 7 days (capped by endDate).

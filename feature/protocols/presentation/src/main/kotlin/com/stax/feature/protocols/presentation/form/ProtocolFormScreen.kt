@@ -164,6 +164,7 @@ fun ProtocolFormScreen(
     state.openDateField?.let { field -> DurationDatePicker(state = state, field = field, onAction = onAction) }
     if (state.isTimePickerOpen) DosageTimePicker(onAction = onAction)
     if (state.isDiscardDialogOpen) DiscardChangesDialog(onAction = onAction)
+    if (state.isPauseDialogOpen) PauseChangesDialog(onAction = onAction)
     if (state.isArchiveDialogOpen) ArchiveDialog(onAction = onAction)
 }
 
@@ -520,6 +521,36 @@ private fun DiscardChangesDialog(onAction: (ProtocolFormAction) -> Unit) {
             }
         },
         title = { Text(text = stringResource(R.string.protocol_form_discard_title)) },
+    )
+}
+
+/**
+ * §4.9.6: pausing a form that holds unsaved edits asks what to do with them.
+ *
+ * Three answers do not fit `AlertDialog`'s two button slots, and "Pause without saving" is too long to
+ * share a row with the other two at any width the app runs at — so all three stack in the confirm
+ * slot, in §4.9.6's own order with the primary answer on top. Letting the button row wrap instead put
+ * the primary answer on a line of its own *below* the other two, which reads as the least important.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun PauseChangesDialog(onAction: (ProtocolFormAction) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onAction(ProtocolFormAction.Overlay.OnPauseDismiss) },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = { onAction(ProtocolFormAction.OnPauseSaveConfirm) }) {
+                    Text(text = stringResource(R.string.protocol_form_pause_save))
+                }
+                TextButton(onClick = { onAction(ProtocolFormAction.OnPauseDiscardConfirm) }) {
+                    Text(text = stringResource(R.string.protocol_form_pause_discard))
+                }
+                TextButton(onClick = { onAction(ProtocolFormAction.Overlay.OnPauseDismiss) }) {
+                    Text(text = stringResource(R.string.protocol_form_cancel))
+                }
+            }
+        },
+        title = { Text(text = stringResource(R.string.protocol_form_pause_title)) },
     )
 }
 

@@ -257,6 +257,25 @@
     <!-- FAB (§4.7.5) -->
     <string name="protocols_new">New protocol</string>
 
+    <!-- Multi-select mode (§4.7.4) -->
+    <string name="protocols_card_select">Select</string>
+    <string name="protocols_selection_count">%1$d selected</string>
+    <string name="protocols_selection_close">Exit selection</string>
+    <string name="protocols_selection_menu">More options</string>
+    <string name="protocols_selection_select_all">Select all</string>
+    <string name="protocols_selection_invert">Invert</string>
+    <string name="protocols_selection_pause">Pause</string>
+    <string name="protocols_selection_resume">Resume</string>
+    <string name="protocols_selection_complete">Complete</string>
+    <string name="protocols_selection_duplicate">Duplicate</string>
+    <string name="protocols_selection_archive">Archive</string>
+    <plurals name="protocols_archive_title">
+        <item quantity="one">Archive %1$d protocol?</item>
+        <item quantity="other">Archive %1$d protocols?</item>
+    </plurals>
+    <string name="protocols_archive_supporting">Logged doses are kept.</string>
+    <string name="protocols_archive_cancel">Cancel</string>
+
     <!-- Empty states (§7) -->
     <string name="protocols_empty_title">No protocols yet</string>
     <string name="protocols_empty_filtered_active">No active protocols.</string>

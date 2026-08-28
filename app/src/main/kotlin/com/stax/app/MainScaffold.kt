@@ -326,15 +326,15 @@ private fun StaxNavDisplay(
             // the completion (onboarding's own business, hence the callback) and hand off to the
             // notification gate (§4.15) before Dashboard.
             onFinishOnboarding = finishOnboarding,
+            // §4.7.4 hides the bottom nav for the list's multi-select dock, exactly as §4.2.4 does.
+            onSelectionModeChange = onSelectionModeChange,
         )
         sitesEntries()
         settingsEntries()
         // §4.6.7: the helper leaves its mix here and then closes through `onBack`, which is what
         // "returns to caller" means when the caller is a form still sitting underneath on the stack.
         reconstitutionEntries(onBack = { navState.goBack() }, onSaved = onReconstitutionResult)
-        loggingEntries(
-            onBack = { navState.goBack() },
-        )
+        loggingEntries(onBack = { navState.goBack() })
         onboardingEntries(
             // Step 2 reuses the Create Compound form (§4.14 step 2). The reuse is wired here
             // because features never depend on features: onboarding names the intent, `:app`

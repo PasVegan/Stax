@@ -501,6 +501,8 @@ class CompoundDetailViewModelTest {
 
         override suspend fun archive(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
 
+        override suspend fun duplicate(id: Long) = throw NotImplementedError()
+
         override suspend fun pause(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
 
         override suspend fun resume(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()

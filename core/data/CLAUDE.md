@@ -78,8 +78,13 @@ Shared.
   horizon reproduces exactly the rows a full-range run would — which is what makes the
   `INSERT OR IGNORE` idempotency meaningful rather than merely non-crashing. The generator owns that
   count; the dose it implies comes from `Protocol.plannedDoseAt` in `:core:domain` (§3.2, M9-02).
+- **`ProtocolRepository.duplicate`** (§4.7.4, M9-06) copies the protocol row, its dosage-time rows
+  and a fresh §5.2 horizon in one transaction — the reason it is a repository operation and not a
+  `create(protocol.copy(…))` assembled in a ViewModel. The copy is always Active, whatever the
+  original was: duplicating from the Paused, Completed or Archived tab otherwise produces something
+  invisible from where it was made.
 - **The protocols list's two extra reads** (§4.7, M9-05): `ProtocolRepository.observeArchived()` is
   §4.7.2's Archived tab, which is `deletedAt != null` and not a `ProtocolStatus`, so it is a separate
   query rather than a filter over `observeAll()`; `ScheduledDoseRepository.observeNextPendingPerProtocol()`
   is every card's next-dose chip in one read, using the correlated-`MIN` greatest-n-per-group form.
-- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01, M9-02, M9-05.
+- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01, M9-02, M9-05, M9-06.

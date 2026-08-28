@@ -37,6 +37,29 @@ interface ScheduledDoseDao {
     )
     fun observePendingByProtocolId(protocolId: Long): Flow<List<ScheduledDoseEntity>>
 
+    /**
+     * The earliest still-pending dose of every protocol that has one — the next-dose chip of every
+     * card on the protocols list (§4.7.3) in a single read, rather than one query per row.
+     *
+     * The correlated `MIN` is the greatest-n-per-group form; `GROUP BY` then collapses the tie two
+     * rows sharing a `scheduledAt` would produce.
+     */
+    @Query(
+        """
+        SELECT * FROM scheduled_dose AS d
+        WHERE d.status = 'PENDING'
+            AND d.administrationEventId IS NULL
+            AND d.scheduledAt = (
+                SELECT MIN(scheduledAt) FROM scheduled_dose
+                WHERE protocolId = d.protocolId
+                    AND status = 'PENDING'
+                    AND administrationEventId IS NULL
+            )
+        GROUP BY d.protocolId
+        """,
+    )
+    fun observeNextPendingPerProtocol(): Flow<List<ScheduledDoseEntity>>
+
     @Query(
         """
         SELECT * FROM scheduled_dose

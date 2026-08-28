@@ -2,6 +2,7 @@ package com.stax.core.database
 
 import androidx.room.Room
 import assertk.assertThat
+import assertk.assertions.containsExactly
 import assertk.assertions.isEqualTo
 import com.stax.core.domain.Decimal
 import com.stax.core.domain.UnitCode
@@ -75,6 +76,27 @@ class ProtocolDaoTest {
         val id = protocolDao.insert(protocol)
 
         assertThat(protocolDao.observeById(id).first()).isEqualTo(protocol.copy(id = id))
+    }
+
+    @Test
+    fun `archived and active queries are complementary halves of the table`() = runTest {
+        val compoundId = compoundSupplyDao.insert(compound())
+        val liveId = protocolDao.insert(protocol(name = "Live", compoundSupplyId = compoundId))
+        val archivedId = protocolDao.insert(
+            protocol(
+                name = "Archived",
+                compoundSupplyId = compoundId,
+                // Archived is `deletedAt != null` whatever the status is (§4.7.2), so this row is
+                // Active and still belongs to the Archived half.
+                status = ProtocolStatus.ACTIVE,
+                deletedAt = Instant.parse("2026-06-06T10:00:00Z"),
+            ),
+        )
+
+        assertThat(protocolDao.observeActiveWithDosageTimes().first().map { it.protocol.id })
+            .containsExactly(liveId)
+        assertThat(protocolDao.observeArchivedWithDosageTimes().first().map { it.protocol.id })
+            .containsExactly(archivedId)
     }
 
     private fun protocol(

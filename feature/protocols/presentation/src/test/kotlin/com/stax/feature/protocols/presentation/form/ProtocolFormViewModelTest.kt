@@ -734,6 +734,8 @@ class ProtocolFormViewModelTest {
 
         override fun observeAll(): Flow<List<Protocol>> = stored.map { listOfNotNull(it) }
 
+        override fun observeArchived(): Flow<List<Protocol>> = flowOf(emptyList())
+
         override fun observeById(id: Long): Flow<Protocol?> = stored
 
         override fun observeByCompoundSupplyId(compoundSupplyId: Long): Flow<List<Protocol>> =

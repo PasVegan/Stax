@@ -40,6 +40,20 @@ interface ProtocolDao {
     )
     fun observeActiveWithDosageTimes(): Flow<List<ProtocolWithDosageTimes>>
 
+    /**
+     * The Archived tab of the protocols list (§4.7.2): archived is derived from the soft delete,
+     * not from [ProtocolStatus], so any status qualifies as long as `deletedAt` is set.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM protocol
+        WHERE deletedAt IS NOT NULL
+        ORDER BY name COLLATE NOCASE ASC
+        """,
+    )
+    fun observeArchivedWithDosageTimes(): Flow<List<ProtocolWithDosageTimes>>
+
     @Transaction
     @Query("SELECT * FROM protocol WHERE id = :id LIMIT 1")
     fun observeByIdWithDosageTimes(id: Long): Flow<ProtocolWithDosageTimes?>

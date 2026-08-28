@@ -147,6 +147,8 @@ class ProtocolFormDraftPersistenceTest {
     private class FakeProtocolRepository : ProtocolRepository {
         override fun observeAll(): Flow<List<Protocol>> = flowOf(emptyList())
 
+        override fun observeArchived(): Flow<List<Protocol>> = flowOf(emptyList())
+
         override fun observeById(id: Long): Flow<Protocol?> = flowOf(null)
 
         override fun observeByCompoundSupplyId(compoundSupplyId: Long): Flow<List<Protocol>> = flowOf(emptyList())

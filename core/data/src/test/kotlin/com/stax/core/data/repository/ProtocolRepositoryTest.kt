@@ -2,6 +2,7 @@ package com.stax.core.data.repository
 
 import androidx.room.Room
 import assertk.assertThat
+import assertk.assertions.containsExactly
 import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
@@ -87,6 +88,16 @@ class ProtocolRepositoryTest {
         val id = (repository.create(dailyProtocol()) as Result.Success).data
         repository.archive(id)
         assertThat(repository.observeAll().first()).isEmpty()
+    }
+
+    @Test
+    fun `observeArchived emits exactly what observeAll drops`() = runTest {
+        val archivedId = (repository.create(dailyProtocol()) as Result.Success).data
+        repository.create(dailyProtocol())
+        repository.archive(archivedId)
+
+        assertThat(repository.observeAll().first()).hasSize(1)
+        assertThat(repository.observeArchived().first().map { it.id }).containsExactly(archivedId)
     }
 
     // -----------------------------------------------------------------------

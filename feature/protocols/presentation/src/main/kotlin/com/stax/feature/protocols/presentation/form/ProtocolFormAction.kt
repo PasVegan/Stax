@@ -57,6 +57,7 @@ sealed interface ProtocolFormAction {
         data object OnDatePickerDismiss : Overlay
 
         data object OnDiscardDismiss : Overlay
+        data object OnPauseDismiss : Overlay
         data object OnArchiveDismiss : Overlay
     }
 
@@ -70,6 +71,11 @@ sealed interface ProtocolFormAction {
 
     /** §4.9.5 Lifecycle, Edit mode only. */
     data object OnPauseClick : ProtocolFormAction
+
+    /** §4.9.6's two answers to "Save changes before pausing?" — keep the edits, or leave them behind. */
+    data object OnPauseSaveConfirm : ProtocolFormAction
+    data object OnPauseDiscardConfirm : ProtocolFormAction
+
     data object OnDuplicateClick : ProtocolFormAction
     data object OnArchiveClick : ProtocolFormAction
     data object OnArchiveConfirm : ProtocolFormAction

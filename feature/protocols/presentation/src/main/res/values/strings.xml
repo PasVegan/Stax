@@ -134,6 +134,11 @@
     <string name="protocol_form_archive_title">Archive this protocol?</string>
     <string name="protocol_form_archive_supporting">Pending doses are removed. Logged history is kept.</string>
 
+    <!-- Pause with unsaved changes (§4.9.6) -->
+    <string name="protocol_form_pause_title">Save changes before pausing?</string>
+    <string name="protocol_form_pause_save">Save + Pause</string>
+    <string name="protocol_form_pause_discard">Pause without saving</string>
+
     <!-- Bottom dock (§4.9.4) -->
     <string name="protocol_form_cancel">Cancel</string>
     <string name="protocol_form_save">Save protocol</string>

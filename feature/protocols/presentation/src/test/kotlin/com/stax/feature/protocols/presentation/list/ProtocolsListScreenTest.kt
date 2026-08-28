@@ -2,16 +2,20 @@ package com.stax.feature.protocols.presentation.list
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import assertk.assertThat
@@ -25,6 +29,7 @@ import com.stax.feature.protocols.presentation.R
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 import org.junit.Rule
@@ -251,6 +256,137 @@ class ProtocolsListScreenTest {
     }
 
     // -----------------------------------------------------------------------
+    // §4.7.4 multi-select mode
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a long press on a card enters multi-select`() {
+        setScreen(state())
+
+        composeRule.onNodeWithText("Sema weekly titration").performTouchInput { longClick() }
+
+        assertThat(actions).containsExactly(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the contextual bar and the dock take over at Compact`() {
+        setScreen(state(selectedIds = setOf(1L)))
+
+        assertSelectionModeIsRendered(selectedCount = 1)
+    }
+
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `the contextual bar and the dock take over at Medium`() {
+        setScreen(state(selectedIds = setOf(1L, 2L)))
+
+        assertSelectionModeIsRendered(selectedCount = 2)
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `the contextual bar and the dock take over at Expanded`() {
+        setScreen(state(selectedIds = setOf(1L, 2L)))
+
+        assertSelectionModeIsRendered(selectedCount = 2)
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a selected card reads as selected and the app bar, chips and FAB step aside`() {
+        setScreen(state(selectedIds = setOf(1L)))
+
+        card("Sema weekly titration", string(R.string.protocols_pill_active)).assertIsSelected()
+        card("Testosterone Cyp", string(R.string.protocols_pill_paused)).assertIsNotSelected()
+        composeRule.onNodeWithContentDescription(string(R.string.protocols_search)).assertDoesNotExist()
+        // Asserted on the one chip label no status pill shares — a selected card is selectable too.
+        chip(R.string.protocols_filter_archived).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.protocols_new)).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the contextual bar closes the mode and opens its overflow`() {
+        setScreen(state(selectedIds = setOf(1L)))
+
+        composeRule.onNodeWithContentDescription(string(R.string.protocols_selection_close)).performClick()
+        composeRule.onNodeWithContentDescription(string(R.string.protocols_selection_menu)).performClick()
+
+        assertThat(actions).containsExactly(
+            ProtocolsListAction.Selection.OnDismiss,
+            ProtocolsListAction.Selection.OnMenuClick,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the overflow offers Select all and Invert`() {
+        setScreen(state(selectedIds = setOf(1L), isSelectionMenuOpen = true))
+
+        composeRule.onNodeWithText(string(R.string.protocols_selection_select_all)).performClick()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_invert)).performClick()
+
+        assertThat(actions).containsExactly(
+            ProtocolsListAction.Selection.OnSelectAll,
+            ProtocolsListAction.Selection.OnInvert,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `each dock button files its own action`() {
+        setScreen(state(selectedIds = setOf(1L, 2L)))
+
+        composeRule.onNodeWithText(string(R.string.protocols_selection_pause)).performClick()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_resume)).performClick()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_complete)).performClick()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_duplicate)).performClick()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_archive)).performClick()
+
+        assertThat(actions).containsExactly(
+            ProtocolsListAction.Selection.Batch.OnPause,
+            ProtocolsListAction.Selection.Batch.OnResume,
+            ProtocolsListAction.Selection.Batch.OnComplete,
+            ProtocolsListAction.Selection.Batch.OnDuplicate,
+            ProtocolsListAction.Selection.OnArchiveClick,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a dock button the selection has nothing for is disabled`() {
+        // One Active card selected: nothing to resume, and Pause and Complete both apply.
+        setScreen(state(selectedIds = setOf(1L)))
+
+        composeRule.onNodeWithText(string(R.string.protocols_selection_resume)).assertIsNotEnabled()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_pause)).assertIsEnabled()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_complete)).assertIsEnabled()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_duplicate)).assertIsEnabled()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `Archive is disabled in the Archived tab, where there is nothing left to soft-delete`() {
+        setScreen(state(filter = ProtocolFilter.ARCHIVED, selectedIds = setOf(1L)))
+
+        composeRule.onNodeWithText(string(R.string.protocols_selection_archive)).assertIsNotEnabled()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_duplicate)).assertIsEnabled()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `Archive asks before it soft-deletes`() {
+        setScreen(state(selectedIds = setOf(1L, 2L), isArchiveDialogOpen = true))
+
+        composeRule.onNodeWithText(plural(R.plurals.protocols_archive_title, 2)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocols_archive_cancel)).performClick()
+
+        assertThat(actions).containsExactly(ProtocolsListAction.Selection.OnArchiveDismiss)
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
@@ -298,18 +434,34 @@ class ProtocolsListScreenTest {
     private fun plural(resId: Int, count: Int): String =
         composeRule.activity.resources.getQuantityString(resId, count, count)
 
+    private fun assertSelectionModeIsRendered(selectedCount: Int) {
+        composeRule.onNodeWithText(string(R.string.protocols_selection_count, selectedCount)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_pause)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_resume)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_complete)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_duplicate)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.protocols_selection_archive)).assertIsDisplayed()
+    }
+
+    @Suppress("LongParameterList")
     private fun state(
         items: List<ProtocolListItemUi> = listOf(SEMA, TEST_CYP),
         filter: ProtocolFilter = ProtocolFilter.ACTIVE,
         hasAnyProtocol: Boolean = true,
         isSearchOpen: Boolean = false,
         searchQuery: String = "",
+        selectedIds: Set<Long> = emptySet(),
+        isSelectionMenuOpen: Boolean = false,
+        isArchiveDialogOpen: Boolean = false,
     ) = ProtocolsListState(
         items = items.toPersistentList(),
         filter = filter,
         searchQuery = searchQuery,
         isSearchOpen = isSearchOpen,
         hasAnyProtocol = hasAnyProtocol,
+        selectedIds = selectedIds.toPersistentSet(),
+        isSelectionMenuOpen = isSelectionMenuOpen,
+        isArchiveDialogOpen = isArchiveDialogOpen,
         isLoading = false,
     )
 

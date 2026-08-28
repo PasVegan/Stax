@@ -3,21 +3,27 @@ package com.stax.feature.protocols.presentation.list
 import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.containsExactly
+import assertk.assertions.containsOnly
+import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
+import assertk.assertions.isInstanceOf
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import com.stax.core.domain.CompoundCategory
 import com.stax.core.domain.CompoundForm
 import com.stax.core.domain.CompoundSupply
 import com.stax.core.domain.ContainerType
+import com.stax.core.domain.DataError
 import com.stax.core.domain.Decimal
+import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.Escalation
 import com.stax.core.domain.EscalationIncreaseEvery
 import com.stax.core.domain.Protocol
 import com.stax.core.domain.ProtocolBreak
 import com.stax.core.domain.ProtocolStatus
 import com.stax.core.domain.Quantity
+import com.stax.core.domain.Result
 import com.stax.core.domain.Route
 import com.stax.core.domain.Schedule
 import com.stax.core.domain.ScheduleType
@@ -295,6 +301,193 @@ class ProtocolsListViewModelTest {
     }
 
     // -----------------------------------------------------------------------
+    // §4.7.4 multi-select mode
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `a long press enters the mode and unticking the last card leaves it`() = runTest {
+        protocols.live.value = listOf(protocol(id = 1, name = "Sema"))
+        val viewModel = viewModel()
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        assertThat(viewModel.state.value.isSelectionMode).isTrue()
+
+        viewModel.onAction(ProtocolsListAction.OnProtocolClick(protocolId = 1))
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+    }
+
+    @Test
+    fun `a card tap toggles instead of navigating while the mode is on`() = runTest {
+        protocols.live.value = listOf(protocol(id = 1, name = "Sema"), protocol(id = 2, name = "Tirz"))
+        val viewModel = viewModel()
+
+        viewModel.events.test {
+            viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+            viewModel.onAction(ProtocolsListAction.OnProtocolClick(protocolId = 2))
+
+            assertThat(viewModel.state.value.selectedIds).containsOnly(1L, 2L)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Select all takes the tab's cards and Invert swaps them`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema"),
+            protocol(id = 2, name = "Tirz"),
+            protocol(id = 3, name = "Old ramp", status = ProtocolStatus.PAUSED),
+        )
+        val viewModel = viewModel()
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+
+        // The Paused protocol is not in the Active tab, so neither entry can reach it.
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+        assertThat(viewModel.state.value.selectedIds).containsOnly(1L, 2L)
+        assertThat(viewModel.state.value.isSelectionMenuOpen).isFalse()
+
+        viewModel.onAction(ProtocolsListAction.Selection.OnInvert)
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        viewModel.onAction(ProtocolsListAction.Selection.OnInvert)
+        assertThat(viewModel.state.value.selectedIds).containsOnly(2L)
+    }
+
+    @Test
+    fun `Pause takes the active part of a mixed selection and leaves the rest alone`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema"),
+            protocol(id = 2, name = "BPC-157", protocolBreak = ProtocolBreak(56, 28)),
+            protocol(id = 3, name = "Old ramp", status = ProtocolStatus.PAUSED),
+        )
+        // Day 60 of the 56-on / 28-off cycle: in break, still Active, and still pausable (§3.2).
+        val viewModel = viewModel(today = START_DATE.plusDays(60))
+        viewModel.onAction(ProtocolsListAction.OnFilterClick(ProtocolFilter.ACTIVE))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+
+        viewModel.onAction(ProtocolsListAction.Selection.Batch.OnPause)
+
+        assertThat(protocols.paused).containsExactly(1L, 2L)
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+    }
+
+    @Test
+    fun `Resume takes only the paused part of a selection`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema", status = ProtocolStatus.PAUSED),
+            protocol(id = 2, name = "Tirz", status = ProtocolStatus.PAUSED),
+        )
+        val viewModel = viewModel()
+        viewModel.onAction(ProtocolsListAction.OnFilterClick(ProtocolFilter.PAUSED))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+
+        viewModel.onAction(ProtocolsListAction.Selection.Batch.OnResume)
+
+        assertThat(protocols.resumed).containsExactly(1L, 2L)
+    }
+
+    @Test
+    fun `Complete skips what is already completed`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema"),
+            protocol(id = 2, name = "Vit D", status = ProtocolStatus.COMPLETED),
+        )
+        val viewModel = viewModel()
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        // The Completed card lives in another tab, so reach it through the archived-free path: it is
+        // selected by id, and `Complete` still has to drop it.
+        viewModel.onAction(ProtocolsListAction.OnFilterClick(ProtocolFilter.COMPLETED))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+
+        viewModel.onAction(ProtocolsListAction.Selection.Batch.OnComplete)
+
+        assertThat(protocols.completed).isEmpty()
+    }
+
+    @Test
+    fun `Duplicate and Archive take the whole selection`() = runTest {
+        protocols.live.value = listOf(protocol(id = 1, name = "Sema"), protocol(id = 2, name = "Tirz"))
+        val viewModel = viewModel()
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+
+        viewModel.onAction(ProtocolsListAction.Selection.Batch.OnDuplicate)
+        assertThat(protocols.duplicated).containsExactly(1L, 2L)
+
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        viewModel.onAction(ProtocolsListAction.Selection.OnArchiveClick)
+        assertThat(viewModel.state.value.isArchiveDialogOpen).isTrue()
+
+        viewModel.onAction(ProtocolsListAction.Selection.OnArchiveDismiss)
+        assertThat(viewModel.state.value.isArchiveDialogOpen).isFalse()
+        assertThat(protocols.archivedIds).isEmpty()
+
+        viewModel.onAction(ProtocolsListAction.Selection.Batch.OnArchiveConfirm)
+        assertThat(protocols.archivedIds).containsExactly(1L)
+        assertThat(viewModel.state.value.isSelectionMode).isFalse()
+    }
+
+    @Test
+    fun `the dock is enabled only where the selection has something for it`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema"),
+            protocol(id = 2, name = "Old ramp", status = ProtocolStatus.PAUSED),
+            protocol(id = 3, name = "Vit D", status = ProtocolStatus.COMPLETED),
+        )
+        protocols.archived.value = listOf(protocol(id = 4, name = "Gone", deletedAt = NOW))
+        val viewModel = viewModel()
+
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        with(viewModel.state.value) {
+            assertThat(canPause).isTrue()
+            assertThat(canResume).isFalse()
+            assertThat(canComplete).isTrue()
+            assertThat(canDuplicate).isTrue()
+            assertThat(canArchive).isTrue()
+        }
+
+        viewModel.onAction(ProtocolsListAction.OnFilterClick(ProtocolFilter.PAUSED))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+        with(viewModel.state.value) {
+            assertThat(canPause).isFalse()
+            assertThat(canResume).isTrue()
+            assertThat(canComplete).isTrue()
+        }
+
+        viewModel.onAction(ProtocolsListAction.OnFilterClick(ProtocolFilter.COMPLETED))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+        assertThat(viewModel.state.value.canComplete).isFalse()
+
+        // Nothing left to soft-delete in the Archived tab (§4.7.2).
+        viewModel.onAction(ProtocolsListAction.OnFilterClick(ProtocolFilter.ARCHIVED))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+        assertThat(viewModel.state.value.canArchive).isFalse()
+        assertThat(viewModel.state.value.canDuplicate).isTrue()
+    }
+
+    @Test
+    fun `a failed batch still runs to the end and reports once`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema"),
+            protocol(id = 2, name = "Tirz"),
+            protocol(id = 3, name = "BPC-157"),
+        )
+        protocols.failingIds = setOf(1L, 3L)
+        val viewModel = viewModel()
+        viewModel.onAction(ProtocolsListAction.Selection.OnLongPress(protocolId = 1))
+        viewModel.onAction(ProtocolsListAction.Selection.OnSelectAll)
+
+        viewModel.events.test {
+            viewModel.onAction(ProtocolsListAction.Selection.Batch.OnPause)
+
+            assertThat(protocols.paused).containsExactly(1L, 2L, 3L)
+            assertThat(awaitItem()).isInstanceOf(ProtocolsListEvent.ShowError::class)
+            expectNoEvents()
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Fixtures
     // -----------------------------------------------------------------------
 
@@ -396,15 +589,34 @@ class ProtocolsListViewModelTest {
 
         override suspend fun update(protocol: Protocol) = throw NotImplementedError()
 
-        override suspend fun archive(id: Long) = throw NotImplementedError()
+        /** §4.7.4's batch writes, in the order they were attempted. */
+        val archivedIds = mutableListOf<Long>()
+        val duplicated = mutableListOf<Long>()
+        val paused = mutableListOf<Long>()
+        val resumed = mutableListOf<Long>()
+        val completed = mutableListOf<Long>()
 
-        override suspend fun duplicate(id: Long) = throw NotImplementedError()
+        /** Ids whose write fails, so a batch can be checked for running past its first failure. */
+        var failingIds: Set<Long> = emptySet()
 
-        override suspend fun pause(id: Long) = throw NotImplementedError()
+        override suspend fun archive(id: Long) = record(archivedIds, id)
 
-        override suspend fun resume(id: Long) = throw NotImplementedError()
+        override suspend fun duplicate(id: Long): Result<Long, DataError.Local> =
+            when (val result = record(duplicated, id)) {
+                is Result.Error -> Result.Error(result.error)
+                is Result.Success -> Result.Success(id)
+            }
 
-        override suspend fun complete(id: Long) = throw NotImplementedError()
+        override suspend fun pause(id: Long) = record(paused, id)
+
+        override suspend fun resume(id: Long) = record(resumed, id)
+
+        override suspend fun complete(id: Long) = record(completed, id)
+
+        private fun record(into: MutableList<Long>, id: Long): EmptyResult<DataError.Local> {
+            into += id
+            return if (id in failingIds) Result.Error(DataError.Local.UNKNOWN) else Result.Success(Unit)
+        }
     }
 
     private class FakeCompoundRepository : CompoundRepository {

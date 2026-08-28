@@ -8,6 +8,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -200,10 +201,12 @@ class ProtocolsListScreenTest {
 
     @Test
     @Config(qualifiers = COMPACT)
-    fun `an app with no protocols at all gets the hero and its CTA`() {
+    fun `an app with no protocols at all gets the hero, and the FAB steps aside for its CTA`() {
         setScreen(state(items = emptyList(), hasAnyProtocol = false))
 
         composeRule.onNodeWithText(string(R.string.protocols_empty_title)).assertIsDisplayed()
+        // One "New protocol" on screen, not two: the hero's CTA, with the FAB gone.
+        composeRule.onNodeWithText(string(R.string.protocols_new)).assertIsDisplayed()
     }
 
     @Test
@@ -213,6 +216,38 @@ class ProtocolsListScreenTest {
 
         composeRule.onNodeWithText(string(R.string.protocols_empty_filtered_completed)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.protocols_empty_title)).assertDoesNotExist()
+    }
+
+    // -----------------------------------------------------------------------
+    // §4.7.1 / §4.0.1 search
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the app bar search icon opens the overlay`() {
+        setScreen(state())
+
+        composeRule.onNodeWithContentDescription(string(R.string.protocols_search)).performClick()
+
+        assertThat(actions).containsExactly(ProtocolsListAction.OnSearchClick)
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the search overlay replaces the list with its results`() {
+        setScreen(state(items = listOf(SEMA), isSearchOpen = true, searchQuery = "sema"))
+
+        composeRule.onNodeWithText("Sema weekly titration").assertIsDisplayed()
+        chip(R.string.protocols_filter_active).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.protocols_new)).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a query that matches nothing says so`() {
+        setScreen(state(items = emptyList(), isSearchOpen = true, searchQuery = "zzz"))
+
+        composeRule.onNodeWithText(string(R.string.protocols_search_empty_title)).assertIsDisplayed()
     }
 
     // -----------------------------------------------------------------------
@@ -267,9 +302,13 @@ class ProtocolsListScreenTest {
         items: List<ProtocolListItemUi> = listOf(SEMA, TEST_CYP),
         filter: ProtocolFilter = ProtocolFilter.ACTIVE,
         hasAnyProtocol: Boolean = true,
+        isSearchOpen: Boolean = false,
+        searchQuery: String = "",
     ) = ProtocolsListState(
         items = items.toPersistentList(),
         filter = filter,
+        searchQuery = searchQuery,
+        isSearchOpen = isSearchOpen,
         hasAnyProtocol = hasAnyProtocol,
         isLoading = false,
     )

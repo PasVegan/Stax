@@ -73,10 +73,15 @@ data class ProtocolListItemUi(
  *
  * [hasAnyProtocol] separates §7's two empty states: a tab with nothing in it is not the same as an
  * app with no protocols at all, and only the second earns the "Create protocol" hero.
+ *
+ * [isSearchOpen] is here rather than in a `remember` because whether the search overlay (§4.0.1) is
+ * showing is app state, not Compose-internal state.
  */
 data class ProtocolsListState(
     val items: ImmutableList<ProtocolListItemUi> = persistentListOf(),
     val filter: ProtocolFilter = ProtocolFilter.ACTIVE,
+    val searchQuery: String = "",
+    val isSearchOpen: Boolean = false,
     val hasAnyProtocol: Boolean = false,
     val isLoading: Boolean = true,
 )

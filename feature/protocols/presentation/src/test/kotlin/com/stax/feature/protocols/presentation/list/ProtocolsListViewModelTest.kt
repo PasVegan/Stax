@@ -231,6 +231,41 @@ class ProtocolsListViewModelTest {
     }
 
     // -----------------------------------------------------------------------
+    // §4.0.1 search overlay
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `the query narrows the active tab rather than searching around it`() = runTest {
+        protocols.live.value = listOf(
+            protocol(id = 1, name = "Sema weekly"),
+            protocol(id = 2, name = "Sema starter", status = ProtocolStatus.PAUSED),
+            protocol(id = 3, name = "Tirzepatide ramp"),
+        )
+        val viewModel = viewModel()
+
+        viewModel.onAction(ProtocolsListAction.OnSearchClick)
+        viewModel.onAction(ProtocolsListAction.OnSearchQueryChange("sema"))
+
+        assertThat(viewModel.state.value.isSearchOpen).isTrue()
+        // "Sema starter" is Paused, so the Active tab keeps it out even though the name matches.
+        assertThat(viewModel.state.value.items.map { it.name }).containsExactly("Sema weekly")
+    }
+
+    @Test
+    fun `leaving the overlay drops the query with it`() = runTest {
+        protocols.live.value = listOf(protocol(id = 1, name = "Sema"), protocol(id = 2, name = "Tirz"))
+        val viewModel = viewModel()
+        viewModel.onAction(ProtocolsListAction.OnSearchClick)
+        viewModel.onAction(ProtocolsListAction.OnSearchQueryChange("sema"))
+
+        viewModel.onAction(ProtocolsListAction.OnSearchDismiss)
+
+        assertThat(viewModel.state.value.isSearchOpen).isFalse()
+        assertThat(viewModel.state.value.searchQuery).isEqualTo("")
+        assertThat(viewModel.state.value.items.map { it.name }).containsExactly("Sema", "Tirz")
+    }
+
+    // -----------------------------------------------------------------------
     // §7 empty states
     // -----------------------------------------------------------------------
 

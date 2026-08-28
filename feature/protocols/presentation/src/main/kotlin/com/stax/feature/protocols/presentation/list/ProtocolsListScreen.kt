@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -84,37 +85,62 @@ fun ProtocolsListScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            // The app bar below opens the pane, so the status bar is its to claim and draw its
-            // container behind (§2.3.6). The pane still takes the sides and the bottom.
+            // Both branches open with a bar of their own — the app bar, the search bar — so the
+            // status bar is theirs to claim and draw their container behind (§2.3.6). The pane still
+            // takes the sides and the bottom.
             .paneInsets(claimTop = false),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            TopAppBar(
-                title = { Text(text = stringResource(R.string.protocols_title)) },
-            )
-            ProtocolsFilterRow(selected = state.filter, onAction = onAction)
-            if (state.items.isEmpty() && !state.isLoading) {
-                ProtocolsEmptyState(
-                    filter = state.filter,
-                    hasAnyProtocol = state.hasAnyProtocol,
-                    onAction = onAction,
-                    modifier = Modifier.weight(1f),
-                )
-            } else {
-                ProtocolsList(
-                    items = state.items,
-                    onProtocolClick = { onAction(ProtocolsListAction.OnProtocolClick(it)) },
-                    modifier = Modifier.weight(1f),
-                )
+        if (state.isSearchOpen) {
+            ProtocolsSearchOverlay(state = state, onAction = onAction)
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                ProtocolsTopBar(onSearchClick = { onAction(ProtocolsListAction.OnSearchClick) })
+                ProtocolsFilterRow(selected = state.filter, onAction = onAction)
+                if (state.items.isEmpty() && !state.isLoading) {
+                    ProtocolsEmptyState(
+                        filter = state.filter,
+                        hasAnyProtocol = state.hasAnyProtocol,
+                        onAction = onAction,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    ProtocolsList(
+                        items = state.items,
+                        onProtocolClick = { onAction(ProtocolsListAction.OnProtocolClick(it)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            // §7's hero carries the same "New protocol" CTA, and a screen showing that action twice
+            // has one too many — so the FAB steps aside for exactly as long as the hero is up.
+            if (state.hasAnyProtocol || state.isLoading) {
+                AdaptiveFab(
+                    onClick = { onAction(ProtocolsListAction.OnCreateProtocolClick) },
+                    label = { Text(text = stringResource(R.string.protocols_new)) },
+                ) {
+                    Icon(painter = StaxIcons.Add, contentDescription = null)
+                }
             }
         }
-        AdaptiveFab(
-            onClick = { onAction(ProtocolsListAction.OnCreateProtocolClick) },
-            label = { Text(text = stringResource(R.string.protocols_new)) },
-        ) {
-            Icon(painter = StaxIcons.Add, contentDescription = null)
-        }
     }
+}
+
+/** §4.7.1: leading `search` icon opening the overlay, title "Protocols". */
+@Suppress("FunctionName")
+@Composable
+private fun ProtocolsTopBar(onSearchClick: () -> Unit, modifier: Modifier = Modifier) {
+    TopAppBar(
+        title = { Text(text = stringResource(R.string.protocols_title)) },
+        modifier = modifier,
+        navigationIcon = {
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    painter = StaxIcons.Search,
+                    contentDescription = stringResource(R.string.protocols_search),
+                )
+            }
+        },
+    )
 }
 
 /** §4.7.2: Active / Paused / Completed / Archived, single select. The row scrolls — four chips never fit a Compact width. */
@@ -240,6 +266,20 @@ private fun ProtocolsListScreenPreview() {
     StaxTheme(dynamicColor = false) {
         Surface {
             ProtocolsListScreen(state = previewState(), onAction = {})
+        }
+    }
+}
+
+@Preview(name = "Search · Compact", showBackground = true, widthDp = 411, heightDp = 914)
+@Suppress("FunctionName", "UnusedPrivateMember")
+@Composable
+private fun ProtocolsListScreenSearchPreview() {
+    StaxTheme(dynamicColor = false) {
+        Surface {
+            ProtocolsListScreen(
+                state = previewState().copy(isSearchOpen = true, searchQuery = "sema"),
+                onAction = {},
+            )
         }
     }
 }

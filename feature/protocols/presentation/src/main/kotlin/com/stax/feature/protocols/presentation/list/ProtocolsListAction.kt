@@ -6,6 +6,15 @@ sealed interface ProtocolsListAction {
     /** Taps one of the four mutually exclusive Active / Paused / Completed / Archived chips (§4.7.2). */
     data class OnFilterClick(val filter: ProtocolFilter) : ProtocolsListAction
 
+    /** Taps the app bar's leading `search` icon, which opens the search overlay (§4.7.1, §4.0.1). */
+    data object OnSearchClick : ProtocolsListAction
+
+    /** Leaves the search overlay through its `arrow_back` icon or a back gesture (§4.0.1). */
+    data object OnSearchDismiss : ProtocolsListAction
+
+    /** Types into — or clears — the search overlay's text field (§4.0.1). */
+    data class OnSearchQueryChange(val query: String) : ProtocolsListAction
+
     /** Taps a protocol card — opens its detail (§4.7.3). */
     data class OnProtocolClick(val protocolId: Long) : ProtocolsListAction
 

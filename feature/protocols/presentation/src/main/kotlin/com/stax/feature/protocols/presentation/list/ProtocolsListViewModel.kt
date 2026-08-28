@@ -81,7 +81,7 @@ class ProtocolsListViewModel(
                 archived = archivedItems
                 _state.update {
                     it.copy(
-                        items = it.filter.resultsFrom(),
+                        items = it.results(),
                         hasAnyProtocol = liveItems.isNotEmpty() || archivedItems.isNotEmpty(),
                         isLoading = false,
                     )
@@ -93,7 +93,16 @@ class ProtocolsListViewModel(
     fun onAction(action: ProtocolsListAction) {
         when (action) {
             is ProtocolsListAction.OnFilterClick ->
-                _state.update { it.copy(filter = action.filter, items = action.filter.resultsFrom()) }
+                update { it.copy(filter = action.filter) }
+
+            ProtocolsListAction.OnSearchClick -> _state.update { it.copy(isSearchOpen = true) }
+
+            // Leaving the overlay drops the query with it: the list underneath is filtered by the
+            // tab alone, so a query left behind would keep narrowing a list with nothing on screen
+            // to explain why (§4.0.1).
+            ProtocolsListAction.OnSearchDismiss -> update { it.copy(isSearchOpen = false, searchQuery = "") }
+
+            is ProtocolsListAction.OnSearchQueryChange -> update { it.copy(searchQuery = action.query) }
 
             is ProtocolsListAction.OnProtocolClick -> send(
                 ProtocolsListEvent.NavigateToProtocolDetail(action.protocolId),
@@ -103,16 +112,28 @@ class ProtocolsListViewModel(
         }
     }
 
+    /** Applies a filter or query change and re-derives the result list from it in one step. */
+    private fun update(transform: (ProtocolsListState) -> ProtocolsListState) {
+        _state.update { current -> transform(current).let { it.copy(items = it.results()) } }
+    }
+
     /**
-     * §4.7.2's tab definitions. Active keeps in-break protocols: the break is derived, and the
-     * protocol's status stays Active throughout it (§3.2).
+     * The tab (§4.7.2) and the search query (§4.0.1) AND together. Active keeps in-break protocols:
+     * the break is derived, and the protocol's status stays Active throughout it (§3.2).
      */
-    private fun ProtocolFilter.resultsFrom(): ImmutableList<ProtocolListItemUi> = when (this) {
-        ProtocolFilter.ACTIVE -> live.filter { it.pill == ProtocolPill.ACTIVE || it.pill == ProtocolPill.IN_BREAK }
-        ProtocolFilter.PAUSED -> live.filter { it.pill == ProtocolPill.PAUSED }
-        ProtocolFilter.COMPLETED -> live.filter { it.pill == ProtocolPill.COMPLETED }
-        ProtocolFilter.ARCHIVED -> archived
-    }.toImmutableList()
+    private fun ProtocolsListState.results(): ImmutableList<ProtocolListItemUi> {
+        val source = when (filter) {
+            ProtocolFilter.ACTIVE ->
+                live.filter { it.pill == ProtocolPill.ACTIVE || it.pill == ProtocolPill.IN_BREAK }
+            ProtocolFilter.PAUSED -> live.filter { it.pill == ProtocolPill.PAUSED }
+            ProtocolFilter.COMPLETED -> live.filter { it.pill == ProtocolPill.COMPLETED }
+            ProtocolFilter.ARCHIVED -> archived
+        }
+        val query = searchQuery.trim()
+        return source
+            .filter { query.isEmpty() || it.name.contains(query, ignoreCase = true) }
+            .toImmutableList()
+    }
 
     private fun List<Protocol>.toListItems(
         compoundNames: Map<Long, String>,

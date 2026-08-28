@@ -161,6 +161,10 @@ internal fun DayOfWeek.narrowLabel(): String = displayName(TextStyle.NARROW)
 @Composable
 internal fun DayOfWeek.fullLabel(): String = displayName(TextStyle.FULL)
 
+/** "Mon" — what §4.7.3's schedule chip lists, short enough that four of them still fit it. */
+@Composable
+internal fun DayOfWeek.shortLabel(): String = displayName(TextStyle.SHORT)
+
 /**
  * kotlinx-datetime's `DayOfWeek` is its own enum rather than `java.time`'s, so the localized names
  * are reached through the ISO day number the two agree on.

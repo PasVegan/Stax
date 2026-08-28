@@ -17,6 +17,7 @@ import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.paneInsets
 import com.stax.feature.protocols.presentation.form.ProtocolFormArgs
 import com.stax.feature.protocols.presentation.form.ProtocolFormRoot
+import com.stax.feature.protocols.presentation.list.ProtocolsListRoot
 
 /**
  * Contributes the Protocols feature's `NavEntry`s to the app's `NavDisplay` `entryProvider`.
@@ -46,10 +47,7 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
             detailPlaceholder = { PlaceholderScreen(title = "Select a protocol") },
         ),
     ) {
-        PlaceholderScreen(title = "Protocols") {
-            Button(onClick = onCreateProtocol) { Text(text = "New protocol") }
-            Button(onClick = { onProtocolClick(SAMPLE_PROTOCOL_ID) }) { Text(text = "Open protocol") }
-        }
+        ProtocolsListRoot(onProtocolClick = onProtocolClick, onCreateProtocol = onCreateProtocol)
     }
     entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane(PROTOCOLS_SCENE_KEY)) { key ->
         PlaceholderScreen(title = "Protocol #${key.protocolId}") {
@@ -82,9 +80,6 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
  * needs its own key or they share one `AnimatedContent` slot and crash (see `StaxListDetailScene`).
  */
 private const val PROTOCOLS_SCENE_KEY = "protocols"
-
-/** Placeholder id used to demonstrate the list → detail push until the real list lands. */
-private const val SAMPLE_PROTOCOL_ID = 1L
 
 @Suppress("FunctionName")
 @Composable

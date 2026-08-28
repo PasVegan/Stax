@@ -15,10 +15,10 @@ forecast & warnings), escalation rules, and the pause-with-unsaved-changes flow.
 ## Key types
 - `ProtocolsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes:
   `ProtocolsRoute`, `ProtocolDetailRoute`, `CreateProtocolRoute(onboarding)`, `EditProtocolRoute`) +
-  `protocolsEntries` (Nav3 entryProvider extension). Coming: Protocol Detail (M9-07) and the list's
-  multi-select mode (M9-06).
+  `protocolsEntries` (Nav3 entryProvider extension). Coming: Protocol Detail (M9-07).
 - `list/` — **Protocols list** (§4.7): `ProtocolsListViewModel`, `ProtocolsListState/Action/Event`,
-  `ProtocolsListRoot`/`ProtocolsListScreen`, `ProtocolCard`, `ProtocolsSearchOverlay`.
+  `ProtocolsListRoot`/`ProtocolsListScreen`, `ProtocolCard`, `ProtocolsSearchOverlay`,
+  `ProtocolsSelectionMode` (§4.7.4's contextual bar, dock and archive dialog).
   `ProtocolListItemUi` carries schedule *parts* (`scheduleType`/`scheduleValue`/`weekdays`/
   `dosageTimes`), not a formatted string — weekday names, plural forms and the 12h/24h clock all
   resolve at render time from the device.
@@ -67,6 +67,17 @@ Protocols feature.
   one flow per card — Compound Detail can afford that fan-out because a compound has a handful of
   protocols; this screen has all of them. Nothing pending (paused, completed, or a break longer than
   the 7-day horizon) renders as "No dose scheduled" / "In break" rather than an empty chip.
+- **§4.7.4's dock narrows the selection, it does not refuse it.** Pause takes the Active and in-break
+  cards, Resume the Paused ones, Complete whatever is not finished; each button is disabled only when
+  its own part of the selection is empty, so a mixed selection still does the obvious thing. Archive
+  is the one tab-driven rule — disabled on Archived, where the rows are soft-deleted already. The
+  flags live on `ProtocolsListState` (`canPause`/`canResume`/…) rather than in the dock, because the
+  ViewModel filters by the same predicate when it runs the batch and the two must not drift.
+  `ProtocolsListAction.Selection.Batch` groups the five writing actions for that reason.
+- **The contextual bar replaces the chip row, not just the app bar.** Select all, Invert and every
+  dock action read `state.items` — the tab's visible result list — so a tab switch mid-selection
+  would swap out the rows they are about to act on. `:app` hides the nav suite for the dock through
+  `protocolsEntries(onSelectionModeChange = …)`, the same route Compounds uses (§4.2.4).
 - The card's chips wrap (`FlowRow`) instead of scrolling: inside a `360dp`/`400dp` list pane two
   chips rarely fit one line, and a chip half off the edge of a card reads as a layout bug.
 - List+Detail uses the Nav3 list-detail Scene at Medium+ (§6.4.2). **Known gap, shared with

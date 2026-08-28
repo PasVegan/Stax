@@ -957,20 +957,28 @@ Long-press → §4.7.4 multi-select mode.
 
 #### 4.7.4 Multi-select mode (`08b · Protocols (multi-select)`)
 
-Entry: long-press row.
+Entry: long-press row. The selection *is* the mode: emptying it leaves multi-select just as close ×
+does. While the mode is on, a row tap toggles instead of opening §4.8.
 
-Contextual app bar: close × · "N selected" · trailing `more_vert` (Select all / Invert / Toggle status filter).
+Contextual app bar: close × · "N selected" · trailing `more_vert` (Select all / Invert). It replaces
+the app bar **and** §4.7.2's chip row: both menu entries and every dock action work on the tab's
+visible result list, and switching tabs mid-selection would swap those rows out from under them.
 
 Selected card visual: fill = `secondary-container`, leading checkbox circle on left of card. Unselected cards keep default.
 
 Bottom dock (replaces nav bar):
 - **Pause** (`secondary-container`) — applies only to selected Active protocols. Disabled if no selected is Active.
 - **Resume** (`secondary-container`) — applies only to selected Paused. Disabled if no selected is Paused.
-- **Complete** (`secondary-container`) — sets `status=Completed`, no new ScheduledDoses generated.
-- **Duplicate** (`secondary-container`) — creates copies w/ " (copy)" suffix, status=Active.
-- **Archive** (`error-container`) — confirmation → soft-delete.
+- **Complete** (`secondary-container`) — sets `status=Completed`, no new ScheduledDoses generated. Disabled if every selected is already Completed.
+- **Duplicate** (`secondary-container`) — creates copies w/ " (copy)" suffix, status=Active. Never disabled: the copy starts Active whatever the original was.
+- **Archive** (`error-container`) — confirmation → soft-delete. Disabled on the Archived tab, where the selection is soft-deleted already.
 
-Buttons disabled when selection incompatible (e.g. Resume disabled when any selected is Active).
+**Incompatible selections narrow, they do not block.** Each button applies to the part of the
+selection it is defined for and is disabled only when that part is empty — pausing a mixed selection
+pauses what is running and leaves the rest untouched. An in-break protocol is Active (§3.2) and
+pauses with the rest.
+
+A batch attempts every protocol even after one write fails, and reports only the first failure.
 
 #### 4.7.5 FAB
 

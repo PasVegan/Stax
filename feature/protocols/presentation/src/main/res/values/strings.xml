@@ -283,4 +283,102 @@
     <string name="protocols_empty_filtered_completed">No completed protocols.</string>
     <string name="protocols_empty_filtered_archived">No archived protocols.</string>
 
+    <!-- ===================== Protocol Detail (§4.8) ===================== -->
+
+    <!-- App bar (§4.8.1) -->
+    <string name="protocol_detail_back">Back</string>
+    <!-- "Active · Semaglutide": status pill, compound name -->
+    <string name="protocol_detail_supporting">%1$s · %2$s</string>
+
+    <!-- Quick action chips (§4.8.2) -->
+    <string name="protocol_detail_pause">Pause</string>
+    <string name="protocol_detail_resume">Resume</string>
+    <string name="protocol_detail_edit">Edit</string>
+    <string name="protocol_detail_duplicate">Duplicate</string>
+    <string name="protocol_detail_duplicated">Protocol duplicated</string>
+
+    <!-- Schedule card (§4.8.3) -->
+    <string name="protocol_detail_schedule">Schedule</string>
+    <string name="protocol_detail_frequency">Frequency</string>
+    <string name="protocol_detail_times">Times</string>
+    <string name="protocol_detail_titration">Titration</string>
+    <string name="protocol_detail_duration">Duration</string>
+    <string name="protocol_detail_reminder">Reminder</string>
+    <!-- "0.25 → 1.0 mg · +0.25 / 4 wk": start, target, step, every -->
+    <string name="protocol_detail_titration_value">%1$s → %2$s · +%3$s / %4$s</string>
+    <plurals name="protocol_detail_titration_every_days">
+        <item quantity="one">%d d</item>
+        <item quantity="other">%d d</item>
+    </plurals>
+    <plurals name="protocol_detail_titration_every_weeks">
+        <item quantity="one">%d wk</item>
+        <item quantity="other">%d wk</item>
+    </plurals>
+    <plurals name="protocol_detail_titration_every_doses">
+        <item quantity="one">%d dose</item>
+        <item quantity="other">%d doses</item>
+    </plurals>
+    <!-- "May 1 → Sep 30" -->
+    <string name="protocol_detail_duration_value">%1$s → %2$s</string>
+    <string name="protocol_detail_duration_open_ended">open-ended</string>
+    <string name="protocol_detail_reminder_off">Off</string>
+    <plurals name="protocol_detail_reminder_value">
+        <item quantity="one">%d min before</item>
+        <item quantity="other">%d min before</item>
+    </plurals>
+    <string name="protocol_detail_reminder_at_time">At dose time</string>
+
+    <!-- Linked compound card (§4.8.4) -->
+    <string name="protocol_detail_compound">Linked compound</string>
+    <string name="protocol_detail_compound_missing">This protocol’s compound was archived.</string>
+    <!-- "0.25 mg = 0.10 mL": dose, volume -->
+    <string name="protocol_detail_compound_dose">%1$s = %2$s</string>
+
+    <!-- Inventory forecast (§4.8.5) -->
+    <string name="protocol_detail_forecast">Inventory forecast</string>
+    <string name="protocol_detail_doses_remaining">Doses remaining</string>
+    <string name="protocol_detail_run_out">Run-out date</string>
+    <string name="protocol_detail_required">Required until end</string>
+    <plurals name="protocol_detail_doses_value">
+        <item quantity="one">%d dose</item>
+        <item quantity="other">%d doses</item>
+    </plurals>
+    <string name="protocol_detail_open_ended">Open-ended</string>
+    <string name="protocol_detail_unknown">—</string>
+    <!-- "Batch expires Jul 14 — before run-out" -->
+    <string name="protocol_detail_expiry_warning">Batch expires %1$s — before run-out</string>
+
+    <!-- Site restrictions (§4.8.6) -->
+    <string name="protocol_detail_sites">Site restrictions</string>
+    <string name="protocol_detail_sites_any">Any site</string>
+    <string name="protocol_detail_sites_region">%1$s only</string>
+    <plurals name="protocol_detail_sites_rotation">
+        <item quantity="one">Rotate daily</item>
+        <item quantity="other">Rotate every %d days</item>
+    </plurals>
+
+    <!-- Dose history (§4.8.7) -->
+    <string name="protocol_detail_history">Dose history</string>
+    <plurals name="protocol_detail_history_count">
+        <item quantity="one">%1$d logged</item>
+        <item quantity="other">%1$d logged</item>
+    </plurals>
+    <string name="protocol_detail_history_empty">No doses logged yet</string>
+    <string name="protocol_detail_status_taken">Taken</string>
+    <string name="protocol_detail_status_partial">Partial</string>
+    <string name="protocol_detail_status_skipped">Skipped</string>
+
+    <!-- Notes (§4.8.8) -->
+    <string name="protocol_detail_notes">Notes</string>
+    <string name="protocol_detail_notes_empty">No notes</string>
+    <string name="protocol_detail_show_more">Show more</string>
+    <string name="protocol_detail_show_less">Show less</string>
+
+    <!-- Bottom dock (§4.8.9) -->
+    <string name="protocol_detail_log_dose">Log dose</string>
+    <string name="protocol_detail_archive">Archive</string>
+    <string name="protocol_detail_archive_title">Archive this protocol?</string>
+    <string name="protocol_detail_archive_supporting">Pending doses are removed. Logged history is kept.</string>
+    <string name="protocol_detail_archive_cancel">Cancel</string>
+
 </resources>

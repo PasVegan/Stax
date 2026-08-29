@@ -12,6 +12,9 @@ sealed interface SitesAction {
     /** Taps the body map's Dots / Heat toggle (§4.12.4). */
     data class OnMapModeClick(val mode: MapMode) : SitesAction
 
+    /** Taps a dot on the body map (§4.12.4) — §4.12.8's site detail sheet, which M10-04 opens. */
+    data class OnSiteClick(val siteId: Long) : SitesAction
+
     /** Taps §4.12.5's "Use this site" — hands the suggested site back to the caller flow. */
     data object OnUseSuggestedSiteClick : SitesAction
 

@@ -84,6 +84,10 @@ class SitesViewModel(
 
             is SitesAction.OnMapModeClick -> _state.update { it.copy(mapMode = action.mode) }
 
+            // The map resolves which dot was tapped (M10-02); what opens on top of it is §4.12.8's
+            // site detail sheet, which M10-04 adds. Until then the tap has nowhere to go.
+            is SitesAction.OnSiteClick -> Unit
+
             SitesAction.OnUseSuggestedSiteClick ->
                 _state.value.suggested?.let { send(SitesEvent.UseSite(it.id)) }
 

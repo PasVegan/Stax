@@ -222,11 +222,11 @@ internal fun BodyMapHero(
             if (showBothViews) {
                 Row(horizontalArrangement = Arrangement.spacedBy(CARD_GAP)) {
                     BodyView.entries.forEach { view ->
-                        BodySlot(state = state, view = view, modifier = Modifier.weight(1f))
+                        BodySlot(state = state, view = view, onAction = onAction, modifier = Modifier.weight(1f))
                     }
                 }
             } else {
-                BodySlot(state = state, view = state.bodyView)
+                BodySlot(state = state, view = state.bodyView, onAction = onAction)
             }
             BodyMapLegend(mode = state.mapMode)
         }
@@ -300,16 +300,23 @@ private fun BodyMapControls(
  */
 @Suppress("FunctionName")
 @Composable
-private fun BodySlot(state: SitesState, view: BodyView, modifier: Modifier = Modifier) {
+private fun BodySlot(
+    state: SitesState,
+    view: BodyView,
+    onAction: (SitesAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         BodyMap(
             view = view,
             sites = state.sitesOn(view),
             mode = state.mapMode,
+            onSiteClick = { siteId -> onAction(SitesAction.OnSiteClick(siteId)) },
             modifier = Modifier
                 .heightIn(max = BODY_MAX_HEIGHT)
-                .fillMaxWidth(BODY_WIDTH_FRACTION)
-                .aspectRatio(BODY_ASPECT_RATIO),
+                // Height first: a standing figure is sized by how tall the hero can afford to be,
+                // and a width-first ratio inside a scrolling column has no height to be capped by.
+                .aspectRatio(BODY_ASPECT_RATIO, matchHeightConstraintsFirst = true),
         )
     }
 }
@@ -680,10 +687,13 @@ private val BUTTON_PADDING = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 /** §4.12.6's square card. Two lines of site name at `titleSmall` need about this much. */
 private val RECENT_CARD_WIDTH = 168.dp
 
-/** §4.12.4's silhouette: about 7 units wide to 10 tall, and never taller than this. */
-private const val BODY_ASPECT_RATIO = 0.7f
-private const val BODY_WIDTH_FRACTION = 0.72f
-private val BODY_MAX_HEIGHT = 340.dp
+/**
+ * §4.12.4's silhouette: a standing figure is a good deal taller than it is wide, and the ratio is
+ * what the renderer draws into — widen it and the figure keeps its proportions with margin either
+ * side, which is emptier, not bigger.
+ */
+private const val BODY_ASPECT_RATIO = 0.55f
+private val BODY_MAX_HEIGHT = 320.dp
 
 /** Heat mode's four bands (§4.12.4): one colour at falling opacity, hotter = used more recently. */
 private const val HEAT_RECENT_ALPHA = 0.7f

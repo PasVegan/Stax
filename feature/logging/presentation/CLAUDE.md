@@ -14,7 +14,8 @@ This is where inventory deduction is triggered (executed in the data layer).
 `:core:domain`, `:core:presentation`, `:core:design-system` only.
 
 ## Key types
-- `LoggingPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
+- `LoggingPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes:
+  `LogDoseRoute(compoundId, protocolId)`, `AdministrationEventDetailRoute(eventId)`) +
   `loggingEntries` (Nav3 entryProvider extension). Coming: Take Dose + Log Dose variant ViewModels &
   State/Action/Event, grouped-event sheet, edit-dose, admin-event-detail.
 
@@ -30,4 +31,8 @@ Logging feature.
 - Bottom sheets live in parent screen state (not Nav3 routes) per §10.3; at Expanded they become
   side sheets (§6.4.2). Form drafts survive rotation via `rememberSaveable`/SavedStateHandle.
 - Take Dose is a deep-link target from `:widget` / `:shortcut`.
+- **`LogDoseRoute` carries which context it was opened from, and both halves are optional**:
+  `compoundId` for §4.10.2-b (Compound Detail's dock), `protocolId` for §4.10.2-c (Protocol Detail's),
+  neither for §4.10.2-a, which opens the picker first. The screens that push it exist ahead of the
+  form, so the argument lands before there is anything to prefill from.
 - See spec §4.10, §4.11, §5.3; ISSUES M11-*.

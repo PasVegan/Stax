@@ -29,7 +29,9 @@ our own that `:core:data` converts to `PagingData` anyway — buys nothing.
 - Read models: `CompoundHistoryEntry` (§4.3.8 — one dose-history row: the event joined to the one
   component that names the compound, with the volume its logged concentration implies). It arrives
   through `AdministrationEventRepository.pagedHistoryForCompound` as a `Flow<PagingData<…>>`, with
-  §4.3.7's status filter as a query parameter rather than as a filter over the emitted rows.
+  §4.3.7's status filter as a query parameter rather than as a filter over the emitted rows. The same
+  read model serves §4.8.7 through `pagedHistoryForProtocol`, which takes no status — Protocol Detail
+  has no filter chips.
 - `repository/` interfaces: `CompoundRepository`, `ProtocolRepository`, `ScheduledDoseRepository`,
   `AdministrationEventRepository`, `InjectionSiteRepository`, `InventoryRepository`,
   `SettingsRepository`.

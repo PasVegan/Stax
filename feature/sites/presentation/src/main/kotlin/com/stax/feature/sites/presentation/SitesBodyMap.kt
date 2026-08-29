@@ -8,15 +8,19 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -25,23 +29,26 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSize
-import com.stax.core.domain.BodyRegion
+import androidx.compose.ui.unit.round
 import com.stax.core.domain.InjectionSide
-import com.stax.core.domain.Sublocation
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * §4.12.4's body silhouette with one dot per site, drawn into whatever bounds it is given.
+ * §4.12.4's body map: an anatomical figure with one injection zone and dot per site.
  *
- * The figure is a vector, not an asset: [torsoHalf] and [armHalf] trace one side of a canonical
- * eight-head standing figure in normalized coordinates and the other side is the same trace with `x`
- * flipped, so the silhouette is symmetric by construction and sharp at every size. The four pieces
- * are unioned rather than drawn on top of one another — an arm hanging over the hip overlaps the
- * torso, and only a union renders that as one body instead of two shapes with a seam.
+ * Four layers, drawn into whatever bounds the hero gives it:
  *
- * Everything below is a fraction of the bounds, dots included, so the map and its hit targets scale
- * together: [nearestSite] resolves a tap against the same fractions the [Canvas] just drew.
+ * 1. the **silhouette** — [BodyArt.TORSO] and [BodyArt.ARM], each mirrored and unioned, so the two
+ *    halves are identical by construction and meet without a seam;
+ * 2. the **muscle groups** of this [view], a shade off the body and clipped to it — a deltoid the
+ *    user can find is what separates a body map from a gingerbread outline;
+ * 3. the **zone** each site injects into, washed in its §4.12.4 state colour, so the map answers
+ *    "where on me" and not only "which of fourteen rows";
+ * 4. the **dot** at the middle of that zone, in the same colour at full strength, plus the `primary`
+ *    ring the suggested site wears.
+ *
+ * Every coordinate comes from [BodyArt]'s fixed viewport and is scaled to the bounds once, so a tap
+ * resolves against the same geometry the canvas drew and the hit target scales with the map.
  *
  * [mode] still draws dots in [MapMode.HEAT] — M10-03 replaces them there with blurred ellipses.
  */
@@ -56,6 +63,7 @@ internal fun BodyMap(
 ) {
     val scheme = MaterialTheme.colorScheme
     val bodyColor = scheme.surfaceContainerHighest
+    val muscleColor = scheme.onSurfaceVariant.copy(alpha = MUSCLE_ALPHA)
     val dotColors = remember(scheme) {
         mapOf(
             SiteStatus.SUGGESTED to scheme.primary,
@@ -64,47 +72,68 @@ internal fun BodyMap(
             SiteStatus.READY to scheme.outline,
         )
     }
-    val placed = remember(sites, view) { sites.map { site -> site to site.dotAt(view) } }
 
     BoxWithConstraints(modifier = modifier) {
+        val density = LocalDensity.current
+        val canvas = with(density) { Size(maxWidth.toPx(), maxHeight.toPx()) }
+        val figure = remember(canvas, view) { bodyFigure(view, canvas) }
+        val placed = remember(canvas, view, sites) { sites.map { it.placeOn(canvas) } }
+
         val dotSize = (maxWidth * DOT_DIAMETER_FRACTION).coerceIn(DOT_MIN_DIAMETER, DOT_MAX_DIAMETER)
-        val hitRadius = with(LocalDensity.current) { maxOf(dotSize * HIT_RADIUS_SCALE, MIN_HIT_RADIUS).toPx() }
+        val dotRadius = with(density) { dotSize.toPx() } / 2f
+        val hitRadius = with(density) { maxOf(dotSize * HIT_RADIUS_SCALE, MIN_HIT_RADIUS).toPx() }
 
         Canvas(
             modifier = Modifier
                 .matchParentSize()
                 .pointerInput(placed, hitRadius) {
-                    detectTapGestures { tap ->
-                        nearestSite(placed, tap, size.toSize(), hitRadius)?.let(onSiteClick)
-                    }
+                    detectTapGestures { tap -> nearestSite(placed, tap, hitRadius)?.let(onSiteClick) }
                 },
         ) {
-            drawPath(path = silhouette(), color = bodyColor)
-            placed.forEach { (site, at) -> drawSiteDot(at, dotColors.getValue(site.status), site.status) }
+            drawPath(path = figure.silhouette, color = bodyColor)
+            clipPath(figure.silhouette) {
+                drawPath(path = figure.muscles, color = muscleColor)
+                placed.forEach {
+                    drawPath(
+                        path = it.zone,
+                        color = dotColors.getValue(it.site.status),
+                        alpha = it.site.status.zoneAlpha(),
+                    )
+                }
+            }
+            placed.forEach { drawDot(it, dotColors.getValue(it.site.status), dotRadius) }
         }
-        // The dots are pixels, so TalkBack is given a node per site over them (§5.10, M17-01). It
-        // carries the label and the action but no pointer input of its own: taps fall through to the
-        // canvas, which is the one place the geometry lives.
-        placed.forEach { (site, at) ->
-            val label = stringResource(
-                R.string.sites_dot_description,
-                site.name,
-                stringResource(site.status.labelRes()),
-            )
-            Box(
-                modifier = Modifier
-                    .offset(x = maxWidth * at.x - dotSize / 2, y = maxHeight * at.y - dotSize / 2)
-                    .size(dotSize)
-                    .semantics {
-                        contentDescription = label
-                        onClick {
-                            onSiteClick(site.id)
-                            true
-                        }
-                    },
-            )
-        }
+        placed.forEach { DotSemantics(placed = it, size = dotSize, onSiteClick = onSiteClick) }
     }
+}
+
+/**
+ * A TalkBack node over one dot (§5.10, M17-01), labelled "{site name}, {status}".
+ *
+ * It carries the label and the action but no pointer input of its own, so a tap falls through to the
+ * canvas underneath — which is the one place the map's geometry lives.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun DotSemantics(placed: PlacedSite, size: Dp, onSiteClick: (Long) -> Unit) {
+    val label = stringResource(
+        R.string.sites_dot_description,
+        placed.site.name,
+        stringResource(placed.site.status.labelRes()),
+    )
+    val radius = with(LocalDensity.current) { size.toPx() } / 2f
+    Box(
+        modifier = Modifier
+            .offset { (placed.center - Offset(radius, radius)).round() }
+            .size(size)
+            .semantics {
+                contentDescription = label
+                onClick {
+                    onSiteClick(placed.site.id)
+                    true
+                }
+            },
+    )
 }
 
 /**
@@ -114,148 +143,99 @@ internal fun BodyMap(
  * other, so their [hitRadius] targets overlap and "whichever was listed first" would leave one of
  * them unreachable at every canvas size.
  */
-private fun nearestSite(placed: List<Pair<SiteUi, Offset>>, tap: Offset, size: Size, hitRadius: Float): Long? = placed
-    .map { (site, at) -> site to (Offset(at.x * size.width, at.y * size.height) - tap).getDistance() }
+private fun nearestSite(placed: List<PlacedSite>, tap: Offset, hitRadius: Float): Long? = placed
+    .map { it to (it.center - tap).getDistance() }
     .filter { (_, distance) -> distance <= hitRadius }
     .minByOrNull { (_, distance) -> distance }
     ?.first
+    ?.site
     ?.id
 
 /** §4.12.4's four dot states: the fill, and the `primary` ring only the suggested site wears. */
-private fun DrawScope.drawSiteDot(at: Offset, color: Color, status: SiteStatus) {
-    val center = Offset(at.x * size.width, at.y * size.height)
-    val radius = size.width * DOT_DIAMETER_FRACTION / 2f
-    if (status == SiteStatus.SUGGESTED) {
+private fun DrawScope.drawDot(placed: PlacedSite, color: Color, radius: Float) {
+    if (placed.site.status == SiteStatus.SUGGESTED) {
         drawCircle(
             color = color.copy(alpha = RING_ALPHA),
             radius = radius * RING_RADIUS_SCALE,
-            center = center,
+            center = placed.center,
             style = Stroke(width = radius * RING_WIDTH_SCALE),
         )
     }
-    drawCircle(color = color, radius = radius, center = center)
+    drawCircle(color = color, radius = radius, center = placed.center)
 }
 
 // ---------------------------------------------------------------------------
-// The silhouette (§4.12.4)
+// §4.12.4 geometry — BodyArt's viewport, scaled to the canvas
 // ---------------------------------------------------------------------------
 
-/** Both sides of the figure, unioned into the one shape the canvas fills. */
-private fun DrawScope.silhouette(): Path {
-    val right = Path().apply { op(torsoHalf(mirrored = false), armHalf(mirrored = false), PathOperation.Union) }
-    val left = Path().apply { op(torsoHalf(mirrored = true), armHalf(mirrored = true), PathOperation.Union) }
-    return Path().apply { op(right, left, PathOperation.Union) }
-}
+/** One site's zone and dot, already in canvas pixels. */
+@Immutable
+private data class PlacedSite(val site: SiteUi, val zone: Path, val center: Offset)
 
-/**
- * Head, neck, one shoulder, one side of the trunk and one leg, closed up the centre line.
- *
- * The landmarks are the canonical eight-head figure: chin at `0.13`, nipple at `0.25`, navel at
- * `0.375`, crotch at `0.51`, knee at `0.74`, sole at `1.0`; two heads across the shoulders and about
- * 1.6 across the hips. That is what keeps it a person rather than the snowman a blob of circles
- * draws.
- */
-private fun DrawScope.torsoHalf(mirrored: Boolean): Path {
-    val path = Path()
-    val x = { v: Float -> (if (mirrored) 1f - v else v) * size.width }
-    val y = { v: Float -> v * size.height }
-    fun curve(c1x: Float, c1y: Float, c2x: Float, c2y: Float, ex: Float, ey: Float) =
-        path.cubicTo(x(c1x), y(c1y), x(c2x), y(c2y), x(ex), y(ey))
+/** The two layers that are the same for every site: the body, and the muscles of this [view]. */
+@Immutable
+private data class BodyFigure(val silhouette: Path, val muscles: Path)
 
-    path.moveTo(x(0.500f), y(0.004f))
-    curve(0.554f, 0.004f, 0.590f, 0.024f, 0.590f, 0.058f) // crown → temple
-    curve(0.590f, 0.090f, 0.576f, 0.114f, 0.548f, 0.128f) // cheek → jaw
-    curve(0.549f, 0.140f, 0.550f, 0.148f, 0.552f, 0.158f) // neck
-    curve(0.602f, 0.168f, 0.650f, 0.181f, 0.674f, 0.213f) // trapezius → shoulder
-    curve(0.666f, 0.253f, 0.647f, 0.301f, 0.637f, 0.349f) // ribs → waist
-    curve(0.644f, 0.384f, 0.667f, 0.412f, 0.683f, 0.448f) // waist → hip
-    curve(0.694f, 0.484f, 0.684f, 0.516f, 0.664f, 0.548f) // hip → thigh
-    curve(0.650f, 0.600f, 0.634f, 0.670f, 0.622f, 0.744f) // thigh → knee
-    curve(0.628f, 0.780f, 0.628f, 0.818f, 0.612f, 0.878f) // calf
-    curve(0.600f, 0.918f, 0.592f, 0.940f, 0.586f, 0.956f) // ankle
-    curve(0.594f, 0.978f, 0.606f, 0.990f, 0.608f, 0.998f) // instep → toe
-    path.lineTo(x(0.514f), y(0.998f)) // sole
-    curve(0.516f, 0.986f, 0.520f, 0.970f, 0.523f, 0.956f) // heel → inner ankle
-    curve(0.516f, 0.910f, 0.512f, 0.850f, 0.528f, 0.744f) // inner calf → knee
-    curve(0.532f, 0.664f, 0.516f, 0.582f, 0.502f, 0.516f) // inner thigh → crotch
-    path.lineTo(x(0.500f), y(0.516f))
-    path.close()
-    return path
-}
-
-/**
- * One arm, hanging with the elbow just clear of the waist and the fingertips at mid-thigh.
- *
- * Its own closed shape because a hanging arm crosses the hip: traced as part of the trunk outline
- * that crossing is a self-intersection, and the wedge between forearm and waist fills in solid.
- */
-private fun DrawScope.armHalf(mirrored: Boolean): Path {
-    val path = Path()
-    val x = { v: Float -> (if (mirrored) 1f - v else v) * size.width }
-    val y = { v: Float -> v * size.height }
-    fun curve(c1x: Float, c1y: Float, c2x: Float, c2y: Float, ex: Float, ey: Float) =
-        path.cubicTo(x(c1x), y(c1y), x(c2x), y(c2y), x(ex), y(ey))
-
-    path.moveTo(x(0.666f), y(0.196f))
-    curve(0.720f, 0.192f, 0.772f, 0.224f, 0.774f, 0.268f) // deltoid cap
-    curve(0.775f, 0.306f, 0.756f, 0.346f, 0.744f, 0.382f) // upper arm → elbow
-    curve(0.735f, 0.426f, 0.724f, 0.482f, 0.716f, 0.528f) // forearm → wrist
-    curve(0.727f, 0.554f, 0.724f, 0.592f, 0.701f, 0.611f) // back of hand → fingertips
-    curve(0.685f, 0.622f, 0.664f, 0.607f, 0.662f, 0.578f) // fingertips → thumb web
-    curve(0.660f, 0.556f, 0.662f, 0.541f, 0.664f, 0.528f) // → inner wrist
-    curve(0.669f, 0.482f, 0.676f, 0.426f, 0.680f, 0.380f) // inner forearm → elbow
-    curve(0.690f, 0.330f, 0.678f, 0.252f, 0.658f, 0.206f) // inner upper arm → armpit
-    path.close()
-    return path
-}
-
-// ---------------------------------------------------------------------------
-// Dot placement (§4.12.4, §5.8.6)
-// ---------------------------------------------------------------------------
-
-/**
- * Where this site's dot sits, as a fraction of the map's bounds.
- *
- * [BodyRegion] and [SiteUi.sublocation] fix how far down the body and how far off the centre line the
- * dot goes; [SiteUi.side] and [view] fix which way. The two disagree on purpose: on Front we are
- * facing the body, so its **left** is on the viewer's **right**, and on Back we are behind it and
- * the two agree. Getting that backwards mirrors the whole rotation.
- */
-private fun SiteUi.dotAt(view: BodyView): Offset {
-    val (offset, y) = bodyRegion.dotPlacement(sublocation)
-    val onViewerRight = when (side) {
-        InjectionSide.LEFT -> view == BodyView.FRONT
-        InjectionSide.RIGHT -> view == BodyView.BACK
-        // A midline site has no side to mirror — it sits on the centre line.
-        InjectionSide.CENTER, InjectionSide.NOT_APPLICABLE -> return Offset(CENTRE_X, y)
+private fun bodyFigure(view: BodyView, canvas: Size): BodyFigure {
+    val silhouette = Path()
+    silhouette.op(
+        path1 = Path().apply {
+            op(scaled(BodyArt.TORSO, canvas, false), scaled(BodyArt.ARM, canvas, false), PathOperation.Union)
+        },
+        path2 = Path().apply {
+            op(scaled(BodyArt.TORSO, canvas, true), scaled(BodyArt.ARM, canvas, true), PathOperation.Union)
+        },
+        operation = PathOperation.Union,
+    )
+    val outlines = if (view == BodyView.FRONT) BodyArt.FRONT_MUSCLES else BodyArt.BACK_MUSCLES
+    val muscles = Path().apply {
+        // Added rather than unioned: no two muscle outlines overlap, and every one of them stops
+        // short of the centre line, so the mirrored halves never double the alpha where they meet.
+        outlines.forEach { outline ->
+            addPath(scaled(outline, canvas, mirrored = false))
+            addPath(scaled(outline, canvas, mirrored = true))
+        }
     }
-    return Offset(if (onViewerRight) CENTRE_X + offset else CENTRE_X - offset, y)
+    return BodyFigure(silhouette = silhouette, muscles = muscles)
 }
 
 /**
- * The region's dot, as (distance from the centre line, distance down the body).
+ * This site's zone and dot on [canvas].
  *
- * §5.8.6 seeds fourteen of these; the rest of [BodyRegion] is placed too, because a site the seed
- * grows later (§5.8.6 names posterior deltoid and forearm for v1.1) would otherwise land on the
- * silhouette's navel with no warning.
+ * [SiteUi.side] and the body view decide which way the zone is mirrored, and the two disagree on
+ * purpose: on Front we face the body, so its **left** is the viewer's **right**; on Back we are
+ * behind it and the two agree. Invert that and the whole rotation is mirrored.
  */
-private fun BodyRegion.dotPlacement(sublocation: Sublocation?): Pair<Float, Float> = when (this) {
-    BodyRegion.ABDOMEN -> when (sublocation) {
-        Sublocation.UPPER -> 0.062f to 0.325f
-        Sublocation.LOWER -> 0.068f to 0.415f
-        else -> 0.065f to 0.372f
+private fun SiteUi.placeOn(canvas: Size): PlacedSite {
+    val zone = BodyArt.zoneOf(bodyRegion, sublocation)
+    val mirrored = when (side) {
+        InjectionSide.LEFT -> bodyView == BodyView.BACK
+        InjectionSide.RIGHT -> bodyView == BodyView.FRONT
+        // A midline site has no side to mirror; the right-hand data already sits nearest the centre.
+        InjectionSide.CENTER, InjectionSide.NOT_APPLICABLE -> false
     }
+    return PlacedSite(
+        site = this,
+        zone = scaled(zone.outline, canvas, mirrored),
+        center = zone.center.scaledTo(canvas, mirrored),
+    )
+}
 
-    // "Lateral thigh" is the outer sublocation of the quadriceps (§5.8.6) — the same muscle, a
-    // hand's width further out, which is the only reason the two are drawn apart.
-    BodyRegion.QUADRICEPS -> if (sublocation == Sublocation.OUTER) 0.105f to 0.600f else 0.083f to 0.600f
-    BodyRegion.THIGH -> 0.083f to 0.600f
-    BodyRegion.GLUTE -> 0.105f to 0.478f
-    BodyRegion.HAMSTRING -> 0.083f to 0.630f
-    BodyRegion.LOWER_BACK -> 0.070f to 0.360f
-    BodyRegion.DELT -> 0.222f to 0.248f
-    BodyRegion.UPPER_ARM -> 0.226f to 0.320f
-    BodyRegion.FOREARM -> 0.202f to 0.460f
+private fun scaled(outline: String, canvas: Size, mirrored: Boolean): Path =
+    PathParser().parsePathString(outline).toPath().apply { transform(matrixFor(canvas, mirrored)) }
+
+private fun Offset.scaledTo(canvas: Size, mirrored: Boolean): Offset {
+    val scaledX = x * canvas.width / BodyArt.VIEWPORT_WIDTH
+    return Offset(if (mirrored) canvas.width - scaledX else scaledX, y * canvas.height / BodyArt.VIEWPORT_HEIGHT)
+}
+
+/** Viewport → canvas, flipped about the centre line for the left half of the body. */
+private fun matrixFor(canvas: Size, mirrored: Boolean): Matrix = Matrix().apply {
+    if (mirrored) {
+        translate(x = canvas.width)
+        scale(x = -1f)
+    }
+    scale(x = canvas.width / BodyArt.VIEWPORT_WIDTH, y = canvas.height / BodyArt.VIEWPORT_HEIGHT)
 }
 
 internal fun SiteStatus.labelRes(): Int = when (this) {
@@ -266,20 +246,34 @@ internal fun SiteStatus.labelRes(): Int = when (this) {
 }
 
 // ---------------------------------------------------------------------------
-// Dot geometry
+// Ink
 // ---------------------------------------------------------------------------
 
-private const val CENTRE_X = 0.5f
+/** How far the muscle groups sit off the body they are drawn on. Enough to read, not to distract. */
+private const val MUSCLE_ALPHA = 0.11f
+
+/**
+ * How strongly a site washes the zone it injects into.
+ *
+ * By state, not one value: with fourteen preset sites almost every zone is tinted at once, and a map
+ * where all fourteen shout equally is a map that says nothing. A ready site is a faint wash that only
+ * says "here"; the site the rotation picked, and the ones still cooling, are what the eye should find.
+ */
+private fun SiteStatus.zoneAlpha(): Float = when (this) {
+    SiteStatus.SUGGESTED, SiteStatus.COOLING -> 0.32f
+    SiteStatus.RECENT -> 0.22f
+    SiteStatus.READY -> 0.11f
+}
 
 /** A dot is about this much of the map's width — narrow enough to sit on a forearm and still fit. */
-private const val DOT_DIAMETER_FRACTION = 0.078f
-private val DOT_MIN_DIAMETER = 12.dp
+private const val DOT_DIAMETER_FRACTION = 0.07f
+private val DOT_MIN_DIAMETER = 11.dp
 private val DOT_MAX_DIAMETER = 18.dp
 
 /** §4.12.4's `primary` 60%-opacity ring around the suggested dot. */
 private const val RING_ALPHA = 0.6f
-private const val RING_RADIUS_SCALE = 1.7f
-private const val RING_WIDTH_SCALE = 0.3f
+private const val RING_RADIUS_SCALE = 1.9f
+private const val RING_WIDTH_SCALE = 0.34f
 
 /**
  * How far past its own edge a dot answers a tap, and the floor that keeps that reachable.

@@ -687,13 +687,9 @@ private val BUTTON_PADDING = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 /** §4.12.6's square card. Two lines of site name at `titleSmall` need about this much. */
 private val RECENT_CARD_WIDTH = 168.dp
 
-/**
- * §4.12.4's silhouette: a standing figure is a good deal taller than it is wide, and the ratio is
- * what the renderer draws into — widen it and the figure keeps its proportions with margin either
- * side, which is emptier, not bigger.
- */
-private const val BODY_ASPECT_RATIO = 0.55f
-private val BODY_MAX_HEIGHT = 320.dp
+/** §4.12.4's figure draws into `BodyArt`'s viewport, so the slot is that viewport's own proportion. */
+private const val BODY_ASPECT_RATIO = BodyArt.VIEWPORT_WIDTH / BodyArt.VIEWPORT_HEIGHT
+private val BODY_MAX_HEIGHT = 344.dp
 
 /** Heat mode's four bands (§4.12.4): one colour at falling opacity, hotter = used more recently. */
 private const val HEAT_RECENT_ALPHA = 0.7f

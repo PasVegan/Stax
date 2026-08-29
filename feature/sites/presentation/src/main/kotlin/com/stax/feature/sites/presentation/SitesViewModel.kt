@@ -292,13 +292,5 @@ class SitesViewModel(
 
         /** §4.12.8's recent-uses list: the last two or three, with "View full history" past them. */
         const val RECENT_USES_LIMIT = 3
-
-        /**
-         * §4.12.4's next-rotation pick, and the order M10-06 will hoist into the domain: a site never
-         * used yet before one that has been, then the least recently used.
-         */
-        val ROTATION_ORDER: Comparator<InjectionSite> = compareBy<InjectionSite> { it.lastUsedAt != null }
-            .thenBy { it.lastUsedAt }
-            .thenBy { it.name }
     }
 }

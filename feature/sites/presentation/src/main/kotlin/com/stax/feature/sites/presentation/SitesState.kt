@@ -3,6 +3,7 @@ package com.stax.feature.sites.presentation
 import androidx.compose.runtime.Immutable
 import com.stax.core.domain.BodyRegion
 import com.stax.core.domain.InjectionSide
+import com.stax.core.domain.InjectionSite
 import com.stax.core.domain.Route
 import com.stax.core.domain.Sublocation
 import kotlinx.collections.immutable.ImmutableList
@@ -177,3 +178,15 @@ internal fun BodyRegion.routes(): Set<Route> = when (this) {
 private val SUBCUTANEOUS_ONLY = setOf(Route.SUBCUTANEOUS)
 private val INTRAMUSCULAR_ONLY = setOf(Route.INTRAMUSCULAR)
 private val BOTH_ROUTES = setOf(Route.SUBCUTANEOUS, Route.INTRAMUSCULAR)
+
+/**
+ * The rotation's next pick (§4.12.5), and the order M10-06 will hoist into the domain: a site never
+ * used yet before one that has been, then the least recently used.
+ *
+ * Shared by the Sites screen and §4.12.7's picker rather than written down in each: the picker's
+ * "Suggested" row and §4.12.5's hero name one site, and two copies of this rule is how they end up
+ * naming two.
+ */
+internal val ROTATION_ORDER: Comparator<InjectionSite> = compareBy<InjectionSite> { it.lastUsedAt != null }
+    .thenBy { it.lastUsedAt }
+    .thenBy { it.name }

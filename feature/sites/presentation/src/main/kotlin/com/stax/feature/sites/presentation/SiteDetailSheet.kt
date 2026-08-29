@@ -290,8 +290,10 @@ private fun SiteUseRow(use: SiteDoseUi, modifier: Modifier = Modifier) {
 /**
  * §4.12.8's two actions: View full history, and the availability toggle.
  *
- * A `FlowRow` rather than a `Row`: at Medium the sheet is `560dp` and both fit, at Compact with a
- * large font scale they do not, and "Mark unavaila…" is not a button anyone presses on purpose.
+ * A `FlowRow` and no weights: both labels are full sentences, and a Compact phone at `301dp` cannot
+ * fit them side by side — weighted, they would share the row and truncate to "View full hi…" and
+ * "Mark unav…", which are not buttons anyone presses on purpose. Sized to their own labels they wrap
+ * onto a second line where they have to and sit side by side where they fit.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Suppress("FunctionName")
@@ -308,7 +310,6 @@ private fun SiteDetailActions(isAvailable: Boolean, onAction: (SitesAction) -> U
             container = MaterialTheme.colorScheme.secondaryContainer,
             content = MaterialTheme.colorScheme.onSecondaryContainer,
             onClick = { onAction(SitesAction.OnViewSiteHistoryClick) },
-            modifier = Modifier.weight(1f),
         )
         SheetActionButton(
             text = stringResource(
@@ -320,7 +321,6 @@ private fun SiteDetailActions(isAvailable: Boolean, onAction: (SitesAction) -> U
             container = MaterialTheme.colorScheme.errorContainer,
             content = MaterialTheme.colorScheme.onErrorContainer,
             onClick = { onAction(SitesAction.OnToggleSiteAvailabilityClick) },
-            modifier = Modifier.weight(1f),
         )
     }
 }

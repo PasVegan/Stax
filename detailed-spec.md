@@ -1471,14 +1471,27 @@ Bottom dock: Cancel + Pick site (filled `primary`, requires selection).
 
 **Trigger**: tap any dot on body map OR tap site card in carousel.
 
-Bottom sheet modal. Drag handle. Scrim.
+Bottom sheet modal. Drag handle. Scrim. It opens **fully expanded**, not half: the sheet ends in its
+actions, and a first frame showing half the content is a first frame with nothing to press on it.
 
-- Header: avatar w/ status (cooling = `error-container` + `restart_alt`; ready = `secondary-container` + `check`) + site name + supporting "{status} · {info}".
+- Header: avatar w/ status (cooling = `error-container` + `restart_alt`; ready = `secondary-container` + `check`; unavailable = `error-container` + `block`) + site name + supporting "{status} · {info}".
+  Unavailable overrides the dot state in both: a site left out of the rotation is still ready or still
+  cooling underneath, and neither is what the user needs told about it.
 - Stats row (3 tiles): Times used · Route · Last used.
-- Recent uses list (last 2-3 AdministrationEvents at this site).
-- Actions row:
+  - **Times used** counts *events*, all-time: a dose that stacked two compounds (§4.10.3) used this
+    site once. It is blank (`—`) until the site's doses have been read — the sheet opens on what the
+    map already knew, and "0 times used" for a site with eight is a worse first frame than an empty tile.
+  - **Route** is derived from the body region (§4.12.2's rule), because a site carries none of its own
+    (§3.6): "Subcut", "IM", or "Subcut · IM" for the lateral thigh.
+- Recent uses list (last 3 doses at this site, newest first): "{compound} · {dose}" over
+  "{n} days ago · {time}". A row per dose *component*, so a stacked dose shows both compounds — which is
+  what went into the site. Skipped doses are not listed and not counted: nothing was administered.
+- Actions row (wraps to a second line where both labels do not fit):
   - **View history** (`secondary-container`, leading `history`) → full site history list (filtered Compound Detail-like view scoped to site).
-  - **Mark unavailable** (`error-container`, leading `block`) → toggles `isAvailable = false`.
+  - **Mark unavailable** (`error-container`, leading `block`) → toggles `isAvailable`, and reads
+    "Mark available" once it is off. The sheet stays open on success: the state it shows is what says
+    the change took. A failed write is stated *in the sheet* — the sheet is its own window, and the
+    screen's `SnackbarHost` draws behind it.
 
 No "Use this site" CTA here (that's on Site picker / Take Dose context). This sheet is informational/management.
 
@@ -2179,7 +2192,7 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
 - **Expanded**: three-region.
   - **Left** (`fillRemainder`, min `560dp`): body map hero, larger. Both Front + Back rendered side-by-side instead of tab-switched — user sees both at once. Dots/Heat toggle still applies to both. The Front/Back tabs go away with the switch: two silhouettes on screen is what they were for.
   - **Right** (`400dp`): stats + suggested + recent (same as Medium right pane).
-  - Site detail bottom sheet (§4.12.8) opens as a **right-edge side sheet** instead of a bottom sheet at Expanded (Material `ModalNavigationDrawer` from end edge, width `360dp`).
+  - Site detail bottom sheet (§4.12.8) opens as a **right-edge side sheet** instead of a bottom sheet at Expanded — `StaxAdaptiveSheet` with a `360dp` `sideSheetWidth`, which is the app's one modal sheet in all three of its shapes (§6.3). Not a `ModalNavigationDrawer`: a drawer is navigation chrome, and this sheet is content about the site the map was tapped on.
 - **The arrangement is measured on the pane, not the window** — the same rule the Compound detail
   follows above, for the same reason. Sites opens beside the navigation rail, so a Medium window hands
   it about `580dp` and an Expanded one at its lower bound about `680dp`, the expanded rail taking

@@ -87,4 +87,26 @@
     <string name="sites_detail_mark_available">Mark available</string>
     <string name="sites_detail_write_failed">That change could not be saved. Try again.</string>
 
+    <!-- Site picker (§4.12.7) -->
+    <string name="sites_picker_title">Pick site</string>
+    <string name="sites_picker_back">Back</string>
+    <!-- App bar supporting line: "For Tirzepatide · Subcut", or either half on its own -->
+    <string name="sites_picker_supporting">For %1$s · %2$s</string>
+    <string name="sites_picker_supporting_one">For %1$s</string>
+    <string name="sites_picker_filter_all">All</string>
+    <string name="sites_picker_filter_ready">Ready</string>
+    <string name="sites_picker_filter_cooling">Cooling</string>
+    <string name="sites_picker_suggested">Suggested</string>
+    <string name="sites_picker_best">Best</string>
+    <string name="sites_picker_all_sites">All sites · %1$d</string>
+    <string name="sites_picker_empty">No site is in that state right now.</string>
+    <string name="sites_picker_last_used_today">Last used today</string>
+    <plurals name="sites_picker_last_used">
+        <item quantity="one">Last used %1$d day ago</item>
+        <item quantity="other">Last used %1$d days ago</item>
+    </plurals>
+    <string name="sites_picker_cooling_pill">Cool %1$dd</string>
+    <string name="sites_picker_cancel">Cancel</string>
+    <string name="sites_picker_pick">Pick site</string>
+
 </resources>

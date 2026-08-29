@@ -2134,12 +2134,14 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
   - **Right** (`400dp`): stats + suggested + recent (same as Medium right pane).
   - Site detail bottom sheet (§4.12.8) opens as a **right-edge side sheet** instead of a bottom sheet at Expanded (Material `ModalNavigationDrawer` from end edge, width `360dp`).
 - **The arrangement is measured on the pane, not the window** — the same rule the Compound detail
-  follows above, for the same reason. Sites opens beside the navigation rail, so an Expanded window
-  hands it about `818dp` and a Medium one about `577dp`; the minimum widths above are sums that no
-  real window reaches once the rail has taken its share. Thresholds: two panes from `520dp` of pane
-  width, Front + Back side by side from `720dp` (two silhouettes at ~`170dp` each plus the `400dp`
-  right pane and the gaps). The route chips span both panes rather than sitting in one, since §4.12.2
-  filters both.
+  follows above, for the same reason. Sites opens beside the navigation rail, so a Medium window hands
+  it about `580dp` and an Expanded one at its lower bound about `680dp`, the expanded rail taking
+  ~`235dp` of it; the minimum widths above are sums no real window reaches once the rail has had its
+  share. Two panes from `520dp` of pane width. Front + Back side by side is the one decision that
+  reads the **window** class as well — it is §6.4.0's Expanded that §6.4.2 asks for — with a `640dp`
+  pane floor under it, since two silhouettes narrower than the dots they carry are worse than tabs.
+  The right pane takes the ~45% share, capped at the `400dp` above rather than pinned to it. The route
+  chips span both panes rather than sitting in one, since §4.12.2 filters both.
 - **The carousel reflows on the width of its own column**, not on the breakpoint: a vertical list
   under `360dp` of right pane, the horizontal row of square cards above it.
 

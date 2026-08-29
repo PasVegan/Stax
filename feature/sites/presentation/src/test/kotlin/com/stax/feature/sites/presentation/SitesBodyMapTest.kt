@@ -15,7 +15,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import assertk.assertThat
 import assertk.assertions.containsExactly
+import assertk.assertions.isBetween
 import assertk.assertions.isEmpty
+import assertk.assertions.isEqualTo
 import assertk.assertions.isGreaterThan
 import assertk.assertions.isLessThan
 import com.stax.core.design.system.StaxTheme
@@ -106,6 +108,39 @@ class SitesBodyMapTest {
     }
 
     // -----------------------------------------------------------------------
+    // §4.12.4 Heat map
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `the heat ramp runs from untouched to the busiest site and clamps outside it`() {
+        assertThat(heatAlpha(0f)).isEqualTo(0.05f)
+        assertThat(heatAlpha(1f)).isEqualTo(0.7f)
+        assertThat(heatAlpha(0.5f)).isBetween(0.05f, 0.7f)
+        // A share is always in 0..1, but the ramp is the one thing standing between a rounding error
+        // and an alpha the platform silently wraps.
+        assertThat(heatAlpha(-1f)).isEqualTo(0.05f)
+        assertThat(heatAlpha(2f)).isEqualTo(0.7f)
+    }
+
+    @Test
+    fun `a hotter site is drawn more strongly than a cooler one`() {
+        assertThat(heatAlpha(0.2f)).isLessThan(heatAlpha(0.8f))
+    }
+
+    @Test
+    fun `a tap still resolves its site in Heat mode`() {
+        val sites = frontSites()
+        setBodyMap(BodyView.FRONT, sites, mode = MapMode.HEAT)
+
+        // The blurred layer is drawn over the map's own canvas; it must not swallow the tap with it.
+        sites.forEach { site ->
+            clicked.clear()
+            composeRule.onNodeWithContentDescription(site.description()).performClick()
+            assertThat(clicked).containsExactly(site.id)
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
@@ -126,14 +161,21 @@ class SitesBodyMapTest {
         }
     }
 
-    private fun setBodyMap(view: BodyView, sites: ImmutableList<SiteUi>, width: Dp = 200.dp, height: Dp = 364.dp) {
+    @Suppress("LongParameterList")
+    private fun setBodyMap(
+        view: BodyView,
+        sites: ImmutableList<SiteUi>,
+        width: Dp = 200.dp,
+        height: Dp = 364.dp,
+        mode: MapMode = MapMode.DOTS,
+    ) {
         composeRule.setContent {
             StaxTheme(dynamicColor = false) {
                 Box(modifier = Modifier.size(width, height)) {
                     BodyMap(
                         view = view,
                         sites = sites,
-                        mode = MapMode.DOTS,
+                        mode = mode,
                         onSiteClick = { clicked += it },
                         modifier = Modifier.size(width, height),
                     )

@@ -27,7 +27,9 @@ picker. Includes the rotation-suggestion algorithm surface.
 - `SitesBodyMap.kt` — `BodyMap`: the §4.12.4 renderer. Four layers on one `Canvas` — silhouette,
   muscle groups (clipped to it), each site's zone washed in its state colour, then the dots — and a
   tap resolved to the nearest site within a scaled hit radius. Everything is scaled from `BodyArt`'s
-  viewport once, so the map and its targets scale together. Heat mode is M10-03; dots still draw there.
+  viewport once, so the map and its targets scale together. Heat mode swaps the last two layers for
+  one blurred ellipse per site on a second `Canvas`, cross-faded with them; `heatAlpha()` is the ramp
+  both it and the legend read.
 - `SitesAction.OnSiteClick(siteId)` — a dot tap (§4.12.4). The ViewModel drops it until M10-04 adds
   §4.12.8's detail sheet; §4.12.6's carousel cards raise the same action when they become tappable.
 - `SitesPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
@@ -44,8 +46,16 @@ Sites feature.
 ## Notes
 - Body-map renderer is a Canvas vector sized **height-first** — `heightIn` plus an `aspectRatio` with
   `matchHeightConstraintsFirst = true`. Inside a scrolling column a width-first ratio has no height
-  to be capped by, and the map grows until it pushes §4.12.5's hero off the screen. Heat map uses
-  `RenderEffect.createBlurEffect()` (§2.3.7).
+  to be capped by, and the map grows until it pushes §4.12.5's hero off the screen.
+- Heat mode (§4.12.4, §2.3.7) blurs with `Modifier.blur(…, BlurredEdgeTreatment.Unbounded)` —
+  `RenderEffect.createBlurEffect()` under a `graphicsLayer`. It has to be its **own** `Canvas`: the
+  blur applies to the whole layer, so drawing it with the silhouette puts the body out of focus. The
+  blob is the site's zone bounds, not one radius for all, and the blur radius scales with the dot.
+- `SiteUi.heat` is a **share of the busiest visible site**, not an absolute count: the ViewModel
+  normalises it so Front and Back agree on what "hot" means and §4.12.2's chip re-scales with the map
+  it narrowed. Heat is `error` at `heatAlpha()`, 0.05 → 0.7; the legend samples that same ramp.
+- Dots ↔ Heat is a cross-fade (`StaxMotion.defaultEffectsSpec`), and the suggested site's `primary`
+  ring survives it — heat has no way of saying "use this one next".
 - Front and Back mirror each other: facing the body its **left** is the viewer's **right**, and from
   behind the two agree. `SitesBodyMap.placeOn` owns that rule — invert it and the whole map is wrong.
 - Zone alpha is per state, not one value: with fourteen presets nearly every zone is tinted at once,

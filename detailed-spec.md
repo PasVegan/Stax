@@ -1409,7 +1409,24 @@ viewer's **right**; on Back we are behind it and the two agree.
 finger's width, so the map stays usable in §6.4.2's narrow left pane. Each dot also carries a
 TalkBack node labelled "{site name}, {status}" (§5.10) with no pointer input of its own.
 
-**Heat map mode** (`18b`): replaces dots with blurred ellipses (`error` fill, varying opacity 0.05–0.7 by usage frequency, outside layer blur). Hotter = recently/frequently used. Used to visualize over-rotation.
+**Heat map mode** (`18b`): replaces the zone wash and the dots with blurred ellipses (`error` fill,
+varying opacity 0.05–0.7 by usage frequency, outside layer blur, `RenderEffect.createBlurEffect()`
+per §2.3.7). Hotter = recently/frequently used. Used to visualize over-rotation.
+
+The frequency is the site's share of the **last 30 days**, scaled against the busiest site the route
+chip left — relative and not absolute, because a rotation of two doses a week and one of two a day
+would both be flat on any fixed scale, and the question this mode answers is "which of these am I
+leaning on". A site with no dose in the window sits at the ramp's floor. The share is derived once,
+across both body views, so Front and Back agree on what "hot" means.
+
+Each ellipse is the **zone's own bounds** rather than one radius for all — a hamstring takes a dose
+across a hand's width of muscle and a forearm does not — and the blur is unbounded in both
+directions, so a blob on a deltoid radiates past the edge of the map instead of being sliced flat
+against it.
+
+The two modes **cross-fade** rather than cut: they are the same fourteen sites in two inks. The one
+mark that survives the fade is the suggested site's `primary` ring, because heat has no way of saying
+"use this one next" and §4.12.5's answer must still be findable on the map.
 
 **Legend** at bottom of hero (when Dots mode): Suggested / Cooling / Recent / Ready w/ swatch dots.
 

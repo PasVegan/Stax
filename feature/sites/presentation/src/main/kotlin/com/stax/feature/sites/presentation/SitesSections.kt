@@ -346,8 +346,9 @@ private fun BodyMapLegend(mode: MapMode, modifier: Modifier = Modifier) {
 /**
  * The swatches, in §4.12.4's order.
  *
- * Heat mode reads the same four bands off `error` at falling opacity, which is what the blurred
- * ellipses M10-03 draws are: one colour, more of it where the rotation has been leaning.
+ * Heat mode samples the map's own ramp ([heatAlpha]) at four points rather than listing four
+ * opacities of its own: the swatches are the ink the blobs are drawn in, and a key mixed separately
+ * from the map it explains drifts off it the first time either is tuned.
  */
 @Composable
 private fun legendEntries(mode: MapMode): List<Pair<Int, Color>> = when (mode) {
@@ -358,12 +359,9 @@ private fun legendEntries(mode: MapMode): List<Pair<Int, Color>> = when (mode) {
         R.string.sites_legend_ready to MaterialTheme.colorScheme.outline,
     )
 
-    MapMode.HEAT -> listOf(
-        R.string.sites_heat_recent to MaterialTheme.colorScheme.error.copy(alpha = HEAT_RECENT_ALPHA),
-        R.string.sites_heat_cooling to MaterialTheme.colorScheme.error.copy(alpha = HEAT_COOLING_ALPHA),
-        R.string.sites_heat_older to MaterialTheme.colorScheme.error.copy(alpha = HEAT_OLDER_ALPHA),
-        R.string.sites_heat_untouched to MaterialTheme.colorScheme.error.copy(alpha = HEAT_UNTOUCHED_ALPHA),
-    )
+    MapMode.HEAT -> HEAT_LEGEND_BANDS.map { (labelRes, heat) ->
+        labelRes to MaterialTheme.colorScheme.error.copy(alpha = heatAlpha(heat))
+    }
 }
 
 internal fun BodyView.labelRes(): Int = when (this) {
@@ -691,8 +689,13 @@ private val RECENT_CARD_WIDTH = 168.dp
 private const val BODY_ASPECT_RATIO = BodyArt.VIEWPORT_WIDTH / BodyArt.VIEWPORT_HEIGHT
 private val BODY_MAX_HEIGHT = 344.dp
 
-/** Heat mode's four bands (§4.12.4): one colour at falling opacity, hotter = used more recently. */
-private const val HEAT_RECENT_ALPHA = 0.7f
-private const val HEAT_COOLING_ALPHA = 0.45f
-private const val HEAT_OLDER_ALPHA = 0.22f
-private const val HEAT_UNTOUCHED_ALPHA = 0.05f
+/**
+ * Heat mode's four bands (§4.12.4), as shares of the busiest site: the one the rotation leans on, one
+ * still cooling from a recent dose, one used once a while back, and one untouched in 30 days.
+ */
+private val HEAT_LEGEND_BANDS = listOf(
+    R.string.sites_heat_recent to 1f,
+    R.string.sites_heat_cooling to 0.6f,
+    R.string.sites_heat_older to 0.25f,
+    R.string.sites_heat_untouched to 0f,
+)

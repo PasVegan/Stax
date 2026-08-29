@@ -293,15 +293,15 @@ private fun SitesScreenNoSuggestionPreview() {
 
 private fun previewState(): SitesState {
     val sites = listOf(
-        previewSite(1, "Abdomen Lower-Right", BodyRegion.ABDOMEN, Sublocation.LOWER, SiteStatus.SUGGESTED, 14),
-        previewSite(2, "Abdomen Upper-Left", BodyRegion.ABDOMEN, Sublocation.UPPER, SiteStatus.COOLING, 2),
-        previewSite(3, "Abdomen Upper-Right", BodyRegion.ABDOMEN, Sublocation.UPPER, SiteStatus.RECENT, 5),
-        previewSite(4, "Lateral Thigh Left", BodyRegion.QUADRICEPS, Sublocation.OUTER, SiteStatus.READY, 8),
-        previewSite(5, "Anterior Deltoid Right", BodyRegion.DELT, null, SiteStatus.READY, null),
+        previewSite(1, "Abdomen Lower-Right", BodyRegion.ABDOMEN, Sublocation.LOWER, SiteStatus.SUGGESTED, 14, 0.1f),
+        previewSite(2, "Abdomen Upper-Left", BodyRegion.ABDOMEN, Sublocation.UPPER, SiteStatus.COOLING, 2, 1f),
+        previewSite(3, "Abdomen Upper-Right", BodyRegion.ABDOMEN, Sublocation.UPPER, SiteStatus.RECENT, 5, 0.6f),
+        previewSite(4, "Lateral Thigh Left", BodyRegion.QUADRICEPS, Sublocation.OUTER, SiteStatus.READY, 8, 0.3f),
+        previewSite(5, "Anterior Deltoid Right", BodyRegion.DELT, null, SiteStatus.READY, null, 0f),
     )
     val back = listOf(
-        previewSite(6, "Glute Upper-Outer Left", BodyRegion.GLUTE, Sublocation.UPPER, SiteStatus.READY, 21),
-        previewSite(7, "Hamstring Right", BodyRegion.HAMSTRING, null, SiteStatus.READY, null),
+        previewSite(6, "Glute Upper-Outer Left", BodyRegion.GLUTE, Sublocation.UPPER, SiteStatus.READY, 21, 0.4f),
+        previewSite(7, "Hamstring Right", BodyRegion.HAMSTRING, null, SiteStatus.READY, null, 0f),
     )
     return SitesState(
         readyCount = 12,
@@ -323,6 +323,7 @@ private fun previewSite(
     sublocation: Sublocation?,
     status: SiteStatus,
     daysSinceLastUse: Int?,
+    heat: Float,
 ) = SiteUi(
     id = id,
     name = name,
@@ -331,4 +332,5 @@ private fun previewSite(
     sublocation = sublocation,
     status = status,
     daysSinceLastUse = daysSinceLastUse,
+    heat = heat,
 )

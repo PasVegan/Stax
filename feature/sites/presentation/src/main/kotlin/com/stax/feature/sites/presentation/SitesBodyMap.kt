@@ -1,16 +1,21 @@
 package com.stax.feature.sites.presentation
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -30,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
+import com.stax.core.design.system.StaxMotion
 import com.stax.core.domain.InjectionSide
 import kotlinx.collections.immutable.ImmutableList
 
@@ -50,9 +56,12 @@ import kotlinx.collections.immutable.ImmutableList
  * Every coordinate comes from [BodyArt]'s fixed viewport and is scaled to the bounds once, so a tap
  * resolves against the same geometry the canvas drew and the hit target scales with the map.
  *
- * [mode] still draws dots in [MapMode.HEAT] — M10-03 replaces them there with blurred ellipses.
+ * [MapMode.HEAT] (§4.12.4) trades layers 3 and 4 for one blurred ellipse per site, and the swap is a
+ * cross-fade rather than a cut: the two modes are the same fourteen sites in two inks, and a map that
+ * blinks between them reads as a reload. Only the fill fades — the suggested site keeps its ring in
+ * both modes, because "where next" is the answer the screen exists to give and heat does not give it.
  */
-@Suppress("FunctionName", "UnusedParameter")
+@Suppress("FunctionName")
 @Composable
 internal fun BodyMap(
     view: BodyView,
@@ -82,6 +91,11 @@ internal fun BodyMap(
         val dotSize = (maxWidth * DOT_DIAMETER_FRACTION).coerceIn(DOT_MIN_DIAMETER, DOT_MAX_DIAMETER)
         val dotRadius = with(density) { dotSize.toPx() } / 2f
         val hitRadius = with(density) { maxOf(dotSize * HIT_RADIUS_SCALE, MIN_HIT_RADIUS).toPx() }
+        val heat by animateFloatAsState(
+            targetValue = if (mode == MapMode.HEAT) 1f else 0f,
+            animationSpec = StaxMotion.defaultEffectsSpec(),
+            label = "bodyMapHeat",
+        )
 
         Canvas(
             modifier = Modifier
@@ -97,13 +111,47 @@ internal fun BodyMap(
                     drawPath(
                         path = it.zone,
                         color = dotColors.getValue(it.site.status),
-                        alpha = it.site.status.zoneAlpha(),
+                        alpha = it.site.status.zoneAlpha() * (1f - heat),
                     )
                 }
             }
-            placed.forEach { drawDot(it, dotColors.getValue(it.site.status), dotRadius) }
+            placed.forEach { drawDot(it, dotColors.getValue(it.site.status), dotRadius, fillAlpha = 1f - heat) }
+        }
+        if (heat > 0f) {
+            HeatLayer(placed = placed, alpha = heat, blurRadius = dotSize * HEAT_BLUR_SCALE)
         }
         placed.forEach { DotSemantics(placed = it, size = dotSize, onSiteClick = onSiteClick) }
+    }
+}
+
+/**
+ * §4.12.4's heat map: one blurred ellipse per site, `error` at [heatAlpha] of its 30-day use share.
+ *
+ * Its own layer, because [Modifier.blur] — `RenderEffect.createBlurEffect()` under a `graphicsLayer`
+ * (§2.3.7) — blurs everything drawn into the layer it is applied to, and a blurred silhouette is a
+ * body out of focus rather than a body with hot spots on it.
+ *
+ * [BlurredEdgeTreatment.Unbounded] rather than clipped, in both directions: a blob on a deltoid is
+ * two thirds of the way to the edge of the map and would be sliced flat against it, and a heat map
+ * clipped to the silhouette is a body painted rather than a body radiating.
+ */
+@Suppress("FunctionName")
+@Composable
+private fun BoxScope.HeatLayer(placed: List<PlacedSite>, alpha: Float, blurRadius: Dp) {
+    val heatColor = MaterialTheme.colorScheme.error
+    Canvas(modifier = Modifier.matchParentSize().blur(blurRadius, BlurredEdgeTreatment.Unbounded)) {
+        placed.forEach {
+            // The zone's own bounds, not one radius for all: a hamstring takes a dose across a hand's
+            // width of muscle and a forearm does not, and a heat map of identical circles says the
+            // rotation is evenly spread over the body when it is only evenly listed.
+            val bounds = it.zone.getBounds()
+            drawOval(
+                color = heatColor,
+                topLeft = bounds.topLeft,
+                size = bounds.size,
+                alpha = heatAlpha(it.site.heat) * alpha,
+            )
+        }
     }
 }
 
@@ -151,8 +199,13 @@ private fun nearestSite(placed: List<PlacedSite>, tap: Offset, hitRadius: Float)
     ?.site
     ?.id
 
-/** §4.12.4's four dot states: the fill, and the `primary` ring only the suggested site wears. */
-private fun DrawScope.drawDot(placed: PlacedSite, color: Color, radius: Float) {
+/**
+ * §4.12.4's four dot states: the fill, and the `primary` ring only the suggested site wears.
+ *
+ * [fillAlpha] is the Dots ↔ Heat cross-fade. The ring is not faded with it: it is the one mark the
+ * heat map has no way of making, and §4.12.4's `18b` keeps it drawn over the blobs.
+ */
+private fun DrawScope.drawDot(placed: PlacedSite, color: Color, radius: Float, fillAlpha: Float) {
     if (placed.site.status == SiteStatus.SUGGESTED) {
         drawCircle(
             color = color.copy(alpha = RING_ALPHA),
@@ -161,7 +214,7 @@ private fun DrawScope.drawDot(placed: PlacedSite, color: Color, radius: Float) {
             style = Stroke(width = radius * RING_WIDTH_SCALE),
         )
     }
-    drawCircle(color = color, radius = radius, center = placed.center)
+    if (fillAlpha > 0f) drawCircle(color = color, radius = radius, center = placed.center, alpha = fillAlpha)
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +327,28 @@ private val DOT_MAX_DIAMETER = 18.dp
 private const val RING_ALPHA = 0.6f
 private const val RING_RADIUS_SCALE = 1.9f
 private const val RING_WIDTH_SCALE = 0.34f
+
+/**
+ * §4.12.4's heat ramp: `error` from 0.05 for a site untouched in the last 30 days to 0.7 for the one
+ * the rotation has leaned on hardest.
+ *
+ * A ramp rather than four buckets, and the legend samples it (`SitesSections.legendEntries`) rather
+ * than carrying its own numbers — a legend whose swatches are not on the map's own scale is a key to
+ * a different map.
+ */
+private const val HEAT_MIN_ALPHA = 0.05f
+private const val HEAT_MAX_ALPHA = 0.7f
+private const val HEAT_ALPHA_RANGE = HEAT_MAX_ALPHA - HEAT_MIN_ALPHA
+
+internal fun heatAlpha(heat: Float): Float = HEAT_MIN_ALPHA + HEAT_ALPHA_RANGE * heat.coerceIn(0f, 1f)
+
+/**
+ * How far the heat blobs are blurred, as a multiple of the dot they replace.
+ *
+ * Tied to the dot rather than fixed, for the reason every other length here is: a `14dp` blur on a
+ * map squeezed into §6.4.2's Medium left pane smears all four abdomen zones into one warm smudge.
+ */
+private const val HEAT_BLUR_SCALE = 0.9f
 
 /**
  * How far past its own edge a dot answers a tap, and the floor that keeps that reachable.

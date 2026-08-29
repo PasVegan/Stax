@@ -157,6 +157,57 @@ class SitesViewModelTest {
         assertThat(viewModel.state.value.mapMode).isEqualTo(MapMode.HEAT)
     }
 
+    @Test
+    fun `heat is each site's share of the doses the busiest one took in the last 30 days`() = runTest {
+        sites.stored.value = listOf(site(id = 1), site(id = 2), site(id = 3))
+        events.uses.value = List(4) { use(siteId = 1) } + List(2) { use(siteId = 2) }
+
+        val byId = viewModel().state.value.frontSites.associateBy { it.id }
+
+        assertThat(byId.getValue(1L).heat).isEqualTo(1f)
+        assertThat(byId.getValue(2L).heat).isEqualTo(0.5f)
+        // Used before the window or not at all — either way this site is cold (§4.12.4 "Untouched").
+        assertThat(byId.getValue(3L).heat).isEqualTo(0f)
+    }
+
+    @Test
+    fun `a dose older than 30 days carries no heat`() = runTest {
+        sites.stored.value = listOf(site(id = 1), site(id = 2))
+        events.uses.value = listOf(
+            use(siteId = 1, loggedAt = NOW - 10.days),
+            use(siteId = 2, loggedAt = NOW - 40.days),
+        )
+
+        val byId = viewModel().state.value.frontSites.associateBy { it.id }
+
+        assertThat(byId.getValue(1L).heat).isEqualTo(1f)
+        assertThat(byId.getValue(2L).heat).isEqualTo(0f)
+    }
+
+    @Test
+    fun `heat is scaled against the busiest site the chip left, not the busiest of all`() = runTest {
+        sites.stored.value = listOf(
+            site(id = 1, region = BodyRegion.ABDOMEN),
+            site(id = 2, region = BodyRegion.DELT),
+        )
+        events.uses.value = List(6) { use(siteId = 1) } + List(3) { use(siteId = 2) }
+        val viewModel = viewModel()
+
+        assertThat(viewModel.state.value.frontSites.single { it.id == 2L }.heat).isEqualTo(0.5f)
+
+        viewModel.onAction(SitesAction.OnRouteFilterClick(RouteFilter.INTRAMUSCULAR))
+
+        // The abdomen is filtered off the map, so the deltoid is now the hottest thing on it.
+        assertThat(viewModel.state.value.frontSites.single { it.id == 2L }.heat).isEqualTo(1f)
+    }
+
+    @Test
+    fun `a month with no site-bearing dose leaves every site cold rather than dividing by zero`() = runTest {
+        sites.stored.value = listOf(site(id = 1))
+
+        assertThat(viewModel().state.value.frontSites.single().heat).isEqualTo(0f)
+    }
+
     // -----------------------------------------------------------------------
     // §4.12.5 Suggested site
     // -----------------------------------------------------------------------
@@ -290,8 +341,8 @@ class SitesViewModelTest {
         isAvailable = isAvailable,
     )
 
-    private fun use(siteId: Long, route: Route) =
-        SiteUse(injectionSiteId = siteId, route = route, loggedAt = NOW - 1.days)
+    private fun use(siteId: Long, route: Route = Route.SUBCUTANEOUS, loggedAt: Instant = NOW - 1.days) =
+        SiteUse(injectionSiteId = siteId, route = route, loggedAt = loggedAt)
 
     private class FakeInjectionSiteRepository : InjectionSiteRepository {
         val stored = MutableStateFlow<List<InjectionSite>>(emptyList())

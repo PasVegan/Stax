@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
@@ -104,6 +105,17 @@ class ProtocolDetailViewModel(
 
     init {
         val protocols = protocolRepository.observeById(args.protocolId)
+
+        // The row is gone — hard-deleted, or never there. Leaving is the only honest answer; staying
+        // would show the last state of something that no longer exists. Watched on the protocol flow
+        // rather than inside `render`, which the combine below runs again for the compound that goes
+        // null with it — and two `NavigateBack`s would pop two entries off the back stack.
+        protocols.map { it == null }
+            .distinctUntilChanged()
+            .filter { it }
+            .onEach { send(ProtocolDetailEvent.NavigateBack) }
+            .launchIn(viewModelScope)
+
         combine(
             protocols,
             protocols.map { it?.compoundSupplyId }
@@ -175,12 +187,8 @@ class ProtocolDetailViewModel(
     )
 
     private fun render(snapshot: Snapshot) {
-        // The row is gone — hard-deleted, or never there. Leaving is the only honest answer; staying
-        // would show the last state of something that no longer exists.
-        val protocol = snapshot.protocol ?: run {
-            send(ProtocolDetailEvent.NavigateBack)
-            return
-        }
+        // Nothing to render for a protocol that is gone; leaving is handled where it is detected.
+        val protocol = snapshot.protocol ?: return
         val date = today()
         val dose = protocol.currentDose(date)
         _state.update {

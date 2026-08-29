@@ -12,8 +12,17 @@ sealed interface SitesAction {
     /** Taps the body map's Dots / Heat toggle (§4.12.4). */
     data class OnMapModeClick(val mode: MapMode) : SitesAction
 
-    /** Taps a dot on the body map (§4.12.4) — §4.12.8's site detail sheet, which M10-04 opens. */
+    /** Taps a dot on the body map (§4.12.4) or a carousel card (§4.12.6) — opens §4.12.8's sheet. */
     data class OnSiteClick(val siteId: Long) : SitesAction
+
+    /** Dismisses §4.12.8's sheet — the scrim, the back gesture, or a drag past the handle. */
+    data object OnSiteDetailDismiss : SitesAction
+
+    /** Taps §4.12.8's "View full history" — the site's whole dose history, outside this screen. */
+    data object OnViewSiteHistoryClick : SitesAction
+
+    /** Taps §4.12.8's "Mark unavailable" — flips the site's `isAvailable` (§3.6). */
+    data object OnToggleSiteAvailabilityClick : SitesAction
 
     /** Taps §4.12.5's "Use this site" — hands the suggested site back to the caller flow. */
     data object OnUseSuggestedSiteClick : SitesAction

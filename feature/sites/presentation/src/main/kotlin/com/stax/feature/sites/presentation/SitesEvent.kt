@@ -11,4 +11,7 @@ sealed interface SitesEvent {
 
     /** §4.12.5's "Pick another" → the full-screen site picker (§4.12.7). */
     data object PickAnotherSite : SitesEvent
+
+    /** §4.12.8's "View full history" → the dose history scoped to this site. */
+    data class ViewSiteHistory(val siteId: Long) : SitesEvent
 }

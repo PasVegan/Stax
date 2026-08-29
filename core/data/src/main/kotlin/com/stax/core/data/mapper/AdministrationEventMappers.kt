@@ -3,11 +3,13 @@ package com.stax.core.data.mapper
 import com.stax.core.database.AdministrationEventEntity
 import com.stax.core.database.CompoundHistoryRow
 import com.stax.core.database.DoseComponentEntity
+import com.stax.core.database.SiteDoseRow
 import com.stax.core.domain.AdministrationEvent
 import com.stax.core.domain.CompoundHistoryEntry
 import com.stax.core.domain.Concentration
 import com.stax.core.domain.DoseComponent
 import com.stax.core.domain.Quantity
+import com.stax.core.domain.SiteDose
 import com.stax.core.domain.SiteUse
 import com.stax.core.domain.UnitFamily
 
@@ -91,3 +93,15 @@ private fun CompoundHistoryRow.concentrationAtLog(): Concentration? = Concentrat
 /** The preconditions `Quantity.div(Concentration)` asserts, asked instead of caught. */
 private fun Concentration.dividesInto(dose: Quantity): Boolean = dose.unit.family == amount.unit.family &&
     (dose.unit == amount.unit || dose.unit.family != UnitFamily.COUNT)
+
+// ---------------------------------------------------------------------------
+// SiteDoseRow → SiteDose  (§4.12.8)
+// ---------------------------------------------------------------------------
+
+/** Maps one joined site-dose row to its domain read model. */
+fun SiteDoseRow.toDomain(): SiteDose = SiteDose(
+    eventId = eventId,
+    loggedAt = loggedAt,
+    compoundName = compoundName,
+    dose = Quantity(doseValue, doseUnit),
+)

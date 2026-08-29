@@ -32,6 +32,10 @@ our own that `:core:data` converts to `PagingData` anyway — buys nothing.
   §4.3.7's status filter as a query parameter rather than as a filter over the emitted rows. The same
   read model serves §4.8.7 through `pagedHistoryForProtocol`, which takes no status — Protocol Detail
   has no filter chips.
+  `SiteUse` (§4.12.3 — a dose that named a site, projected to the site, route and moment the tiles
+  count over) and `SiteDose` (§4.12.8 — one dose given at a site, with the compound it named and the
+  dose it delivered) are the Sites screen's two: the first is read over a window across every site,
+  the second over one site's whole history.
 - `repository/` interfaces: `CompoundRepository`, `ProtocolRepository`, `ScheduledDoseRepository`,
   `AdministrationEventRepository`, `InjectionSiteRepository`, `InventoryRepository`,
   `SettingsRepository`.

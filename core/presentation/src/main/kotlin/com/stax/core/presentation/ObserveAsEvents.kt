@@ -20,15 +20,21 @@ import kotlinx.coroutines.withContext
  * in the same frame rather than one dispatch later, which would let the user act on a screen that is
  * already leaving.
  *
- * Pass [key1] / [key2] when [onEvent] captures values that change over the screen's life — the
- * collector is restarted so it never invokes a stale lambda.
+ * Pass [key1] / [key2] / [key3] when [onEvent] captures values that change over the screen's life —
+ * the collector is restarted so it never invokes a stale lambda.
  */
 @Suppress("FunctionName")
 @Composable
-fun <T> ObserveAsEvents(events: Flow<T>, key1: Any? = null, key2: Any? = null, onEvent: (T) -> Unit) {
+fun <T> ObserveAsEvents(
+    events: Flow<T>,
+    key1: Any? = null,
+    key2: Any? = null,
+    key3: Any? = null,
+    onEvent: (T) -> Unit,
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(events, lifecycleOwner.lifecycle, key1, key2) {
+    LaunchedEffect(events, lifecycleOwner.lifecycle, key1, key2, key3) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             withContext(Dispatchers.Main.immediate) {
                 events.collect(onEvent)

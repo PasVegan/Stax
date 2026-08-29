@@ -7,6 +7,7 @@ import com.stax.core.domain.Route
 import com.stax.core.domain.Sublocation
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlin.time.Instant
 
 /**
  * §4.12.2's three chips. Single select, [ALL] by default.
@@ -83,6 +84,44 @@ data class SiteUi(
 data class SuggestedSiteUi(val id: Long, val name: String, val daysRested: Int?, val isCoolingComplete: Boolean)
 
 /**
+ * §4.12.8's site-detail sheet: everything about one site that the map's dot could not say.
+ *
+ * [site] is the same [SiteUi] the map draws, so the sheet's avatar and the dot it opened from cannot
+ * disagree about the site's state. It is derived from the **unfiltered** sites: §4.12.2's chip
+ * narrows what the map shows, and a chip changed while the sheet is open should not empty it.
+ *
+ * [timesUsed] is null until the site's doses have been read — the sheet opens on what the map
+ * already knew, and "0 times used" for a site with eight is a worse first frame than an empty tile.
+ * It counts **events**, not the rows behind them: a dose that stacked two compounds (§4.10.3) used
+ * this site once and lists two lines.
+ *
+ * [daysCoolingRemaining] is whole days until §5.3's `avoidUntil`, null when there is no cooldown left
+ * to serve — a site already past it has nothing to remain.
+ *
+ * [hasWriteError] is the last Mark-unavailable write having failed. Reported in the sheet rather than
+ * through a snackbar: the sheet is its own window, and the screen's host draws behind it.
+ */
+@Immutable
+data class SiteDetailUi(
+    val site: SiteUi,
+    val isAvailable: Boolean,
+    val daysCoolingRemaining: Int?,
+    val timesUsed: Int?,
+    val recentUses: ImmutableList<SiteDoseUi>,
+    val hasWriteError: Boolean = false,
+)
+
+/**
+ * One line of §4.12.8's recent-uses list: what went into this site, and when.
+ *
+ * [dose] is pre-rendered because the screen never divides quantities (§3.0.1); [loggedAt] stays a
+ * moment because "2 days ago · 8:14 PM" needs the device locale and its 12/24-hour setting, which
+ * only the composable can read.
+ */
+@Immutable
+data class SiteDoseUi(val eventId: Long, val compoundName: String, val dose: String, val loggedAt: Instant)
+
+/**
  * UI state of the Sites screen (§4.12).
  *
  * Every list here is already narrowed by [routeFilter] — §4.12.2 filters the stats, the map and the
@@ -104,6 +143,7 @@ data class SitesState(
     val backSites: ImmutableList<SiteUi> = persistentListOf(),
     val suggested: SuggestedSiteUi? = null,
     val recent: ImmutableList<SiteUi> = persistentListOf(),
+    val detail: SiteDetailUi? = null,
     val isLoading: Boolean = true,
 ) {
     /** The dots of whichever body view the tabs are on (§4.12.4). */

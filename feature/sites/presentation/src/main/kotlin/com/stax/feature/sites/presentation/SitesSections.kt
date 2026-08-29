@@ -557,6 +557,7 @@ private fun TagPill(text: String, icon: Painter, modifier: Modifier = Modifier) 
 internal fun RecentActivitySection(
     recent: ImmutableList<SiteUi>,
     isVertical: Boolean,
+    onAction: (SitesAction) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(horizontal = SCREEN_PADDING),
 ) {
@@ -578,7 +579,9 @@ internal fun RecentActivitySection(
                 modifier = Modifier.padding(contentPadding),
                 verticalArrangement = Arrangement.spacedBy(CHIP_GAP),
             ) {
-                recent.forEach { site -> RecentSiteCard(site = site, modifier = Modifier.fillMaxWidth()) }
+                recent.forEach { site ->
+                    RecentSiteCard(site = site, onAction = onAction, modifier = Modifier.fillMaxWidth())
+                }
             }
 
             else -> LazyRow(
@@ -586,19 +589,25 @@ internal fun RecentActivitySection(
                 horizontalArrangement = Arrangement.spacedBy(CHIP_GAP),
             ) {
                 items(items = recent, key = { it.id }) { site ->
-                    RecentSiteCard(site = site, modifier = Modifier.width(RECENT_CARD_WIDTH))
+                    RecentSiteCard(site = site, onAction = onAction, modifier = Modifier.width(RECENT_CARD_WIDTH))
                 }
             }
         }
     }
 }
 
-/** One carousel card (§4.12.6): the status avatar, the site, and how long ago it was last used. */
+/**
+ * One carousel card (§4.12.6): the status avatar, the site, and how long ago it was last used.
+ *
+ * Tappable, and to the same place a dot is (§4.12.8): a card naming a site is the other way into that
+ * site's sheet, and the two would be a puzzle if only one of them opened.
+ */
 @Suppress("FunctionName")
 @Composable
-private fun RecentSiteCard(site: SiteUi, modifier: Modifier = Modifier) {
+private fun RecentSiteCard(site: SiteUi, onAction: (SitesAction) -> Unit, modifier: Modifier = Modifier) {
     val isCooling = site.status == SiteStatus.COOLING
     Surface(
+        onClick = { onAction(SitesAction.OnSiteClick(site.id)) },
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         color = if (isCooling) {
@@ -654,7 +663,7 @@ private fun RecentSiteCard(site: SiteUi, modifier: Modifier = Modifier) {
 
 /** "2 days ago", or "Today" — a dose logged this morning is not "0 days ago" in anyone's reading. */
 @Composable
-private fun daysAgoLabel(days: Int?): String = when {
+internal fun daysAgoLabel(days: Int?): String = when {
     days == null -> stringResource(R.string.sites_suggested_never_used)
     days == 0 -> stringResource(R.string.sites_recent_today)
     else -> pluralStringResource(R.plurals.sites_recent_days_ago, days, days)

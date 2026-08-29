@@ -1,6 +1,7 @@
 package com.stax.feature.sites.presentation
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.isEmpty
@@ -21,6 +23,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.time.Instant
 
 /**
  * The Sites screen across the §6.4.8 breakpoint profiles (§10.5): Compact (Pixel 10 portrait),
@@ -246,6 +249,134 @@ class SitesScreenTest {
 
         composeRule.onNodeWithText("No dose has named a site yet.").assertExists()
     }
+
+    // -----------------------------------------------------------------------
+    // §4.12.8 Site detail sheet
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the sheet carries the header, the stats and the recent uses at Compact`() {
+        setScreen(state().copy(detail = detail()))
+
+        assertSheetIsRendered()
+    }
+
+    @Test
+    @Config(qualifiers = MEDIUM)
+    fun `the sheet carries the header, the stats and the recent uses at Medium`() {
+        setScreen(state().copy(detail = detail()))
+
+        assertSheetIsRendered()
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `the sheet carries the header, the stats and the recent uses at Expanded`() {
+        // §6.4.2 turns it into an end-edge side sheet here; the content it holds is the same.
+        setScreen(state().copy(detail = detail()))
+
+        assertSheetIsRendered()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `the sheet's two actions raise theirs at Compact`() {
+        setScreen(state().copy(detail = detail()))
+
+        composeRule.onNodeWithText("View full history").performClick()
+        composeRule.onNodeWithText("Mark unavailable").performClick()
+
+        assertThat(actions).containsExactly(
+            SitesAction.OnViewSiteHistoryClick,
+            SitesAction.OnToggleSiteAvailabilityClick,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `the sheet's two actions raise theirs at Expanded`() {
+        setScreen(state().copy(detail = detail()))
+
+        composeRule.onNodeWithText("View full history").performClick()
+        composeRule.onNodeWithText("Mark unavailable").performClick()
+
+        assertThat(actions).containsExactly(
+            SitesAction.OnViewSiteHistoryClick,
+            SitesAction.OnToggleSiteAvailabilityClick,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `an unavailable site says so and offers the way back`() {
+        setScreen(state().copy(detail = detail().copy(isAvailable = false, daysCoolingRemaining = null)))
+
+        composeRule.onNodeWithText("Unavailable · Left out of the rotation").assertExists()
+        composeRule.onNodeWithText("Mark available").assertExists()
+        composeRule.onNodeWithText("Mark unavailable").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a failed write is reported inside the sheet`() {
+        setScreen(state().copy(detail = detail().copy(hasWriteError = true)))
+
+        composeRule.onNodeWithText("That change could not be saved. Try again.").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a site nobody has dosed into says so instead of listing nothing`() {
+        setScreen(
+            state().copy(
+                detail = detail().copy(timesUsed = 0, recentUses = emptyList<SiteDoseUi>().toImmutableList()),
+            ),
+        )
+
+        composeRule.onNodeWithText("No dose has been logged at this site yet.").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a carousel card opens the same sheet a dot does`() {
+        setScreen(state())
+
+        // Through the semantics action rather than a tap: the card lives in a `LazyRow` nested in the
+        // screen's vertical scroll, and `performScrollTo` reaches only the horizontal one.
+        composeRule.onNodeWithText("Abdomen Upper-Left").performSemanticsAction(SemanticsActions.OnClick)
+
+        assertThat(actions).containsExactly(SitesAction.OnSiteClick(2))
+    }
+
+    /** §4.12.8's four parts: the header line, the three stats, the uses, and the two actions. */
+    private fun assertSheetIsRendered() {
+        composeRule.onNodeWithText("Abdomen · Left (upper)").assertExists()
+        composeRule.onNodeWithText("Cooling · 2 days remaining").assertExists()
+        composeRule.onNodeWithText("Times used").assertExists()
+        composeRule.onNodeWithText("8").assertExists()
+        composeRule.onNodeWithText("Route").assertExists()
+        composeRule.onNodeWithText("Subcut").assertExists()
+        composeRule.onNodeWithText("Last used").assertExists()
+        composeRule.onNodeWithText("Tirzepatide · 2.5 mg").assertExists()
+        composeRule.onNodeWithText("View full history").assertExists()
+        composeRule.onNodeWithText("Mark unavailable").assertExists()
+    }
+
+    private fun detail() = SiteDetailUi(
+        site = siteUi(2, "Abdomen · Left (upper)", BodyRegion.ABDOMEN, SiteStatus.COOLING, 2, Sublocation.UPPER),
+        isAvailable = true,
+        daysCoolingRemaining = 2,
+        timesUsed = 8,
+        recentUses = listOf(
+            SiteDoseUi(
+                eventId = 1,
+                compoundName = "Tirzepatide",
+                dose = "2.5 mg",
+                loggedAt = Instant.parse("2026-05-08T20:14:00Z"),
+            ),
+        ).toImmutableList(),
+    )
 
     private fun setScreen(state: SitesState) {
         composeRule.setContent {

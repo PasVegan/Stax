@@ -30,11 +30,18 @@ picker. Includes the rotation-suggestion algorithm surface.
   viewport once, so the map and its targets scale together. Heat mode swaps the last two layers for
   one blurred ellipse per site on a second `Canvas`, cross-faded with them; `heatAlpha()` is the ramp
   both it and the legend read.
-- `SitesAction.OnSiteClick(siteId)` — a dot tap (§4.12.4). The ViewModel drops it until M10-04 adds
-  §4.12.8's detail sheet; §4.12.6's carousel cards raise the same action when they become tappable.
+- `SitesAction.OnSiteClick(siteId)` — a dot tap (§4.12.4) **or** a carousel card (§4.12.6); both open
+  §4.12.8's sheet, since a card naming a site is the other way into that site.
+- `SiteDetailSheet.kt` — §4.12.8's sheet on `StaxAdaptiveSheet` (`360dp` side sheet at Expanded,
+  §6.4.2): status header, the Times used / Route / Last used tiles, the last three doses given here,
+  and the View full history / availability-toggle actions. `SiteDetailSheet` is the sheet;
+  `SiteDetailContent` is its body, which is what the previews render — a modal sheet is its own
+  window and no `@Preview` draws one.
+- `SitesState.SiteDetailUi` / `SiteDoseUi` — the sheet's state. `SitesState.detail` non-null is the
+  sheet being open.
 - `SitesPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
-  `sitesEntries(onUseSite, onPickAnotherSite)` (Nav3 entryProvider extension). Coming: site-detail
-  sheet (M10-04), site-picker flow (M10-05).
+  `sitesEntries(onUseSite, onPickAnotherSite, onViewSiteHistory)` (Nav3 entryProvider extension).
+  Coming: site-picker flow (M10-05).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas/vector + hit-testing), `navigation-3`,
@@ -70,5 +77,21 @@ Sites feature.
   cooldown order) into `:core:domain`.
 - Layout thresholds are measured on the **pane**, not the window (`SitesScreen.kt`): one column under
   `520dp`, two panes to `720dp`, both body views side by side above it (§6.4.2).
-- Site detail becomes an end-edge side sheet at Expanded (§6.4.2).
+- Site detail becomes an end-edge side sheet at Expanded (§6.4.2) — `StaxAdaptiveSheet` handles all
+  three shapes, so the sheet passes only `sideSheetWidth = 360dp` and its content.
+- **The sheet's own read is a third flow**, keyed on `openSiteId` through `flatMapLatest`: §4.12.8 asks
+  about one site and only while its sheet is up, and `flatMapLatest` is what closes the previous site's
+  query when a second dot is tapped without a dismiss in between. `SiteDetailUi.timesUsed` is null
+  until that read lands, so the tile is blank rather than claiming zero for a site with eight uses.
+- **The sheet is derived from the *unfiltered* sites**: §4.12.2's chip narrows the map, and a chip
+  changed while the sheet is open would otherwise empty it.
+- Mark unavailable writes the whole `InjectionSite` back (`update(site.copy(isAvailable = …))`) rather
+  than through a field-level repository call — the ViewModel already holds the row, and this screen
+  changes nothing else about it. The sheet stays open: `observeAll` re-emits, the button flips to
+  "Mark available", and the site drops out of Ready (§4.12.3) and out of the rotation (§4.12.5).
+- The sheet's action row uses **no weights** inside its `FlowRow`: weighted, the two full-sentence
+  labels share the row and truncate at Compact ("View full hi…"). Sized to their own labels they wrap.
+- The recent-use time is formatted locally (`DateFormat.is24HourFormat` + `getBestDateTimePattern`),
+  the same eight lines Compound Detail carries — features never depend on features, and hoisting it
+  to `:core:presentation` for a second caller is a bigger change than the duplication.
 - See spec §4.12, §6.4.2 Sites; ISSUES M10-*.

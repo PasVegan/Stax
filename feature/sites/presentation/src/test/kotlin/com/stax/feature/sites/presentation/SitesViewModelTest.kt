@@ -3,21 +3,32 @@ package com.stax.feature.sites.presentation
 import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.containsExactly
+import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
+import assertk.assertions.isFalse
 import assertk.assertions.isNull
+import assertk.assertions.isTrue
 import com.stax.core.domain.BodyRegion
+import com.stax.core.domain.DataError
+import com.stax.core.domain.Decimal
+import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.InjectionSide
 import com.stax.core.domain.InjectionSite
 import com.stax.core.domain.Protocol
+import com.stax.core.domain.Quantity
+import com.stax.core.domain.Result
 import com.stax.core.domain.Route
+import com.stax.core.domain.SiteDose
 import com.stax.core.domain.SiteUse
 import com.stax.core.domain.Sublocation
+import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.AdministrationEventRepository
 import com.stax.core.domain.repository.InjectionSiteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -281,21 +292,6 @@ class SitesViewModelTest {
         }
     }
 
-    @Test
-    fun `a tap on a body-map dot changes nothing until the detail sheet exists`() = runTest {
-        sites.stored.value = listOf(site(id = 3, lastUsedAt = NOW - 2.days))
-        val viewModel = viewModel()
-        val before = viewModel.state.value
-
-        viewModel.events.test {
-            viewModel.onAction(SitesAction.OnSiteClick(siteId = 3))
-
-            // §4.12.8's sheet is M10-04 — until it lands the map resolves the dot and stops there.
-            expectNoEvents()
-        }
-        assertThat(viewModel.state.value).isEqualTo(before)
-    }
-
     // -----------------------------------------------------------------------
     // §4.12.6 Recent activity
     // -----------------------------------------------------------------------
@@ -313,6 +309,110 @@ class SitesViewModelTest {
 
         assertThat(recent.map { it.id }).containsExactly(2L, 4L, 1L)
         assertThat(recent.map { it.daysSinceLastUse }).containsExactly(2, 5, 8)
+    }
+
+    // -----------------------------------------------------------------------
+    // §4.12.8 Site detail sheet
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `tapping a dot opens the sheet on that site with its uses`() = runTest {
+        sites.stored.value = listOf(site(id = 1), site(id = 2, lastUsedAt = NOW - 2.days))
+        events.dosesBySite.value = mapOf(
+            // One event, two compounds (§4.10.3): two lines, one use of the site.
+            2L to listOf(dose(eventId = 9), dose(eventId = 9, compound = "Tirzepatide"), dose(eventId = 8)),
+        )
+        val viewModel = viewModel()
+
+        viewModel.onAction(SitesAction.OnSiteClick(2))
+
+        val detail = viewModel.state.value.detail!!
+        assertThat(detail.site.id).isEqualTo(2L)
+        assertThat(detail.timesUsed).isEqualTo(2)
+        assertThat(detail.recentUses.map { it.compoundName })
+            .containsExactly("Semaglutide", "Tirzepatide", "Semaglutide")
+        assertThat(detail.isAvailable).isTrue()
+    }
+
+    @Test
+    fun `the sheet counts down the cooldown it is still serving`() = runTest {
+        sites.stored.value = listOf(site(id = 1, avoidUntil = NOW + 2.days))
+        val viewModel = viewModel()
+
+        viewModel.onAction(SitesAction.OnSiteClick(1))
+
+        assertThat(viewModel.state.value.detail!!.daysCoolingRemaining).isEqualTo(2)
+    }
+
+    @Test
+    fun `the chip narrowing the map does not empty the open sheet`() = runTest {
+        sites.stored.value = listOf(site(id = 1, region = BodyRegion.ABDOMEN))
+        val viewModel = viewModel()
+        viewModel.onAction(SitesAction.OnSiteClick(1))
+
+        // The abdomen is subcutaneous only, so IM leaves the map empty.
+        viewModel.onAction(SitesAction.OnRouteFilterClick(RouteFilter.INTRAMUSCULAR))
+
+        assertThat(viewModel.state.value.frontSites).isEmpty()
+        assertThat(viewModel.state.value.detail?.site?.id).isEqualTo(1L)
+    }
+
+    @Test
+    fun `Mark unavailable toggles isAvailable and the site leaves the rotation`() = runTest {
+        sites.stored.value = listOf(site(id = 1, lastUsedAt = NOW - 30.days), site(id = 2, lastUsedAt = NOW - 3.days))
+        val viewModel = viewModel()
+        viewModel.onAction(SitesAction.OnSiteClick(1))
+
+        viewModel.onAction(SitesAction.OnToggleSiteAvailabilityClick)
+
+        assertThat(sites.stored.value.single { it.id == 1L }.isAvailable).isFalse()
+        assertThat(viewModel.state.value.detail!!.isAvailable).isFalse()
+        // §4.12.3 and §4.12.5 both stop counting it: an unavailable site is neither ready nor next.
+        assertThat(viewModel.state.value.readyCount).isEqualTo(1)
+        assertThat(viewModel.state.value.suggested?.id).isEqualTo(2L)
+
+        viewModel.onAction(SitesAction.OnToggleSiteAvailabilityClick)
+
+        assertThat(sites.stored.value.single { it.id == 1L }.isAvailable).isTrue()
+        assertThat(viewModel.state.value.suggested?.id).isEqualTo(1L)
+    }
+
+    @Test
+    fun `a failed write is reported in the sheet and leaves the site alone`() = runTest {
+        sites.stored.value = listOf(site(id = 1))
+        sites.updateResult = Result.Error(DataError.Local.DISK_FULL)
+        val viewModel = viewModel()
+        viewModel.onAction(SitesAction.OnSiteClick(1))
+
+        viewModel.onAction(SitesAction.OnToggleSiteAvailabilityClick)
+
+        assertThat(viewModel.state.value.detail!!.hasWriteError).isTrue()
+        assertThat(sites.stored.value.single().isAvailable).isTrue()
+    }
+
+    @Test
+    fun `View full history names the site the sheet is open on`() = runTest {
+        sites.stored.value = listOf(site(id = 7))
+        val viewModel = viewModel()
+        viewModel.onAction(SitesAction.OnSiteClick(7))
+
+        viewModel.events.test {
+            viewModel.onAction(SitesAction.OnViewSiteHistoryClick)
+
+            assertThat(awaitItem()).isEqualTo(SitesEvent.ViewSiteHistory(7))
+        }
+    }
+
+    @Test
+    fun `dismissing the sheet drops the site and its uses`() = runTest {
+        sites.stored.value = listOf(site(id = 1))
+        events.dosesBySite.value = mapOf(1L to listOf(dose(eventId = 1)))
+        val viewModel = viewModel()
+        viewModel.onAction(SitesAction.OnSiteClick(1))
+
+        viewModel.onAction(SitesAction.OnSiteDetailDismiss)
+
+        assertThat(viewModel.state.value.detail).isNull()
     }
 
     private fun viewModel() = SitesViewModel(
@@ -344,8 +444,16 @@ class SitesViewModelTest {
     private fun use(siteId: Long, route: Route = Route.SUBCUTANEOUS, loggedAt: Instant = NOW - 1.days) =
         SiteUse(injectionSiteId = siteId, route = route, loggedAt = loggedAt)
 
+    private fun dose(eventId: Long, compound: String = "Semaglutide", loggedAt: Instant = NOW - 1.days) = SiteDose(
+        eventId = eventId,
+        loggedAt = loggedAt,
+        compoundName = compound,
+        dose = Quantity(Decimal.parse("0.25"), UnitCode.MG),
+    )
+
     private class FakeInjectionSiteRepository : InjectionSiteRepository {
         val stored = MutableStateFlow<List<InjectionSite>>(emptyList())
+        var updateResult: EmptyResult<DataError.Local> = Result.Success(Unit)
 
         override fun observeAll(): Flow<List<InjectionSite>> = stored
 
@@ -357,7 +465,12 @@ class SitesViewModelTest {
 
         override suspend fun create(site: InjectionSite) = throw NotImplementedError()
 
-        override suspend fun update(site: InjectionSite) = throw NotImplementedError()
+        override suspend fun update(site: InjectionSite): EmptyResult<DataError.Local> {
+            if (updateResult is Result.Success) {
+                stored.value = stored.value.map { if (it.id == site.id) site else it }
+            }
+            return updateResult
+        }
 
         override suspend fun delete(id: Long) = throw NotImplementedError()
 
@@ -366,8 +479,12 @@ class SitesViewModelTest {
 
     private class FakeAdministrationEventRepository : AdministrationEventRepository {
         val uses = MutableStateFlow<List<SiteUse>>(emptyList())
+        val dosesBySite = MutableStateFlow<Map<Long, List<SiteDose>>>(emptyMap())
 
         override fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>> = uses
+
+        override fun observeSiteDoses(injectionSiteId: Long): Flow<List<SiteDose>> =
+            dosesBySite.map { it[injectionSiteId].orEmpty() }
 
         override fun pagedHistoryForCompound(
             compoundSupplyId: Long,

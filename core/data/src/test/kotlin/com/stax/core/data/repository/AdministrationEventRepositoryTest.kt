@@ -67,6 +67,7 @@ class AdministrationEventRepositoryTest {
     private var protocolId: Long = 0L
     private var scheduledDoseId: Long = 0L
     private var injectionSiteId: Long = 0L
+    private var otherInjectionSiteId: Long = 0L
 
     @Before
     fun setUp() = runTest {
@@ -97,6 +98,7 @@ class AdministrationEventRepositoryTest {
         protocolId = database.protocolDao().insert(protocol(compoundId))
         scheduledDoseId = database.scheduledDoseDao().insertOrIgnore(scheduledDose(protocolId, compoundId))
         injectionSiteId = database.injectionSiteDao().insert(injectionSite())
+        otherInjectionSiteId = database.injectionSiteDao().insert(injectionSite().copy(name = "Right abdomen"))
     }
 
     @After
@@ -271,6 +273,31 @@ class AdministrationEventRepositoryTest {
         assertThat(uses.map { it.loggedAt }).containsExactly(LOGGED_AT + 1.days, LOGGED_AT)
         assertThat(uses.map { it.injectionSiteId }).containsOnly(injectionSiteId)
         assertThat(uses.map { it.route }).containsOnly(DomainRoute.SUBCUTANEOUS)
+    }
+
+    @Test
+    fun `observeSiteDoses returns this site's administered doses newest first`() = runTest {
+        repository.log(event(), listOf(component(actualDoseValue = "0.1")))
+        repository.log(
+            event().copy(loggedAt = LOGGED_AT + 1.days),
+            listOf(component(actualDoseValue = "0.25").copy(scheduledDoseId = null)),
+        )
+        // Skipped: nothing went in, so the site was not used.
+        repository.log(
+            event(status = DomainAdministrationEventStatus.SKIPPED).copy(loggedAt = LOGGED_AT + 2.days),
+            listOf(component(actualDoseValue = "0.1").copy(scheduledDoseId = null)),
+        )
+        // Another site's dose is another sheet's business.
+        repository.log(
+            event().copy(loggedAt = LOGGED_AT + 3.days, injectionSiteId = otherInjectionSiteId),
+            listOf(component(actualDoseValue = "0.1").copy(scheduledDoseId = null)),
+        )
+
+        val doses = repository.observeSiteDoses(injectionSiteId).first()
+
+        assertThat(doses.map { it.loggedAt }).containsExactly(LOGGED_AT + 1.days, LOGGED_AT)
+        assertThat(doses.map { it.compoundName }).containsOnly("Semaglutide")
+        assertThat(doses.map { it.dose.value.toPlainString() }).containsExactly("0.25", "0.1")
     }
 
     private suspend fun assertLedgerBalanced() {

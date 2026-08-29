@@ -30,7 +30,7 @@ enum class RouteFilter(val route: Route?) {
 /** §4.12.4's Front / Back tabs — which half of the body a site is on. */
 enum class BodyView { FRONT, BACK }
 
-/** §4.12.4's Dots / Heat toggle. Heat itself lands with M10-03; the toggle is the screen's state. */
+/** §4.12.4's Dots / Heat toggle — the same fourteen sites as dots, or as a heat map. */
 enum class MapMode { DOTS, HEAT }
 
 /**
@@ -50,6 +50,13 @@ enum class SiteStatus { SUGGESTED, COOLING, RECENT, READY }
  *
  * [daysSinceLastUse] is null for a site that has never been used, which is a different thing from
  * zero and reads differently in every place it appears.
+ *
+ * [heat] is §4.12.4's heat map: how often this site was used in the last 30 days, as a fraction of
+ * the busiest site on screen. Relative rather than absolute because the question the heat map answers
+ * is "which of these am I leaning on", and a rotation of two doses a week and one of two a day would
+ * both be flat on any fixed scale. It is derived in the ViewModel and not in the renderer because the
+ * busiest site may be on the body view the renderer is not drawing — normalised per view, Front and
+ * Back would disagree about what "hot" means.
  */
 @Immutable
 data class SiteUi(
@@ -60,6 +67,7 @@ data class SiteUi(
     val sublocation: Sublocation?,
     val status: SiteStatus,
     val daysSinceLastUse: Int?,
+    val heat: Float = 0f,
 ) {
     /** Which of §4.12.4's two body views this dot belongs to. */
     val bodyView: BodyView get() = bodyRegion.bodyView

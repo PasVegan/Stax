@@ -554,6 +554,8 @@ class ProtocolDetailViewModelTest {
         override suspend fun edit(id: Long, edits: com.stax.core.domain.repository.AdministrationEventEdit) =
             throw NotImplementedError()
 
+        override fun observeSiteUsesBetween(from: Instant, until: Instant) = throw NotImplementedError()
+
         override suspend fun delete(id: Long) = throw NotImplementedError()
     }
 

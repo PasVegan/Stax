@@ -9,6 +9,7 @@ import com.stax.core.domain.DoseComponent
 import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.Result
 import com.stax.core.domain.Route
+import com.stax.core.domain.SiteUse
 import kotlinx.coroutines.flow.Flow
 import kotlin.time.Instant
 
@@ -53,6 +54,15 @@ interface AdministrationEventRepository {
 
     /** §4.8.7's badge: this protocol's Taken + Partial components, all-time. */
     fun observeLoggedDoseCountForProtocol(protocolId: Long): Flow<Int>
+
+    /**
+     * The doses that named an injection site in `[from, until)`, newest first (§4.12.3).
+     *
+     * Site-bearing only, because that is the question both callers ask: §4.12.3's "This month" tile
+     * counts them, and §4.12.4's heat map weighs them per site. A dose with no site — oral, topical,
+     * or one logged without picking one — is not a use of anything.
+     */
+    fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>>
 
     suspend fun log(event: AdministrationEvent, components: List<DoseComponent>): Result<Long, DataError.Local>
 

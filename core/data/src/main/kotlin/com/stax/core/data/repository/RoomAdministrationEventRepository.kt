@@ -7,6 +7,7 @@ import androidx.paging.map
 import androidx.room.withTransaction
 import com.stax.core.data.mapper.toDomain
 import com.stax.core.data.mapper.toEntity
+import com.stax.core.data.mapper.toSiteUse
 import com.stax.core.database.AdministrationEventDao
 import com.stax.core.database.AdministrationEventEntity
 import com.stax.core.database.AdministrationEventStatus
@@ -35,6 +36,7 @@ import com.stax.core.domain.DoseComponent
 import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.Quantity
 import com.stax.core.domain.Result
+import com.stax.core.domain.SiteUse
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.AdministrationEventEdit
 import com.stax.core.domain.repository.AdministrationEventRepository
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 import com.stax.core.domain.AdministrationEventStatus as DomainAdministrationEventStatus
 
 class RoomAdministrationEventRepository(
@@ -82,6 +85,14 @@ class RoomAdministrationEventRepository(
 
     override fun observeLoggedDoseCountForProtocol(protocolId: Long): Flow<Int> =
         eventDao.observeLoggedDoseCountForProtocol(protocolId)
+
+    /**
+     * §4.12.3's "This month" tile. Read off the events table alone — the components each dose carries
+     * say nothing about which site took it, and joining them would multiply one use into as many rows
+     * as the dose had compounds (§4.10.3).
+     */
+    override fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>> =
+        eventDao.observeInRange(from, until).map { rows -> rows.mapNotNull { it.toSiteUse() } }
 
     override suspend fun log(
         event: AdministrationEvent,

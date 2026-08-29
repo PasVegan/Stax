@@ -27,6 +27,8 @@
     <string name="sites_heat_cooling">Cooling</string>
     <string name="sites_heat_older">Older</string>
     <string name="sites_heat_untouched">Untouched</string>
+    <!-- Body map dot, read by TalkBack: "{site name}, {status}" (§5.10) -->
+    <string name="sites_dot_description">%1$s, %2$s</string>
 
     <!-- Suggested site hero (§4.12.5) -->
     <string name="sites_suggested_tag">Best for now</string>

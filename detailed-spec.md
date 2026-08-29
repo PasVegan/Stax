@@ -1379,6 +1379,36 @@ Each tile: label + leading icon row (top) + value (below).
 - **Recent** (used <6d ago): `secondary` filled.
 - **Available** (ready, used ≥6d ago or never): `outline` filled.
 
+**The figure**: an anatomical body, drawn rather than an asset — path data in one fixed viewport,
+of which only the right half is written down and the left is the same data mirrored. Four layers:
+
+1. the **silhouette** — a traced half of a canonical eight-head standing figure plus one arm, each
+   mirrored and unioned. The arm is its own shape because a hanging arm crosses the hip: traced as
+   part of the trunk outline that crossing is a self-intersection, and the wedge between forearm and
+   waist fills in solid.
+2. the **muscle groups** of the current view, a shade off the body and clipped to it — pectorals,
+   abdominals, obliques, deltoids, biceps, forearms, quadriceps, knees and shins on Front;
+   trapezius, latissimus, lower back, triceps, glutes, hamstrings and calves on Back. They carry no
+   data, but a deltoid the user can *find* is what separates a body map from a plain outline, and it
+   is the reason Front and Back are two different drawings rather than the same one twice.
+3. the **zone** each site injects into, washed in that site's dot colour — the patch of body a dose
+   actually lands in, so the map answers "where on me" and not only "which of fourteen rows". The
+   wash is weighted by state: a ready site is faint, suggested and cooling are what the eye finds,
+   because with fourteen presets nearly every zone is tinted at once.
+4. the **dot** at the middle of that zone, in the same colour at full strength.
+
+Every coordinate — silhouette, muscle, zone, dot — is scaled from that one viewport, so a tap
+resolves against the same geometry the canvas drew and the hit target scales with the map.
+Overlapping targets — the four abdomen quadrants sit within a dot's width of each other — go to the
+**nearest** dot, never the first listed, or one of them is unreachable at every size.
+
+**Front / Back are mirrored**: on Front we face the body, so a site on its **left** is drawn on the
+viewer's **right**; on Back we are behind it and the two agree.
+
+**Tap target**: a dot answers a tap out to a radius that scales with it and never falls below a
+finger's width, so the map stays usable in §6.4.2's narrow left pane. Each dot also carries a
+TalkBack node labelled "{site name}, {status}" (§5.10) with no pointer input of its own.
+
 **Heat map mode** (`18b`): replaces dots with blurred ellipses (`error` fill, varying opacity 0.05–0.7 by usage frequency, outside layer blur). Hotter = recently/frequently used. Used to visualize over-rotation.
 
 **Legend** at bottom of hero (when Dots mode): Suggested / Cooling / Recent / Ready w/ swatch dots.

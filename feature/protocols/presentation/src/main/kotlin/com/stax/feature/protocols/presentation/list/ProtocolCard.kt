@@ -337,7 +337,7 @@ private fun pluralSchedule(id: Int, count: Int?): String = (count ?: 1).let { pl
 
 /** "Today 8 PM" / "Tomorrow 8 AM", else "Thu May 8 8 PM" in the order the device locale writes it. */
 @Composable
-private fun Instant.formatDayAndTime(withTime: Boolean, zone: TimeZone): String {
+internal fun Instant.formatDayAndTime(withTime: Boolean, zone: TimeZone): String {
     val dateTime = toLocalDateTime(zone)
     val day = dateTime.date.formatRelativeDay(zone)
     if (!withTime) return day
@@ -374,7 +374,7 @@ private fun LocalDate.formatRelativeDay(zone: TimeZone): String {
     }
 }
 
-private fun ProtocolPill.labelRes(): Int = when (this) {
+internal fun ProtocolPill.labelRes(): Int = when (this) {
     ProtocolPill.ACTIVE -> R.string.protocols_pill_active
     ProtocolPill.IN_BREAK -> R.string.protocols_pill_in_break
     ProtocolPill.PAUSED -> R.string.protocols_pill_paused

@@ -1028,12 +1028,20 @@ Key-value table(example values):
 
 #### 4.8.6 Site restrictions
 `surface-container`. Header: `person_pin_circle` + "Site restrictions".
-Chips for region (e.g. "Abdomen only") + rotation rule (e.g. "Rotate L / R").
+Chips for region (e.g. "Abdomen only") + rotation rule (e.g. "Rotate every 5 days").
+
+The region chip is `injectionSiteRestriction`, or "Any site" when the protocol sets none. The
+rotation chip is the **site cooldown**, resolved through §5.3's source order — `siteCooldownDays`
+where the protocol overrides it, else the Settings default for its route — because that is the
+rotation rule the app actually enforces on log. There is no left/right rotation field in §3.2, so
+there is nothing behind a "Rotate L / R" chip to state; the cooldown is the rule that exists.
 
 #### 4.8.7 Dose history
-Identical structure to §4.3.6/7/8 but filtered to this protocol.
+Same header and rows as §4.3.6/§4.3.8, filtered to this protocol — but **without §4.3.7's status
+chips**: this list is already narrowed to one protocol, and a second filter over it buys nothing.
 - Header w/ count pill "{N} logged" (Taken+Partial).
 - List rows w/ status dot + date + dose + site + status.
+- Paged like §4.3.8, since a protocol's history has no upper bound either.
 
 Tap row → §4.11 Administration Event detail.
 

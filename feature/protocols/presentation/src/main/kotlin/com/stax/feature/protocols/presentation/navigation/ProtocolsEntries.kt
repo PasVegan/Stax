@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +14,8 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stax.core.design.system.StaxListDetailScene
 import com.stax.core.design.system.paneInsets
+import com.stax.feature.protocols.presentation.detail.ProtocolDetailArgs
+import com.stax.feature.protocols.presentation.detail.ProtocolDetailRoot
 import com.stax.feature.protocols.presentation.form.ProtocolFormArgs
 import com.stax.feature.protocols.presentation.form.ProtocolFormRoot
 import com.stax.feature.protocols.presentation.list.ProtocolsListRoot
@@ -35,12 +36,20 @@ import com.stax.feature.protocols.presentation.list.ProtocolsListRoot
  *
  * [onSelectionModeChange] is §4.7.4's hidden bottom nav: the nav suite is `:app`'s chrome, so the
  * list reports when its multi-select dock is up and `:app` decides what to do about the bar.
+ *
+ * [onCompoundClick], [onLogDose] and [onAdministrationEventClick] are the three ways out of Protocol
+ * Detail (§4.8.4, §4.8.7, §4.8.9). Each lands in another feature, so this module names the intent and
+ * `:app` names the destination (§10.3).
  */
+@Suppress("LongParameterList")
 fun EntryProviderScope<NavKey>.protocolsEntries(
     onProtocolClick: (Long) -> Unit,
     onCreateProtocol: () -> Unit,
     onEditProtocol: (Long) -> Unit,
     onCreateCompound: () -> Unit,
+    onCompoundClick: (Long) -> Unit,
+    onLogDose: (Long) -> Unit,
+    onAdministrationEventClick: (Long) -> Unit,
     onBack: () -> Unit,
     onFinishOnboarding: () -> Unit,
     onSelectionModeChange: (Boolean) -> Unit,
@@ -58,11 +67,14 @@ fun EntryProviderScope<NavKey>.protocolsEntries(
         )
     }
     entry<ProtocolDetailRoute>(metadata = StaxListDetailScene.detailPane(PROTOCOLS_SCENE_KEY)) { key ->
-        PlaceholderScreen(title = "Protocol #${key.protocolId}") {
-            // §4.8.2's Edit quick action, until Protocol Detail itself lands (M9-07).
-            Button(onClick = { onEditProtocol(key.protocolId) }) { Text(text = "Edit") }
-            Button(onClick = onBack) { Text(text = "Back") }
-        }
+        ProtocolDetailRoot(
+            args = ProtocolDetailArgs(protocolId = key.protocolId),
+            onBack = onBack,
+            onEditProtocol = onEditProtocol,
+            onCompoundClick = onCompoundClick,
+            onLogDose = onLogDose,
+            onAdministrationEventClick = onAdministrationEventClick,
+        )
     }
     entry<CreateProtocolRoute> { key ->
         // Onboarding step 3 reuses this form (§4.14 step 3): same screen, app bar titled
@@ -91,7 +103,7 @@ private const val PROTOCOLS_SCENE_KEY = "protocols"
 
 @Suppress("FunctionName")
 @Composable
-private fun PlaceholderScreen(title: String, modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}) {
+private fun PlaceholderScreen(title: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -101,6 +113,5 @@ private fun PlaceholderScreen(title: String, modifier: Modifier = Modifier, acti
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text = title, style = MaterialTheme.typography.headlineMedium)
-        actions()
     }
 }

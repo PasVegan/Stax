@@ -74,6 +74,15 @@ class RoomAdministrationEventRepository(
     override fun observeLoggedDoseCount(compoundSupplyId: Long): Flow<Int> =
         eventDao.observeLoggedDoseCountForCompound(compoundSupplyId)
 
+    /** §4.8.7's history, paged the same way and by the same [Pager] rule as the compound's. */
+    override fun pagedHistoryForProtocol(protocolId: Long): Flow<PagingData<CompoundHistoryEntry>> = Pager(
+        config = PagingConfig(pageSize = HISTORY_PAGE_SIZE, enablePlaceholders = false),
+        pagingSourceFactory = { eventDao.historyPagingSourceForProtocol(protocolId) },
+    ).flow.map { page -> page.map { it.toDomain() } }
+
+    override fun observeLoggedDoseCountForProtocol(protocolId: Long): Flow<Int> =
+        eventDao.observeLoggedDoseCountForProtocol(protocolId)
+
     override suspend fun log(
         event: AdministrationEvent,
         components: List<DoseComponent>,

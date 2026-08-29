@@ -24,7 +24,9 @@ import com.stax.core.design.system.paneInsets
  */
 fun EntryProviderScope<NavKey>.loggingEntries(onBack: () -> Unit) {
     entry<LogDoseRoute> { key ->
-        val subtitle = key.compoundId?.let { "compound #$it" } ?: "pick compound"
+        val subtitle = key.protocolId?.let { "protocol #$it" }
+            ?: key.compoundId?.let { "compound #$it" }
+            ?: "pick compound"
         PlaceholderScreen(title = "Log dose ($subtitle)") {
             Button(onClick = onBack) { Text(text = "Back") }
         }

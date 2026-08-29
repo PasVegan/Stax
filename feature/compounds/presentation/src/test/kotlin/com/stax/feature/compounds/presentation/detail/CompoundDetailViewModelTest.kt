@@ -555,6 +555,11 @@ class CompoundDetailViewModelTest {
         override fun observeLoggedDoseCount(compoundSupplyId: Long): Flow<Int> =
             history.map { entries -> entries.count { it.status != AdministrationEventStatus.SKIPPED } }
 
+        override fun pagedHistoryForProtocol(protocolId: Long): Flow<PagingData<CompoundHistoryEntry>> =
+            throw NotImplementedError()
+
+        override fun observeLoggedDoseCountForProtocol(protocolId: Long): Flow<Int> = throw NotImplementedError()
+
         override suspend fun log(
             event: AdministrationEvent,
             components: List<DoseComponent>,

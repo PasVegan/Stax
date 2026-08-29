@@ -14,6 +14,7 @@ import com.stax.core.domain.Decimal
 import com.stax.core.domain.UnitCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -33,6 +34,7 @@ class CompoundHistoryDaoTest {
     private lateinit var eventDao: AdministrationEventDao
     private lateinit var componentDao: DoseComponentDao
     private lateinit var injectionSiteDao: InjectionSiteDao
+    private lateinit var protocolDao: ProtocolDao
 
     @Before
     fun setUp() {
@@ -46,6 +48,7 @@ class CompoundHistoryDaoTest {
         eventDao = database.administrationEventDao()
         componentDao = database.doseComponentDao()
         injectionSiteDao = database.injectionSiteDao()
+        protocolDao = database.protocolDao()
     }
 
     @After
@@ -155,6 +158,44 @@ class CompoundHistoryDaoTest {
         assertThat(eventDao.observeLoggedDoseCountForCompound(compoundId).first()).isEqualTo(2)
     }
 
+    @Test
+    fun `the protocol history holds this protocol's doses, newest first`() = runTest {
+        val compoundId = compoundDao.insert(compound())
+        val protocolId = protocolDao.insert(protocol(compoundSupplyId = compoundId))
+        val other = protocolDao.insert(protocol(name = "Maintenance", compoundSupplyId = compoundId))
+        val oldest = logDose(compoundId, at = "2026-06-01T08:00:00Z", protocolId = protocolId)
+        val newest = logDose(compoundId, at = "2026-06-08T08:00:00Z", protocolId = protocolId)
+        logDose(compoundId, at = "2026-06-04T08:00:00Z", protocolId = other)
+        logDose(compoundId, at = "2026-06-05T08:00:00Z", protocolId = null)
+
+        val rows = TestPager(PagingConfig(pageSize = PAGE_SIZE), eventDao.historyPagingSourceForProtocol(protocolId))
+            .refresh()
+            .rows()
+
+        assertThat(rows.map { it.eventId }).containsExactly(newest, oldest)
+    }
+
+    @Test
+    fun `the protocol badge counts Taken plus Partial and ignores Skipped`() = runTest {
+        val compoundId = compoundDao.insert(compound())
+        val protocolId = protocolDao.insert(protocol(compoundSupplyId = compoundId))
+        logDose(compoundId, at = "2026-06-01T08:00:00Z", protocolId = protocolId)
+        logDose(
+            compoundId,
+            at = "2026-06-02T08:00:00Z",
+            status = AdministrationEventStatus.PARTIAL,
+            protocolId = protocolId,
+        )
+        logDose(
+            compoundId,
+            at = "2026-06-03T08:00:00Z",
+            status = AdministrationEventStatus.SKIPPED,
+            protocolId = protocolId,
+        )
+
+        assertThat(eventDao.observeLoggedDoseCountForProtocol(protocolId).first()).isEqualTo(2)
+    }
+
     private fun source(compoundId: Long, status: AdministrationEventStatus? = null) =
         eventDao.historyPagingSourceForCompound(compoundId, status)
 
@@ -173,11 +214,14 @@ class CompoundHistoryDaoTest {
         at: String,
         status: AdministrationEventStatus = AdministrationEventStatus.TAKEN,
         injectionSiteId: Long? = null,
+        protocolId: Long? = null,
     ): Long {
         val eventId = eventDao.insert(
             administrationEvent(loggedAt = Instant.parse(at), status = status, injectionSiteId = injectionSiteId),
         )
-        componentDao.insert(doseComponent(eventId = eventId, compoundSupplyId = compoundSupplyId))
+        componentDao.insert(
+            doseComponent(eventId = eventId, compoundSupplyId = compoundSupplyId, protocolId = protocolId),
+        )
         return eventId
     }
 
@@ -200,11 +244,12 @@ class CompoundHistoryDaoTest {
         eventId: Long,
         compoundSupplyId: Long,
         actualDose: Decimal = Decimal.parse("0.25"),
+        protocolId: Long? = null,
     ): DoseComponentEntity = DoseComponentEntity(
         id = 0,
         administrationEventId = eventId,
         scheduledDoseId = null,
-        protocolId = null,
+        protocolId = protocolId,
         compoundSupplyId = compoundSupplyId,
         plannedDoseValue = actualDose,
         plannedDoseUnit = UnitCode.MG,
@@ -254,6 +299,37 @@ class CompoundHistoryDaoTest {
         deletedAt = null,
         createdAt = Instant.parse("2026-06-06T00:00:00Z"),
         updatedAt = Instant.parse("2026-06-06T00:00:00Z"),
+    )
+
+    private fun protocol(name: String = "Sema weekly", compoundSupplyId: Long): ProtocolEntity = ProtocolEntity(
+        id = 0,
+        name = name,
+        compoundSupplyId = compoundSupplyId,
+        plannedDoseValue = Decimal.parse("0.25"),
+        plannedDoseUnit = UnitCode.MG,
+        route = Route.SUBCUTANEOUS,
+        schedule = ScheduleEmbed(
+            type = ScheduleType.SPECIFIC_WEEKDAYS,
+            interval = null,
+            timesPerDay = null,
+            timesPerWeek = null,
+            timesPerMonth = null,
+        ),
+        selectedWeekdaysBitmask = 0b0010010,
+        escalation = null,
+        protocolBreak = null,
+        startDate = LocalDate.parse("2026-06-01"),
+        endDate = null,
+        reminderEnabled = false,
+        reminderOffsetMinutes = 0,
+        reminderBucket = null,
+        injectionSiteRestriction = null,
+        notes = null,
+        status = ProtocolStatus.ACTIVE,
+        siteCooldownDays = null,
+        deletedAt = null,
+        createdAt = Instant.parse("2026-06-01T00:00:00Z"),
+        updatedAt = Instant.parse("2026-06-01T00:00:00Z"),
     )
 
     private companion object {

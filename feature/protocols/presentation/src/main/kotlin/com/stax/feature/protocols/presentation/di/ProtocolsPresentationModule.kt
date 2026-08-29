@@ -1,5 +1,7 @@
 package com.stax.feature.protocols.presentation.di
 
+import com.stax.feature.protocols.presentation.detail.ProtocolDetailArgs
+import com.stax.feature.protocols.presentation.detail.ProtocolDetailViewModel
 import com.stax.feature.protocols.presentation.form.ProtocolFormArgs
 import com.stax.feature.protocols.presentation.form.ProtocolFormViewModel
 import com.stax.feature.protocols.presentation.list.ProtocolsListViewModel
@@ -15,5 +17,10 @@ val protocolsPresentationModule = module {
     // alongside the `SavedStateHandle` behind the auto-saved draft — both read off the parameter holder.
     viewModel { params ->
         ProtocolFormViewModel(params.get(), get(), get(), get(), params.get<ProtocolFormArgs>())
+    }
+
+    // Which protocol Detail is on arrives as a Koin parameter, like the form's.
+    viewModel { params ->
+        ProtocolDetailViewModel(get(), get(), get(), get(), get(), params.get<ProtocolDetailArgs>())
     }
 }

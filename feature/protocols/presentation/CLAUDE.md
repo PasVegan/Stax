@@ -15,13 +15,18 @@ forecast & warnings), escalation rules, and the pause-with-unsaved-changes flow.
 ## Key types
 - `ProtocolsPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes:
   `ProtocolsRoute`, `ProtocolDetailRoute`, `CreateProtocolRoute(onboarding)`, `EditProtocolRoute`) +
-  `protocolsEntries` (Nav3 entryProvider extension). Coming: Protocol Detail (M9-07).
+  `protocolsEntries` (Nav3 entryProvider extension).
 - `list/` — **Protocols list** (§4.7): `ProtocolsListViewModel`, `ProtocolsListState/Action/Event`,
   `ProtocolsListRoot`/`ProtocolsListScreen`, `ProtocolCard`, `ProtocolsSearchOverlay`,
   `ProtocolsSelectionMode` (§4.7.4's contextual bar, dock and archive dialog).
   `ProtocolListItemUi` carries schedule *parts* (`scheduleType`/`scheduleValue`/`weekdays`/
   `dosageTimes`), not a formatted string — weekday names, plural forms and the 12h/24h clock all
   resolve at render time from the device.
+- `detail/` — **Protocol Detail** (§4.8): `ProtocolDetailViewModel` (+ `ProtocolDetailArgs`),
+  `ProtocolDetailState/Action/Event`, `ProtocolDetailRoot`/`ProtocolDetailScreen`, and the cards of
+  `ProtocolDetailSections`. `ScheduleCardUi` carries schedule *parts* for the same reason
+  `ProtocolListItemUi` does; `ForecastUi`, `LinkedCompoundUi` and `SiteRestrictionsUi` are the other
+  three cards.
 - `form/` — **Create / Edit Protocol** (§4.9), one MVI screen for both modes:
   `ProtocolFormViewModel` (+ `ProtocolFormArgs(protocolId, isOnboarding)`), `ProtocolFormDraft`
   (`@Serializable`, auto-saved to `SavedStateHandle`), `ProtocolFormState/Action/Event`,
@@ -84,5 +89,22 @@ Protocols feature.
   Compounds**: `StaxListDetailScene` splits into two panes only at Expanded — at Medium the detail
   replaces the list, where §6.4.2 asks for a `360dp` list pane beside it. Fixing it belongs in the
   Scene wrapper (`:core:design-system`), not in either feature.
+- **Protocol Detail's run-out date is `InventoryRepository.observeRunOutDate` (M3-09)**, not a second
+  walk of the schedule — §4.8.5 and the Dashboard's warnings must not disagree about the same
+  protocol. Doses remaining and required-until-end are computed here, but against the *same*
+  stock-per-dose rule that aggregation uses (divide the dose out of the concentration where the stock
+  is measured in volume, convert into the stock's unit otherwise), so the three figures agree.
+  §4.8.5's warning row is the one condition the spec names: a batch expiring before the run-out.
+- **§4.8.6's rotation chip is the site cooldown, resolved through §5.3's source order** — the
+  protocol's override, else the Settings default for its route. There is no L/R rotation field in the
+  domain; the spec's old "Rotate L / R" example was reconciled to the rule the app enforces.
+- **§4.8.7 has no status chips** (unlike §4.3.7), so its paged history is unfiltered — one query, and
+  `AdministrationEventRepository.pagedHistoryForProtocol` has no status parameter.
+- Detail's `Instant.formatDayAndTime` and `ProtocolPill.labelRes` are `list/`'s, reused rather than
+  copied — same module, same sentences.
+- Detail leaves through the protocol flow alone (`observeById` emitting null), not from `render`:
+  the combine emits again for the compound that goes null with it, and two `NavigateBack`s would pop
+  two entries off the back stack. Archive is the other exit — a soft delete keeps the row emitting,
+  so that one is sent explicitly.
 - Create form reused by Onboarding step 3 — keep it self-contained.
 - See spec §4.7–§4.9, §6.4.2 Protocols; ISSUES M9-*.

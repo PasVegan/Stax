@@ -112,4 +112,41 @@ interface AdministrationEventDao {
         """,
     )
     fun observeLoggedDoseCountForCompound(compoundSupplyId: Long): Flow<Int>
+
+    /**
+     * One protocol's dose history as pages, newest first (§4.8.7).
+     *
+     * The compound query's twin, scoped by `dose_component.protocolId` instead: a dose logged against
+     * this protocol, whichever compound it named. No status parameter, because §4.8.7 has no filter
+     * chips — Protocol Detail shows the protocol's whole history.
+     */
+    @Query(
+        """
+        SELECT e.id AS eventId, e.loggedAt AS loggedAt, e.status AS status,
+            c.actualDoseValue AS actualDoseValue, c.actualDoseUnit AS actualDoseUnit,
+            c.concentrationAmountValue AS concentrationAmountValue,
+            c.concentrationAmountUnit AS concentrationAmountUnit,
+            c.concentrationPerValue AS concentrationPerValue,
+            c.concentrationPerUnit AS concentrationPerUnit,
+            s.name AS injectionSiteName
+        FROM dose_component c
+        INNER JOIN administration_event e ON e.id = c.administrationEventId
+        LEFT JOIN injection_site s ON s.id = e.injectionSiteId
+        WHERE c.protocolId = :protocolId
+        ORDER BY e.loggedAt DESC, e.id DESC
+        """,
+    )
+    fun historyPagingSourceForProtocol(protocolId: Long): PagingSource<Int, CompoundHistoryRow>
+
+    /** §4.8.7's badge: Taken + Partial components logged against this protocol, all-time. */
+    @Query(
+        """
+        SELECT COUNT(*)
+        FROM dose_component c
+        INNER JOIN administration_event e ON e.id = c.administrationEventId
+        WHERE c.protocolId = :protocolId
+            AND e.status != 'SKIPPED'
+        """,
+    )
+    fun observeLoggedDoseCountForProtocol(protocolId: Long): Flow<Int>
 }

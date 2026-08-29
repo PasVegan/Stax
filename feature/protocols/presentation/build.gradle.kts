@@ -13,4 +13,9 @@ dependencies {
     // The form confirms a dirty discard before it closes (§4.4.5's rule, which §4.9 inherits), so the
     // back gesture has to be intercepted before NavDisplay pops the entry: BackHandler.
     implementation(libs.androidx.activity.compose)
+
+    // §4.8.7's dose history is paged, like §4.3.8's: collectAsLazyPagingItems in the Root,
+    // LazyPagingItems in the list.
+    implementation(libs.androidx.paging.compose)
+    testImplementation(libs.androidx.paging.testing)
 }

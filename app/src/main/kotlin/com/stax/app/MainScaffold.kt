@@ -255,6 +255,27 @@ private fun TopLevelDestination.painter(selected: Boolean): Painter = when (this
  * destination's stack and all cross-feature navigation is wired here as lambda callbacks so feature
  * modules never reference one another (spec §10.3).
  */
+/**
+ * What finishing or skipping onboarding does (§4.14, §4.15).
+ *
+ * Onboarding ends on a screen it does not own (step 3 reuses Create Protocol), so the completion
+ * write is hoisted out of that feature and handed back to it from here. The whole stepper leaves the
+ * stack first, because pushing the gate on top of it would leave a back gesture walking right back
+ * into the forms the user just finished — with onboarding already marked complete. What is left is
+ * the notification gate sitting on Dashboard's root (§4.15) — the last thing before Dashboard,
+ * backing out to it — and nothing at all when the permission is already granted.
+ */
+@Composable
+private fun rememberFinishOnboarding(navState: MainNavigationState): () -> Unit {
+    val completeOnboarding = rememberOnboardingCompletion()
+    val context = LocalContext.current
+    return {
+        completeOnboarding()
+        navState.goToStartRoot()
+        if (!context.hasNotificationPermission()) navState.push(NotificationGateRoute)
+    }
+}
+
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("FunctionName")
 @Composable
@@ -272,21 +293,7 @@ private fun StaxNavDisplay(
     // Supporting-pane Scene (§6.4.2): Dashboard main pane + supporting pane.
     val supportingPaneSceneStrategy = StaxSupportingPaneScene.rememberSceneStrategy<NavKey>()
 
-    // Onboarding ends on a screen it does not own (§4.14 step 3 reuses Create Protocol), so the
-    // completion write is hoisted out of that feature and handed back to onboarding from here.
-    val completeOnboarding = rememberOnboardingCompletion()
-
-    // Finishing or skipping onboarding persists completion and ends the flow: the whole stepper leaves
-    // the stack first (§4.14), because pushing the gate on top of it would leave a back gesture walking
-    // right back into the forms the user just finished — with onboarding already marked complete. What
-    // is left is the notification gate sitting on Dashboard's root (§4.15) — the last thing before
-    // Dashboard, backing out to it — and nothing at all when the permission is already granted.
-    val context = LocalContext.current
-    val finishOnboarding = {
-        completeOnboarding()
-        navState.goToStartRoot()
-        if (!context.hasNotificationPermission()) navState.push(NotificationGateRoute)
-    }
+    val finishOnboarding = rememberFinishOnboarding(navState)
 
     val entryProvider = entryProvider {
         dashboardEntries(
@@ -321,6 +328,11 @@ private fun StaxNavDisplay(
             // belongs to another feature — so the protocols module names the intent and this names
             // the destination (§10.3).
             onCreateCompound = { navState.push(CreateCompoundRoute()) },
+            // The three ways out of Protocol Detail (§4.8.4, §4.8.7, §4.8.9), each in another
+            // feature — so the destination is named here and not there (§10.3).
+            onCompoundClick = { compoundId -> navState.push(CompoundDetailRoute(compoundId)) },
+            onLogDose = { protocolId -> navState.push(LogDoseRoute(protocolId = protocolId)) },
+            onAdministrationEventClick = { eventId -> navState.push(AdministrationEventDetailRoute(eventId)) },
             onBack = { navState.goBack() },
             // §4.14 step 3 is the last step, so finishing or skipping it ends onboarding: persist
             // the completion (onboarding's own business, hence the callback) and hand off to the

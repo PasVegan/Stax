@@ -36,6 +36,7 @@ import com.stax.core.domain.DoseComponent
 import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.Quantity
 import com.stax.core.domain.Result
+import com.stax.core.domain.SiteDose
 import com.stax.core.domain.SiteUse
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.AdministrationEventEdit
@@ -93,6 +94,10 @@ class RoomAdministrationEventRepository(
      */
     override fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>> =
         eventDao.observeInRange(from, until).map { rows -> rows.mapNotNull { it.toSiteUse() } }
+
+    /** §4.12.8's stats row and recent-uses list, both off the one read — see the interface. */
+    override fun observeSiteDoses(injectionSiteId: Long): Flow<List<SiteDose>> =
+        eventDao.observeDosesByInjectionSite(injectionSiteId).map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun log(
         event: AdministrationEvent,

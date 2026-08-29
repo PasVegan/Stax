@@ -44,6 +44,11 @@ Shared.
   (§3.5), and only when that concentration's units divide into the dose — `Quantity.div` throws on a
   cross-family divisor and on count units, both of which are reachable data, and a history row is
   not the place to raise them.
+- **`AdministrationEventRepository.observeSiteDoses`** is §4.12.8's detail sheet: one site's whole
+  administered history, newest first, driven from `dose_component` for the compound name — so a dose
+  that stacked two compounds is two rows, told apart again by `eventId`. Whole rather than paged or
+  limited: the sheet lists three of them and states how many there are, and a count is not something
+  a page of three can answer. Skipped doses are excluded — nothing went in, so nothing used the site.
 - **The `Pager` is built here, never in a ViewModel** (M7-08): the `PagingSource` behind it is a Room
   type and `:feature:*` may not see one, so the repository hands out a `Flow<PagingData<…>>` and the
   feature only ever knows the domain read model. §4.3.7's status filter is an argument to that method

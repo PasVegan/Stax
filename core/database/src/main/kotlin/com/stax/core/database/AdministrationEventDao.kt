@@ -138,6 +138,29 @@ interface AdministrationEventDao {
     )
     fun historyPagingSourceForProtocol(protocolId: Long): PagingSource<Int, CompoundHistoryRow>
 
+    /**
+     * Every dose given at one injection site, newest first (§4.12.8).
+     *
+     * Driven from `dose_component` because the compound name the sheet writes lives past it, so a
+     * dose that stacked two compounds (§4.10.3) is two rows here — `eventId` is what puts them back
+     * together when the sheet counts uses rather than lists them.
+     *
+     * Skipped doses are excluded: nothing went in, so nothing used the site.
+     */
+    @Query(
+        """
+        SELECT e.id AS eventId, e.loggedAt AS loggedAt, s.name AS compoundName,
+            c.actualDoseValue AS doseValue, c.actualDoseUnit AS doseUnit
+        FROM dose_component c
+        INNER JOIN administration_event e ON e.id = c.administrationEventId
+        INNER JOIN compound_supply s ON s.id = c.compoundSupplyId
+        WHERE e.injectionSiteId = :injectionSiteId
+            AND e.status != 'SKIPPED'
+        ORDER BY e.loggedAt DESC, e.id DESC, c.id DESC
+        """,
+    )
+    fun observeDosesByInjectionSite(injectionSiteId: Long): Flow<List<SiteDoseRow>>
+
     /** §4.8.7's badge: Taken + Partial components logged against this protocol, all-time. */
     @Query(
         """

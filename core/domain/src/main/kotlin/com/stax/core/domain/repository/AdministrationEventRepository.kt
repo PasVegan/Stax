@@ -9,6 +9,7 @@ import com.stax.core.domain.DoseComponent
 import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.Result
 import com.stax.core.domain.Route
+import com.stax.core.domain.SiteDose
 import com.stax.core.domain.SiteUse
 import kotlinx.coroutines.flow.Flow
 import kotlin.time.Instant
@@ -63,6 +64,16 @@ interface AdministrationEventRepository {
      * or one logged without picking one — is not a use of anything.
      */
     fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>>
+
+    /**
+     * Every dose given at one site, newest first (§4.12.8).
+     *
+     * Whole rather than limited or paged: the sheet shows the last three of them and states how many
+     * there are, and a count is not something a page of three can answer. Unbounded in principle —
+     * one site's whole history — but it is one site's, read only while its sheet is open, and a
+     * rotation of fourteen keeps each of them small.
+     */
+    fun observeSiteDoses(injectionSiteId: Long): Flow<List<SiteDose>>
 
     suspend fun log(event: AdministrationEvent, components: List<DoseComponent>): Result<Long, DataError.Local>
 

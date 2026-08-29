@@ -26,3 +26,14 @@ data class InjectionSite(
  * a number on a tile.
  */
 data class SiteUse(val injectionSiteId: Long, val route: Route, val loggedAt: Instant)
+
+/**
+ * One dose given at an injection site, as §4.12.8's detail sheet reads it.
+ *
+ * A row per dose *component*, not per event: the sheet names the compound that went in, and a dose
+ * that stacked two of them (§4.10.3) put both into the same site. [eventId] is what tells the two
+ * apart again — the sheet counts uses by event and lists them by component.
+ *
+ * Skipped doses are not here: nothing was administered, so the site was not used (§3.4).
+ */
+data class SiteDose(val eventId: Long, val loggedAt: Instant, val compoundName: String, val dose: Quantity)

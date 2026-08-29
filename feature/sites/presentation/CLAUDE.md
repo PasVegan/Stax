@@ -7,7 +7,7 @@ picker. Includes the rotation-suggestion algorithm surface.
 
 ## Module coordinates
 - Gradle: `:feature:sites:presentation` · plugin `com.stax.android.feature`.
-- Package: `com.stax.feature.sites.presentation` (`.di`).
+- Package: `com.stax.feature.sites.presentation` (`.di`, `.navigation`, `.picker`).
 - Deps: `:core:domain`, `:core:presentation`, `:core:design-system`.
 
 ## Allowed dependencies
@@ -39,9 +39,14 @@ picker. Includes the rotation-suggestion algorithm surface.
   window and no `@Preview` draws one.
 - `SitesState.SiteDetailUi` / `SiteDoseUi` — the sheet's state. `SitesState.detail` non-null is the
   sheet being open.
-- `SitesPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` route) +
-  `sitesEntries(onUseSite, onPickAnotherSite, onViewSiteHistory)` (Nav3 entryProvider extension).
-  Coming: site-picker flow (M10-05).
+- `picker/` — §4.12.7's full-screen picker: `SitePickerViewModel` + `SitePickerState` /
+  `SitePickerAction` / `SitePickerEvent`, `SitePickerScreen` (Root + Screen split), and
+  `SitePickerArgs` (the compound + route the caller is dosing, both optional). `PickerFilter` is the
+  screen's own All / Ready / Cooling chip — not §4.12.2's route chip — and `PickerRoute` is the two
+  injected routes the app bar can name.
+- `SitesPresentationModule` (Koin); `navigation/Routes.kt` (`@Serializable` `NavKey` routes:
+  `SitesRoute`, `SitePickerRoute`) + `sitesEntries(onUseSite, onPickAnotherSite, onViewSiteHistory,
+  onSitePicked, onPickerDismiss)` (Nav3 entryProvider extension).
 
 ## Applicable skills
 `android-presentation-mvi`, `android-compose-ui` (Canvas/vector + hit-testing), `navigation-3`,
@@ -72,9 +77,10 @@ Sites feature.
 - Dots are pixels on a canvas, so each carries a semantics-only node above it ("{site}, {status}")
   for TalkBack (§5.10); the node has no pointer input, so taps fall through to the canvas.
 - Rotation-suggestion logic is deterministic; keep computation testable (consider hoisting to domain).
-  `SitesViewModel.ROTATION_ORDER` is today's version of it — never-used first, then least recently
-  used, among the ready sites the chip left. M10-06 hoists the full rule (site restrictions, §5.3's
-  cooldown order) into `:core:domain`.
+  `ROTATION_ORDER` (in `SitesState.kt`) is today's version of it — never-used first, then least
+  recently used, among the ready sites the chip left. It is **shared** by §4.12.5's hero and
+  §4.12.7's Suggested row: two copies of the rule is how the two end up naming different sites.
+  M10-06 hoists the full rule (site restrictions, §5.3's cooldown order) into `:core:domain`.
 - Layout thresholds are measured on the **pane**, not the window (`SitesScreen.kt`): one column under
   `520dp`, two panes to `720dp`, both body views side by side above it (§6.4.2).
 - Site detail becomes an end-edge side sheet at Expanded (§6.4.2) — `StaxAdaptiveSheet` handles all
@@ -94,4 +100,20 @@ Sites feature.
 - The recent-use time is formatted locally (`DateFormat.is24HourFormat` + `getBestDateTimePattern`),
   the same eight lines Compound Detail carries — features never depend on features, and hoisting it
   to `:core:presentation` for a second caller is a bigger change than the duplication.
+- **The picker's selection lives in its `SavedStateHandle`**, not in `_state` alone: it is a
+  full-screen flow the user can leave and return to, and a pick lost to process death is a pick made
+  twice. `withResults()` mirrors it back into the state and drops it if the site stops being offered
+  (marked unavailable elsewhere while the picker sat open).
+- The picker **never offers an unavailable site** (§4.12.8): it is out of the rotation, and handing
+  the caller one would return a site the user has said not to use. Its `Suggested` row is likewise
+  not narrowed by the chip — it is the answer the screen leads with.
+- The picker is one layout at every width: a `LazyVerticalGrid` with `GridCells.Adaptive` (rows at
+  least `320dp`), with the chips, both headers and the suggested row spanning `maxLineSpan`. §6.4.2
+  names no arrangement of its own for this screen, and a list of one kind of thing has no second
+  pane to become.
+- "Pick site" is both the picker's app-bar title and its dock button (§4.12.7), so tests match the
+  button by its click action rather than by text.
+- §4.12.7 "returns to the caller" by popping back to it: the picker is stacked on whichever screen
+  opened it (§6.2), and only `:app` knows which — so `SitePickerEvent.SitePicked` names the site and
+  `MainScaffold.staxSitesEntries` pops and hands it on (`ON_USE_SITE`, inert until M11-01).
 - See spec §4.12, §6.4.2 Sites; ISSUES M10-*.

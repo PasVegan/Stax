@@ -341,7 +341,14 @@ private fun StaxNavDisplay(
             // §4.7.4 hides the bottom nav for the list's multi-select dock, exactly as §4.2.4 does.
             onSelectionModeChange = onSelectionModeChange,
         )
-        sitesEntries()
+        sitesEntries(
+            // §4.12.5's two ways out both land in flows that are not built yet — Take Dose on the
+            // picked site (M11-01) and the full site picker (M10-05). The intents are named here
+            // already so the screen is wired the day either arrives; until then the hero's buttons
+            // are inert rather than pointing somewhere wrong.
+            onUseSite = {},
+            onPickAnotherSite = {},
+        )
         settingsEntries()
         // §4.6.7: the helper leaves its mix here and then closes through `onBack`, which is what
         // "returns to caller" means when the caller is a form still sitting underneath on the stack.

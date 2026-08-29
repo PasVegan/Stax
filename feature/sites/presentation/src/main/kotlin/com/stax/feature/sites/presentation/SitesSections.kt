@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -37,6 +38,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stax.core.design.system.StaxIcons
 import kotlinx.collections.immutable.ImmutableList
 
@@ -169,9 +171,16 @@ private fun StatTile(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(painter = icon, contentDescription = null, modifier = Modifier.size(STAT_ICON_SIZE))
+                // Three tiles on a Compact phone leave each about 120dp, and "This month" needs
+                // most of it: the label shrinks to fit rather than ellipsizing into "This m…",
+                // which names no tile at all.
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
+                    autoSize = TextAutoSize.StepBased(
+                        minFontSize = LABEL_MIN_FONT_SIZE,
+                        maxFontSize = MaterialTheme.typography.labelLarge.fontSize,
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -224,7 +233,14 @@ internal fun BodyMapHero(
     }
 }
 
-/** The tabs and the toggle. Both are single-select, and both are the screen's state, not the map's. */
+/**
+ * The tabs and the toggle. Both are single-select, and both are the screen's state, not the map's.
+ *
+ * They wrap rather than share one line at every width: §6.4.2's Medium left pane is around 290dp, and
+ * two segmented rows squeezed into that clip their own labels — "Front" under the first divider says
+ * nothing the tab was for.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Suppress("FunctionName")
 @Composable
 private fun BodyMapControls(
@@ -233,10 +249,11 @@ private fun BodyMapControls(
     onAction: (SitesAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(CHIP_GAP),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(CHIP_GAP),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         if (!showBothViews) {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
@@ -251,7 +268,9 @@ private fun BodyMapControls(
                 }
             }
         }
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+        // Alone on its line once the tabs are gone, the toggle sizes to its own labels: a Dots / Heat
+        // pair stretched across an Expanded left pane reads as the map's own header, not a control.
+        SingleChoiceSegmentedButtonRow(modifier = if (showBothViews) Modifier else Modifier.weight(1f)) {
             MapMode.entries.forEachIndexed { index, mode ->
                 SegmentedButton(
                     selected = state.mapMode == mode,
@@ -457,18 +476,22 @@ private fun SuggestedSiteFacts(suggested: SuggestedSiteUi, modifier: Modifier = 
  * §4.12.5's action row. "Use this site" inverts the card's own colours — `on-primary-container` behind
  * `primary-container` text — because a filled `primary` button on a `primary-container` card is two
  * shades of the same thing and reads as a label, not a button.
+ *
+ * The two wrap onto separate lines rather than share a narrow pane: the CTA carries the site the
+ * whole screen just argued for, and "Us…" is not a button anyone presses on purpose.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Suppress("FunctionName")
 @Composable
 private fun SuggestedSiteActions(onAction: (SitesAction) -> Unit, modifier: Modifier = Modifier) {
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(CHIP_GAP),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(CHIP_GAP),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         Button(
             onClick = { onAction(SitesAction.OnUseSuggestedSiteClick) },
-            modifier = Modifier.weight(1f),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 contentColor = MaterialTheme.colorScheme.primaryContainer,
@@ -480,7 +503,6 @@ private fun SuggestedSiteActions(onAction: (SitesAction) -> Unit, modifier: Modi
                 text = stringResource(R.string.sites_suggested_use),
                 modifier = Modifier.padding(start = ICON_GAP),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
         TextButton(
@@ -645,6 +667,9 @@ private val LABEL_GAP = 4.dp
 private val ICON_GAP = 8.dp
 private val LEGEND_GAP = 12.dp
 private val STAT_ICON_SIZE = 18.dp
+
+/** The floor a stat label shrinks to before it ellipsizes; an `sp` value, so it still tracks font scale. */
+private val LABEL_MIN_FONT_SIZE = 9.sp
 private val SEGMENT_ICON_SIZE = 18.dp
 private val PILL_ICON_SIZE = 16.dp
 private val SWATCH_SIZE = 10.dp

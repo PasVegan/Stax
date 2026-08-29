@@ -17,6 +17,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -25,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import com.stax.core.design.system.StaxIcons
 import com.stax.core.design.system.StaxTheme
 import com.stax.core.design.system.paneInsets
@@ -69,11 +72,12 @@ fun SitesRoot(
  * rather than where the breakpoints fall.
  *
  * - under [TWO_PANE_MIN_WIDTH]: one column, in §6.4.2's order.
- * - up to [BOTH_BODIES_MIN_WIDTH]: the map on the left, everything that reads against it on the
- *   right — §6.4.2's Medium two-pane.
- * - above it: the same two panes, with Front **and** Back drawn side by side in the left one
- *   (§6.4.2 Expanded). The threshold is what two silhouettes plus a `400dp` right pane need; below it
- *   the second silhouette would be narrower than the dots it carries.
+ * - above it: the map on the left, everything that reads against it on the right — §6.4.2's Medium
+ *   two-pane.
+ * - on an Expanded window with at least [BOTH_BODIES_MIN_WIDTH] of pane: the same two panes, with
+ *   Front **and** Back drawn side by side in the left one and the tabs gone (§6.4.2 Expanded). Both
+ *   conditions, because the breakpoint alone is not enough — the expanded navigation rail takes
+ *   about `235dp`, so an Expanded window at its lower bound leaves this pane under `680dp`.
  */
 @Suppress("FunctionName")
 @Composable
@@ -95,7 +99,10 @@ fun SitesScreen(state: SitesState, onAction: (SitesAction) -> Unit, modifier: Mo
                         state = state,
                         onAction = onAction,
                         paneWidth = maxWidth,
-                        showBothViews = maxWidth >= BOTH_BODIES_MIN_WIDTH,
+                        // §6.4.2 puts both body views on an Expanded *window*; the pane floor is
+                        // what keeps that honest once the expanded rail has taken its ~235dp, since
+                        // two silhouettes narrower than their own dots are worse than tabs.
+                        showBothViews = isExpandedWidth() && maxWidth >= BOTH_BODIES_MIN_WIDTH,
                     )
                 }
             }
@@ -164,7 +171,7 @@ private fun TwoPane(
     showBothViews: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val rightWidth = rightPaneWidth(paneWidth = paneWidth, isFixed = showBothViews)
+    val rightWidth = rightPaneWidth(paneWidth)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -181,13 +188,7 @@ private fun TwoPane(
             ScrollingPane(modifier = Modifier.weight(1f)) {
                 BodyMapHero(state = state, showBothViews = showBothViews, onAction = onAction)
             }
-            ScrollingPane(
-                modifier = if (showBothViews) {
-                    Modifier.width(RIGHT_PANE_WIDTH)
-                } else {
-                    Modifier.weight(RIGHT_PANE_WEIGHT / LEFT_PANE_WEIGHT)
-                },
-            ) {
+            ScrollingPane(modifier = Modifier.width(rightWidth)) {
                 SitesStatsStrip(state = state, isVertical = true)
                 SuggestedSiteHero(suggested = state.suggested, onAction = onAction)
                 RecentActivitySection(
@@ -202,12 +203,13 @@ private fun TwoPane(
     }
 }
 
-/** What the right pane actually gets, which is what decides §4.12.6's carousel direction. */
-private fun rightPaneWidth(paneWidth: Dp, isFixed: Boolean): Dp = if (isFixed) {
-    RIGHT_PANE_WIDTH
-} else {
-    (paneWidth - SCREEN_PADDING * 2 - CARD_GAP) * RIGHT_PANE_WEIGHT
-}
+/**
+ * §6.4.2's right pane: the ~45% share it asks for at Medium, capped at the `400dp` it asks for at
+ * Expanded. One rule for both, because the cap is what the two arrangements actually differ by — and
+ * everything the map does not need is width the map would only pad with.
+ */
+private fun rightPaneWidth(paneWidth: Dp): Dp =
+    minOf((paneWidth - SCREEN_PADDING * 2 - CARD_GAP) * RIGHT_PANE_WEIGHT, RIGHT_PANE_MAX_WIDTH)
 
 @Suppress("FunctionName")
 @Composable
@@ -221,6 +223,12 @@ private fun ScrollingPane(modifier: Modifier = Modifier, content: @Composable Co
     )
 }
 
+/** §6.4.0's Expanded class (840dp+), which is the width §6.4.2 puts both body views at. */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun isExpandedWidth(): Boolean = currentWindowAdaptiveInfoV2().windowSizeClass
+    .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+
 // ---------------------------------------------------------------------------
 // Layout thresholds (§6.4.2 Sites)
 // ---------------------------------------------------------------------------
@@ -228,14 +236,13 @@ private fun ScrollingPane(modifier: Modifier = Modifier, content: @Composable Co
 /** Below this the map and the column that reads against it cannot both be legible side by side. */
 private val TWO_PANE_MIN_WIDTH = 520.dp
 
-/** What Front + Back at ~170dp each plus the `400dp` right pane and the gaps between them need. */
-private val BOTH_BODIES_MIN_WIDTH = 720.dp
+/** What Front + Back at ~180dp each plus the right pane and the gaps between them need. */
+private val BOTH_BODIES_MIN_WIDTH = 640.dp
 
-/** §6.4.2 Expanded's right pane. */
-private val RIGHT_PANE_WIDTH = 400.dp
+/** §6.4.2 Expanded's right pane, which is a cap rather than a width — see [rightPaneWidth]. */
+private val RIGHT_PANE_MAX_WIDTH = 400.dp
 
 /** §6.4.2 Medium's ~55 / ~45 split. */
-private const val LEFT_PANE_WEIGHT = 0.55f
 private const val RIGHT_PANE_WEIGHT = 0.45f
 
 /** §6.4.2: under this the carousel is a vertical list. */

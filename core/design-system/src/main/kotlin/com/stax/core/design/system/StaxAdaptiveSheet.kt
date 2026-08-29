@@ -22,6 +22,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -50,6 +51,10 @@ import androidx.window.core.layout.WindowSizeClass
  *
  * Callers pass a plain `content`; the sheet owns the drag handle, the scrim, the insets and the
  * motion (§5.9 `defaultSpatialSpec`).
+ *
+ * It opens fully rather than half-expanded. Every sheet in the app ends in its actions — Save, Delete,
+ * Mark unavailable — so a first frame that shows half the content is a first frame with nothing to
+ * press on it, and the drag that fixes that is one the user has no reason to know about.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionName")
@@ -71,6 +76,7 @@ fun StaxAdaptiveSheet(
         ModalBottomSheet(
             onDismissRequest = onDismissRequest,
             modifier = modifier,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             // Unspecified rather than the window's width: `widthIn` reads it as "no maximum", which
             // is what "full-width" has to mean when the Compact range runs up to 599dp.
             sheetMaxWidth = if (isMediumWidth()) MEDIUM_SHEET_MAX_WIDTH else Dp.Unspecified,

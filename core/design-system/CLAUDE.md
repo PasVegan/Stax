@@ -71,7 +71,9 @@ depends on nothing — every feature consumes it.
   own scrim, `StaxShapes.SideSheet` corners and a `StaxMotion` slide; it holds the dialog open until
   the exit animation has run, so dismissing looks the same at every width. Callers pass content only.
   Insets: the bottom-sheet branch takes Material's `modalWindowInsets`, the side sheet
-  `safeDrawingPadding()` inside its own surface — both include the IME.
+  `safeDrawingPadding()` inside its own surface — both include the IME. The bottom-sheet branch skips
+  the partially-expanded state (`skipPartiallyExpanded = true`): every sheet in the app ends in its
+  actions, so a half-height first frame is one with nothing to press on it.
 - `StaxPickerSheet` / `StaxPickerRow` / `StaxPickerEmptyState` — the reusable **picker bottom sheet**
   of §4.0.2: title + close, an optional search field (the caller decides — §4.0.2 says "only when
   item count > 5"), and a `LazyColumn` of avatar + name + meta + `chevron_right` rows that pick and

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- App bar (§4.12.1) -->
+    <string name="sites_title">Sites</string>
+
+    <!-- Route filter chips (§4.12.2) -->
+    <string name="sites_filter_all">All routes</string>
+    <string name="sites_filter_subcutaneous">SC</string>
+    <string name="sites_filter_intramuscular">IM</string>
+
+    <!-- Stats strip (§4.12.3) -->
+    <string name="sites_stat_ready">Ready</string>
+    <string name="sites_stat_cooling">Cooling</string>
+    <string name="sites_stat_month">This month</string>
+
+    <!-- Body map hero (§4.12.4) -->
+    <string name="sites_body_front">Front</string>
+    <string name="sites_body_back">Back</string>
+    <string name="sites_map_dots">Dots</string>
+    <string name="sites_map_heat">Heat</string>
+    <string name="sites_legend_suggested">Suggested</string>
+    <string name="sites_legend_cooling">Cooling</string>
+    <string name="sites_legend_recent">Recent</string>
+    <string name="sites_legend_ready">Ready</string>
+    <string name="sites_heat_recent">Recent</string>
+    <string name="sites_heat_cooling">Cooling</string>
+    <string name="sites_heat_older">Older</string>
+    <string name="sites_heat_untouched">Untouched</string>
+
+    <!-- Suggested site hero (§4.12.5) -->
+    <string name="sites_suggested_tag">Best for now</string>
+    <string name="sites_suggested_never_used">Never used</string>
+    <string name="sites_suggested_cooling_complete">Cooling complete</string>
+    <string name="sites_suggested_use">Use this site</string>
+    <string name="sites_suggested_pick_another">Pick another</string>
+    <string name="sites_suggested_none">Every site is still cooling</string>
+    <string name="sites_suggested_none_supporting">Nothing is ready for this route yet. The next site frees up as its cooldown runs out.</string>
+    <plurals name="sites_suggested_rested">
+        <item quantity="one">%1$d day rested</item>
+        <item quantity="other">%1$d days rested</item>
+    </plurals>
+
+    <!-- Recent activity carousel (§4.12.6) -->
+    <string name="sites_recent_title">Recent activity</string>
+    <string name="sites_recent_today">Today</string>
+    <string name="sites_recent_empty">No dose has named a site yet.</string>
+    <plurals name="sites_recent_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+
+</resources>

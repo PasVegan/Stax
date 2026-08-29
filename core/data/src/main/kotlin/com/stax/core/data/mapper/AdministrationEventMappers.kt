@@ -8,6 +8,7 @@ import com.stax.core.domain.CompoundHistoryEntry
 import com.stax.core.domain.Concentration
 import com.stax.core.domain.DoseComponent
 import com.stax.core.domain.Quantity
+import com.stax.core.domain.SiteUse
 import com.stax.core.domain.UnitFamily
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,14 @@ fun AdministrationEvent.toEntity(): AdministrationEventEntity = AdministrationEv
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
+
+/**
+ * Projects an event onto [SiteUse] (§4.12.3), or null when it named no site — an oral or topical
+ * dose, or one logged without picking one, is not a use of any site.
+ */
+fun AdministrationEventEntity.toSiteUse(): SiteUse? = injectionSiteId?.let { siteId ->
+    SiteUse(injectionSiteId = siteId, route = route.toDomain(), loggedAt = loggedAt)
+}
 
 /** Produces the companion [DoseComponentEntity] rows for this event's components. */
 fun AdministrationEvent.toComponentEntities(): List<DoseComponentEntity> = components.map { it.toEntity() }

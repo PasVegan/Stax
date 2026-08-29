@@ -36,6 +36,7 @@ import com.stax.core.domain.Schedule
 import com.stax.core.domain.ScheduleType
 import com.stax.core.domain.ScheduledDose
 import com.stax.core.domain.ScheduledDoseStatus
+import com.stax.core.domain.SiteUse
 import com.stax.core.domain.StorageLocation
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.AdministrationEventEdit
@@ -566,6 +567,9 @@ class CompoundDetailViewModelTest {
         ): Result<Long, DataError.Local> = throw NotImplementedError()
 
         override suspend fun edit(id: Long, edits: AdministrationEventEdit): EmptyResult<DataError.Local> =
+            throw NotImplementedError()
+
+        override fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>> =
             throw NotImplementedError()
 
         override suspend fun delete(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()

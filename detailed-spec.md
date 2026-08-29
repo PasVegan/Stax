@@ -1321,10 +1321,21 @@ For Skipped: "No inventory deducted" message.
 **Primary goal**: pick next injection site w/ rotation confidence.
 
 #### 4.12.1 App bar
-Leading `history` icon = decorative only (no action). Title "Sites". Trailing `search` → opens **Search overlay** (§4.0.1).
+Leading `history` icon = decorative only (no action) — an `Icon`, not an `IconButton`, so it offers no
+target for the action it does not have. Title "Sites". **No trailing action.**
+
+There is no search here. §4.0.1's overlay exists because the compound and protocol lists are
+unbounded; the site list is the fourteen preset rows of §5.8.6, all of them on one screen already, and
+a search field over them narrows nothing the eye has not already found.
 
 #### 4.12.2 Route filter chips (top of content)
 Kit filter chips: All routes / SC / IM. Filters all subsequent stats + body map + carousel by route.
+Only the two injected routes get a chip — an oral or topical dose has no site to rotate.
+
+**A site carries no route** (§3.6), so the chips filter on the routes its `bodyRegion` is given at:
+muscle bellies (Delt, Glute) take an intramuscular dose, subcutaneous tissue takes a subcutaneous one,
+and Quadriceps — the lateral thigh — takes both. §4.12.3's "This month" tile is the one thing filtered
+on the *dose's* route rather than the site's, because it counts doses and each one recorded its own.
 
 #### 4.12.3 Stats strip
 
@@ -2119,9 +2130,20 @@ Rail (Medium + Expanded) takes the leading edge (LTR start). Detail/content fill
   - **Left** (~55%, min `420dp`): body map hero (Front/Back tabs + Dots/Heat toggle). Map scales up to the pane width; dots remain finger-friendly.
   - **Right** (~45%, min `320dp`): stats strip (vertical instead of horizontal — three tiles stacked) + suggested site card + recent activity carousel (now a vertical list when narrower than `360dp`).
 - **Expanded**: three-region.
-  - **Left** (`fillRemainder`, min `560dp`): body map hero, larger. Both Front + Back rendered side-by-side instead of tab-switched — user sees both at once. Dots/Heat toggle still applies to both.
+  - **Left** (`fillRemainder`, min `560dp`): body map hero, larger. Both Front + Back rendered side-by-side instead of tab-switched — user sees both at once. Dots/Heat toggle still applies to both. The Front/Back tabs go away with the switch: two silhouettes on screen is what they were for.
   - **Right** (`400dp`): stats + suggested + recent (same as Medium right pane).
   - Site detail bottom sheet (§4.12.8) opens as a **right-edge side sheet** instead of a bottom sheet at Expanded (Material `ModalNavigationDrawer` from end edge, width `360dp`).
+- **The arrangement is measured on the pane, not the window** — the same rule the Compound detail
+  follows above, for the same reason. Sites opens beside the navigation rail, so a Medium window hands
+  it about `580dp` and an Expanded one at its lower bound about `680dp`, the expanded rail taking
+  ~`235dp` of it; the minimum widths above are sums no real window reaches once the rail has had its
+  share. Two panes from `520dp` of pane width. Front + Back side by side is the one decision that
+  reads the **window** class as well — it is §6.4.0's Expanded that §6.4.2 asks for — with a `640dp`
+  pane floor under it, since two silhouettes narrower than the dots they carry are worse than tabs.
+  The right pane takes the ~45% share, capped at the `400dp` above rather than pinned to it. The route
+  chips span both panes rather than sitting in one, since §4.12.2 filters both.
+- **The carousel reflows on the width of its own column**, not on the breakpoint: a vertical list
+  under `360dp` of right pane, the horizontal row of square cards above it.
 
 ##### Settings (§4.13)
 

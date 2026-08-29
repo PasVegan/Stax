@@ -5,6 +5,7 @@ import androidx.room.Room
 import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.containsExactlyInAnyOrder
+import assertk.assertions.containsOnly
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
@@ -250,6 +251,26 @@ class AdministrationEventRepositoryTest {
         )
 
         assertThat(repository.observeLoggedDoseCount(compoundId).first()).isEqualTo(2)
+    }
+
+    @Test
+    fun `observeSiteUsesBetween returns site-bearing doses inside the range only`() = runTest {
+        repository.log(event(), listOf(component(actualDoseValue = "0.1")))
+        repository.log(
+            event().copy(loggedAt = LOGGED_AT + 1.days),
+            listOf(component(actualDoseValue = "0.1").copy(scheduledDoseId = null)),
+        )
+        // No site: an oral dose is not a use of anything.
+        repository.log(
+            event().copy(loggedAt = LOGGED_AT + 2.days, injectionSiteId = null),
+            listOf(component(actualDoseValue = "0.1").copy(scheduledDoseId = null)),
+        )
+
+        val uses = repository.observeSiteUsesBetween(LOGGED_AT, LOGGED_AT + 2.days).first()
+
+        assertThat(uses.map { it.loggedAt }).containsExactly(LOGGED_AT + 1.days, LOGGED_AT)
+        assertThat(uses.map { it.injectionSiteId }).containsOnly(injectionSiteId)
+        assertThat(uses.map { it.route }).containsOnly(DomainRoute.SUBCUTANEOUS)
     }
 
     private suspend fun assertLedgerBalanced() {

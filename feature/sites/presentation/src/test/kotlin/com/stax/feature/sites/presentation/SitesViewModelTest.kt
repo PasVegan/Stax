@@ -230,6 +230,21 @@ class SitesViewModelTest {
         }
     }
 
+    @Test
+    fun `a tap on a body-map dot changes nothing until the detail sheet exists`() = runTest {
+        sites.stored.value = listOf(site(id = 3, lastUsedAt = NOW - 2.days))
+        val viewModel = viewModel()
+        val before = viewModel.state.value
+
+        viewModel.events.test {
+            viewModel.onAction(SitesAction.OnSiteClick(siteId = 3))
+
+            // §4.12.8's sheet is M10-04 — until it lands the map resolves the dot and stops there.
+            expectNoEvents()
+        }
+        assertThat(viewModel.state.value).isEqualTo(before)
+    }
+
     // -----------------------------------------------------------------------
     // §4.12.6 Recent activity
     // -----------------------------------------------------------------------

@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -141,6 +142,27 @@ class SitesScreenTest {
         composeRule.onNodeWithText("Suggested").assertDoesNotExist()
     }
 
+    @Test
+    @Config(qualifiers = COMPACT)
+    fun `a tap on a body-map dot raises the site it landed on`() {
+        setScreen(state())
+
+        composeRule.onNodeWithContentDescription("Abdomen Upper-Left, Cooling").performClick()
+
+        assertThat(actions).containsExactly(SitesAction.OnSiteClick(siteId = 2))
+    }
+
+    @Test
+    @Config(qualifiers = EXPANDED)
+    fun `a tap on a dot of either body view raises its site at Expanded`() {
+        setScreen(state())
+
+        // §6.4.2 draws Front and Back at once here, so a Back dot is on screen with the Front ones.
+        composeRule.onNodeWithContentDescription("Hamstring Right, Ready").performScrollTo().performClick()
+
+        assertThat(actions).containsExactly(SitesAction.OnSiteClick(siteId = 4))
+    }
+
     // -----------------------------------------------------------------------
     // §4.12.5 Suggested site hero
     // -----------------------------------------------------------------------
@@ -249,11 +271,11 @@ class SitesScreenTest {
 
     private fun state(): SitesState {
         val front = listOf(
-            siteUi(1, "Abdomen Lower-Right", BodyRegion.ABDOMEN, SiteStatus.SUGGESTED, 14),
-            siteUi(2, "Abdomen Upper-Left", BodyRegion.ABDOMEN, SiteStatus.COOLING, 2),
-            siteUi(3, "Lateral Thigh Left", BodyRegion.QUADRICEPS, SiteStatus.READY, 8),
+            siteUi(1, "Abdomen Lower-Right", BodyRegion.ABDOMEN, SiteStatus.SUGGESTED, 14, Sublocation.LOWER),
+            siteUi(2, "Abdomen Upper-Left", BodyRegion.ABDOMEN, SiteStatus.COOLING, 2, Sublocation.UPPER),
+            siteUi(3, "Lateral Thigh Left", BodyRegion.QUADRICEPS, SiteStatus.READY, 8, Sublocation.OUTER),
         )
-        val back = listOf(siteUi(4, "Hamstring Right", BodyRegion.HAMSTRING, SiteStatus.READY, 21))
+        val back = listOf(siteUi(4, "Hamstring Right", BodyRegion.HAMSTRING, SiteStatus.READY, 21, null))
         return SitesState(
             readyCount = 12,
             coolingCount = 3,
@@ -271,12 +293,20 @@ class SitesScreenTest {
         )
     }
 
-    private fun siteUi(id: Long, name: String, region: BodyRegion, status: SiteStatus, days: Int?) = SiteUi(
+    @Suppress("LongParameterList")
+    private fun siteUi(
+        id: Long,
+        name: String,
+        region: BodyRegion,
+        status: SiteStatus,
+        days: Int?,
+        sublocation: Sublocation?,
+    ) = SiteUi(
         id = id,
         name = name,
         bodyRegion = region,
         side = InjectionSide.LEFT,
-        sublocation = Sublocation.LOWER,
+        sublocation = sublocation,
         status = status,
         daysSinceLastUse = days,
     )

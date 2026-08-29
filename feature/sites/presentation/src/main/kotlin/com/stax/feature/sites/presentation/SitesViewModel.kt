@@ -3,6 +3,8 @@ package com.stax.feature.sites.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stax.core.domain.InjectionSite
+import com.stax.core.domain.Result
+import com.stax.core.domain.SiteDose
 import com.stax.core.domain.SiteUse
 import com.stax.core.domain.repository.AdministrationEventRepository
 import com.stax.core.domain.repository.InjectionSiteRepository
@@ -11,6 +13,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -46,7 +50,7 @@ import kotlin.time.Instant
  * freezing the system clock; production resolves the defaults.
  */
 class SitesViewModel(
-    siteRepository: InjectionSiteRepository,
+    private val siteRepository: InjectionSiteRepository,
     administrationEventRepository: AdministrationEventRepository,
     private val now: () -> Instant = { Clock.System.now() },
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
@@ -71,6 +75,13 @@ class SitesViewModel(
     private var sites: List<InjectionSite> = emptyList()
     private var siteUses: List<SiteUse> = emptyList()
 
+    /**
+     * Which site §4.12.8's sheet is open on, and its doses once they arrive — null while it is shut,
+     * and null again for the moment between opening it and the read landing (see [SiteDetailUi]).
+     */
+    private val openSiteId = MutableStateFlow<Long?>(null)
+    private var siteDoses: List<SiteDose>? = null
+
     init {
         combine(
             siteRepository.observeAll(),
@@ -87,6 +98,19 @@ class SitesViewModel(
                 update { it.copy(isLoading = false) }
             }
             .launchIn(viewModelScope)
+
+        // A third read rather than a wider first one: §4.12.8 asks about one site at a time, and only
+        // while its sheet is up. `flatMapLatest` is what closes the previous site's query when the
+        // sheet moves to the next dot without one being dismissed in between.
+        openSiteId
+            .flatMapLatest { siteId ->
+                siteId?.let(administrationEventRepository::observeSiteDoses) ?: flowOf(null)
+            }
+            .onEach { doses ->
+                siteDoses = doses
+                update { it }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun onAction(action: SitesAction) {
@@ -99,14 +123,46 @@ class SitesViewModel(
 
             is SitesAction.OnMapModeClick -> _state.update { it.copy(mapMode = action.mode) }
 
-            // The map resolves which dot was tapped (M10-02); what opens on top of it is §4.12.8's
-            // site detail sheet, which M10-04 adds. Until then the tap has nowhere to go.
-            is SitesAction.OnSiteClick -> Unit
+            // The map resolves which dot was tapped (M10-02); §4.12.8's sheet opens on top of it. The
+            // doses of the previous site go with it, or the new sheet opens on the old site's counts.
+            is SitesAction.OnSiteClick -> openDetail(action.siteId)
+
+            SitesAction.OnSiteDetailDismiss -> openDetail(null)
+
+            SitesAction.OnViewSiteHistoryClick ->
+                _state.value.detail?.let { send(SitesEvent.ViewSiteHistory(it.site.id)) }
+
+            SitesAction.OnToggleSiteAvailabilityClick -> toggleAvailability()
 
             SitesAction.OnUseSuggestedSiteClick ->
                 _state.value.suggested?.let { send(SitesEvent.UseSite(it.id)) }
 
             SitesAction.OnPickAnotherSiteClick -> send(SitesEvent.PickAnotherSite)
+        }
+    }
+
+    /** Opens §4.12.8's sheet on [siteId], or shuts it. The previous site's doses leave with it. */
+    private fun openDetail(siteId: Long?) {
+        siteDoses = null
+        openSiteId.value = siteId
+        update { it }
+    }
+
+    /**
+     * §4.12.8's Mark unavailable / Mark available (M10-04's acceptance).
+     *
+     * Written through the whole site rather than a field-level repository call: the ViewModel already
+     * holds the row the sheet is open on, and `isAvailable` is the only thing this screen changes
+     * about it. The sheet does not close on success — `observeAll` re-emits and the button flips, so
+     * the user sees what they did; a sheet that vanished would leave them guessing whether it took.
+     */
+    private fun toggleAvailability() {
+        val site = sites.firstOrNull { it.id == openSiteId.value } ?: return
+        viewModelScope.launch {
+            val result = siteRepository.update(site.copy(isAvailable = !site.isAvailable))
+            update { state ->
+                state.copy(detail = state.detail?.copy(hasWriteError = result is Result.Error))
+            }
         }
     }
 
@@ -154,8 +210,33 @@ class SitesViewModel(
                 .sortedBy { it.daysSinceLastUse }
                 .take(RECENT_LIMIT)
                 .toImmutableList(),
+            // Derived from the unfiltered sites: §4.12.2's chip narrows the map, and a chip changed
+            // while the sheet is open should not empty the sheet.
+            detail = sites.firstOrNull { it.id == openSiteId.value }?.let { site ->
+                site.toDetailUi(instant, isSuggested = site.id == suggestion?.id)
+                    .copy(hasWriteError = detail?.hasWriteError == true)
+            },
         )
     }
+
+    /** §4.12.8's sheet for one site, over whatever [siteDoses] currently holds. */
+    private fun InjectionSite.toDetailUi(instant: Instant, isSuggested: Boolean): SiteDetailUi = SiteDetailUi(
+        site = toUi(instant = instant, isSuggested = isSuggested, heat = 0f),
+        isAvailable = isAvailable,
+        daysCoolingRemaining = avoidUntil
+            ?.let { instant.toLocalDateTime(timeZone).date.daysUntil(it.toLocalDateTime(timeZone).date) }
+            ?.takeIf { it > 0 },
+        // Events, not rows: one dose that stacked two compounds (§4.10.3) used this site once.
+        timesUsed = siteDoses?.distinctBy { it.eventId }?.size,
+        recentUses = siteDoses.orEmpty().take(RECENT_USES_LIMIT).map {
+            SiteDoseUi(
+                eventId = it.eventId,
+                compoundName = it.compoundName,
+                dose = it.dose.toString(),
+                loggedAt = it.loggedAt,
+            )
+        }.toImmutableList(),
+    )
 
     /** §4.12.3's Ready tile: past its cooldown and not marked unavailable (§4.12.8). */
     private fun InjectionSite.isReadyAt(instant: Instant): Boolean = isAvailable && !isCoolingAt(instant)
@@ -208,6 +289,9 @@ class SitesViewModel(
 
         /** How many cards §4.12.6's carousel holds before the rest is history the sheet shows. */
         const val RECENT_LIMIT = 8
+
+        /** §4.12.8's recent-uses list: the last two or three, with "View full history" past them. */
+        const val RECENT_USES_LIMIT = 3
 
         /**
          * §4.12.4's next-rotation pick, and the order M10-06 will hoist into the domain: a site never

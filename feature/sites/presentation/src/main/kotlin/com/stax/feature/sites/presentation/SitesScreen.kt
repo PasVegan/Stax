@@ -47,15 +47,17 @@ import org.koin.androidx.compose.koinViewModel
 fun SitesRoot(
     onUseSite: (Long) -> Unit,
     onPickAnotherSite: () -> Unit,
+    onViewSiteHistory: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SitesViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    ObserveAsEvents(viewModel.events, key1 = onUseSite, key2 = onPickAnotherSite) { event ->
+    ObserveAsEvents(viewModel.events, key1 = onUseSite, key2 = onPickAnotherSite, key3 = onViewSiteHistory) { event ->
         when (event) {
             is SitesEvent.UseSite -> onUseSite(event.siteId)
             SitesEvent.PickAnotherSite -> onPickAnotherSite()
+            is SitesEvent.ViewSiteHistory -> onViewSiteHistory(event.siteId)
         }
     }
 
@@ -107,6 +109,11 @@ fun SitesScreen(state: SitesState, onAction: (SitesAction) -> Unit, modifier: Mo
                 }
             }
         }
+        // Above the whole pane, not inside a column of it: §4.12.8's sheet is modal at every width,
+        // and the dot that opens it may be in either pane.
+        state.detail?.let { detail ->
+            SiteDetailSheet(detail = detail, onAction = onAction)
+        }
     }
 }
 
@@ -151,7 +158,7 @@ private fun SingleColumn(state: SitesState, onAction: (SitesAction) -> Unit, mod
         }
         // Full-bleed: §4.12.6's carousel scrolls off the edge of the pane rather than stopping short
         // of it, which is how a row of cards says there are more of them.
-        RecentActivitySection(recent = state.recent, isVertical = false)
+        RecentActivitySection(recent = state.recent, isVertical = false, onAction = onAction)
     }
 }
 
@@ -193,6 +200,7 @@ private fun TwoPane(
                 SuggestedSiteHero(suggested = state.suggested, onAction = onAction)
                 RecentActivitySection(
                     recent = state.recent,
+                    onAction = onAction,
                     // §6.4.2: the carousel becomes a vertical list once the pane is too narrow for a
                     // card that still reads as one.
                     isVertical = rightWidth < CAROUSEL_MIN_WIDTH,

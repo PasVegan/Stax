@@ -556,6 +556,8 @@ class ProtocolDetailViewModelTest {
 
         override fun observeSiteUsesBetween(from: Instant, until: Instant) = throw NotImplementedError()
 
+        override fun observeSiteDoses(injectionSiteId: Long) = throw NotImplementedError()
+
         override suspend fun delete(id: Long) = throw NotImplementedError()
     }
 

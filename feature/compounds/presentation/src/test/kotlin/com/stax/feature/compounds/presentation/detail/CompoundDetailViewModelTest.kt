@@ -572,6 +572,8 @@ class CompoundDetailViewModelTest {
         override fun observeSiteUsesBetween(from: Instant, until: Instant): Flow<List<SiteUse>> =
             throw NotImplementedError()
 
+        override fun observeSiteDoses(injectionSiteId: Long) = throw NotImplementedError()
+
         override suspend fun delete(id: Long): EmptyResult<DataError.Local> = throw NotImplementedError()
     }
 

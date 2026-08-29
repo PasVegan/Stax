@@ -52,4 +52,39 @@
         <item quantity="other">%1$d days ago</item>
     </plurals>
 
+    <!-- Site detail sheet (§4.12.8) -->
+    <string name="sites_detail_status_suggested">Suggested</string>
+    <string name="sites_detail_status_cooling">Cooling</string>
+    <string name="sites_detail_status_recent">Recent</string>
+    <string name="sites_detail_status_ready">Ready</string>
+    <string name="sites_detail_status_unavailable">Unavailable</string>
+    <!-- Header supporting line: "{status} · {info}" -->
+    <string name="sites_detail_supporting">%1$s · %2$s</string>
+    <string name="sites_detail_info_suggested">Next in the rotation</string>
+    <string name="sites_detail_info_unavailable">Left out of the rotation</string>
+    <plurals name="sites_detail_info_cooling">
+        <item quantity="one">%1$d day remaining</item>
+        <item quantity="other">%1$d days remaining</item>
+    </plurals>
+    <string name="sites_detail_stat_times_used">Times used</string>
+    <string name="sites_detail_stat_route">Route</string>
+    <string name="sites_detail_stat_last_used">Last used</string>
+    <string name="sites_detail_value_pending">—</string>
+    <string name="sites_detail_route_sc">Subcut</string>
+    <string name="sites_detail_route_im">IM</string>
+    <string name="sites_detail_route_both">Subcut · IM</string>
+    <string name="sites_detail_last_used_today">Today</string>
+    <plurals name="sites_detail_last_used_days">
+        <item quantity="one">%1$dd ago</item>
+        <item quantity="other">%1$dd ago</item>
+    </plurals>
+    <!-- Recent uses (§4.12.8): "Tirzepatide · 2.5 mg" over "2 days ago · 8:14 PM" -->
+    <string name="sites_detail_use_title">%1$s · %2$s</string>
+    <string name="sites_detail_use_when">%1$s · %2$s</string>
+    <string name="sites_detail_uses_empty">No dose has been logged at this site yet.</string>
+    <string name="sites_detail_view_history">View full history</string>
+    <string name="sites_detail_mark_unavailable">Mark unavailable</string>
+    <string name="sites_detail_mark_available">Mark available</string>
+    <string name="sites_detail_write_failed">That change could not be saved. Try again.</string>
+
 </resources>

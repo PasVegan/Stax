@@ -348,6 +348,9 @@ private fun StaxNavDisplay(
             // are inert rather than pointing somewhere wrong.
             onUseSite = {},
             onPickAnotherSite = {},
+            // §4.12.8's "View full history" is the same story: the site-scoped history list has no
+            // screen yet, so the intent is named and the destination waits.
+            onViewSiteHistory = {},
         )
         settingsEntries()
         // §4.6.7: the helper leaves its mix here and then closes through `onBack`, which is what

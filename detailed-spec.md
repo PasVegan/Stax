@@ -1379,6 +1379,22 @@ Each tile: label + leading icon row (top) + value (below).
 - **Recent** (used <6d ago): `secondary` filled.
 - **Available** (ready, used ≥6d ago or never): `outline` filled.
 
+**Silhouette + dot geometry**: the figure is drawn, not an asset — one traced half of a canonical
+eight-head standing figure plus one arm, each mirrored, unioned into a single filled path. The arm is
+its own shape because a hanging arm crosses the hip: traced as part of the trunk outline that crossing
+is a self-intersection and the wedge between forearm and waist fills in solid. Every coordinate,
+silhouette and dot alike, is a fraction of the canvas bounds, so a tap resolves against the same
+fractions the canvas drew with and the hit target scales with the map. Overlapping targets — the four
+abdomen quadrants sit within a dot's width of each other — go to the **nearest** dot, never the first
+listed, or one of them is unreachable at every size.
+
+**Front / Back are mirrored**: on Front we face the body, so a site on its **left** is drawn on the
+viewer's **right**; on Back we are behind it and the two agree.
+
+**Tap target**: a dot answers a tap out to a radius that scales with it and never falls below a
+finger's width, so the map stays usable in §6.4.2's narrow left pane. Each dot also carries a
+TalkBack node labelled "{site name}, {status}" (§5.10) with no pointer input of its own.
+
 **Heat map mode** (`18b`): replaces dots with blurred ellipses (`error` fill, varying opacity 0.05–0.7 by usage frequency, outside layer blur). Hotter = recently/frequently used. Used to visualize over-rotation.
 
 **Legend** at bottom of hero (when Dots mode): Suggested / Cooling / Recent / Ready w/ swatch dots.

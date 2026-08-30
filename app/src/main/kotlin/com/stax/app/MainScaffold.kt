@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -67,6 +68,7 @@ import com.stax.feature.reconstitution.presentation.navigation.ReconstitutionRou
 import com.stax.feature.reconstitution.presentation.navigation.reconstitutionEntries
 import com.stax.feature.settings.presentation.navigation.SettingsRoute
 import com.stax.feature.settings.presentation.navigation.settingsEntries
+import com.stax.feature.sites.presentation.navigation.SitePickerRoute
 import com.stax.feature.sites.presentation.navigation.SitesRoute
 import com.stax.feature.sites.presentation.navigation.sitesEntries
 
@@ -341,17 +343,7 @@ private fun StaxNavDisplay(
             // §4.7.4 hides the bottom nav for the list's multi-select dock, exactly as §4.2.4 does.
             onSelectionModeChange = onSelectionModeChange,
         )
-        sitesEntries(
-            // §4.12.5's two ways out both land in flows that are not built yet — Take Dose on the
-            // picked site (M11-01) and the full site picker (M10-05). The intents are named here
-            // already so the screen is wired the day either arrives; until then the hero's buttons
-            // are inert rather than pointing somewhere wrong.
-            onUseSite = {},
-            onPickAnotherSite = {},
-            // §4.12.8's "View full history" is the same story: the site-scoped history list has no
-            // screen yet, so the intent is named and the destination waits.
-            onViewSiteHistory = {},
-        )
+        staxSitesEntries(navState)
         settingsEntries()
         // §4.6.7: the helper leaves its mix here and then closes through `onBack`, which is what
         // "returns to caller" means when the caller is a form still sitting underneath on the stack.
@@ -436,3 +428,33 @@ private val STAX_FORWARD_TRANSITION: ContentTransform = ContentTransform(
     initialContentExit = fadeOut(StaxMotion.defaultEffectsSpec()),
     targetContentZIndex = FORWARD_TARGET_Z_INDEX,
 )
+
+/**
+ * §4.12's entries and every way out of them, in one place because the picker's is two statements.
+ *
+ * §4.12.7 returns the site it picked to whoever opened it: the picker is stacked on that caller
+ * (§6.2), so popping back to it is what "returns to the caller" means here, and the site itself
+ * goes where §4.12.5's CTA goes — picking a site and using the suggested one are the same statement
+ * about what to dose into next.
+ */
+private fun EntryProviderScope<NavKey>.staxSitesEntries(navState: MainNavigationState) {
+    sitesEntries(
+        onUseSite = ON_USE_SITE,
+        onPickAnotherSite = { navState.push(SitePickerRoute()) },
+        // The site-scoped history list has no screen yet (§4.12.8's "View full history"), so the
+        // intent is named and the destination waits.
+        onViewSiteHistory = {},
+        onSitePicked = { siteId ->
+            navState.goBack()
+            ON_USE_SITE(siteId)
+        },
+        onPickerDismiss = { navState.goBack() },
+    )
+}
+
+/**
+ * Where a chosen injection site goes: §4.12.5's "Use this site" and §4.12.7's "Pick site" are one
+ * intent — Take Dose on that site — and that flow is M11-01, so it is named once here and stays
+ * inert until then.
+ */
+private val ON_USE_SITE: (Long) -> Unit = {}

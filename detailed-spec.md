@@ -1443,6 +1443,19 @@ mark that survives the fade is the suggested site's `primary` ring, because heat
   - **Use this site** (large filled, `on-primary-container` background w/ `primary-container` text = inverted contrast, leading `arrow_forward`) — returns selected site to caller flow.
   - **Pick another** (text button, `on-primary-container` text) → §4.12.7 Site picker full list.
 
+**The rotation rule**: among the sites that are available (§4.12.8), lie in the protocol's
+`injectionSiteRestriction` and take the dose's route (§4.12.2's derivation), the **least recently
+used** — a site never used yet before any that has been, ties broken on name and then id so every
+surface that derives it lands on the same one. Nothing left is a real answer, not an error: every
+site cooling leaves the hero without a suggestion.
+
+Cooling is resolved against §5.3's **source order**, not only against the `avoidUntil` a past dose
+stamped: a protocol whose `siteCooldownDays` asks for ten days may not spend a site whose stamp
+cleared after the five its last dose was given under, and a stamp still running is not cleared by a
+protocol asking for less — the later of the two wins. Which cooldown applies is only knowable where
+a protocol and route are, so the rule takes it as an argument: `InjectionSiteRepository.suggestNext`
+resolves it, and this screen and §4.12.7 — choosing a site, not giving a dose — read the stamp alone.
+
 #### 4.12.6 Recent activity carousel
 
 Horizontal scrollable row of square site cards.

@@ -93,4 +93,13 @@ Shared.
   §4.7.2's Archived tab, which is `deletedAt != null` and not a `ProtocolStatus`, so it is a separate
   query rather than a filter over `observeAll()`; `ScheduledDoseRepository.observeNextPendingPerProtocol()`
   is every card's next-dose chip in one read, using the correlated-`MIN` greatest-n-per-group form.
-- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01, M9-02, M9-05, M9-06.
+- **`InjectionSiteRepository.suggestNext` resolves the cooldown, it does not only read the stamp**
+  (§4.12.4, §5.3, M10-06): §5.3's source order — the protocol's `siteCooldownDays`, then the
+  Settings default for the route, then 5d SC / 7d IM — is applied against each site's `lastUsedAt`,
+  and the rotation skips whichever of that and `avoidUntil` runs out later. Which is why it reads
+  every site (`InjectionSiteDao.getAll`) rather than the ready ones: the SQL cannot know the
+  protocol's cooldown. Fourteen preset rows (§5.8.6), filtered in Kotlin by `:core:domain`'s
+  `SiteRotation` — the same rule the Sites screen and §4.12.7's picker derive their suggestion from.
+  `RoomAdministrationEventRepository` resolves the cooldown it stamps on log through that same
+  function.
+- See spec §5.2–§5.5, §5.8.5, §10.2; ISSUES M3-*, M7-06, M9-01, M9-02, M9-05, M9-06, M10-06.

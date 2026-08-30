@@ -56,6 +56,6 @@ val coreDataModule = module {
     singleOf(::RoomScheduledDoseRepository) { bind<ScheduledDoseRepository>() }
     singleOf(::RoomAdministrationEventRepository) { bind<AdministrationEventRepository>() }
     // These repositories keep their production clock/date defaults instead of resolving test-only providers.
-    single<InjectionSiteRepository> { RoomInjectionSiteRepository(get()) }
+    single<InjectionSiteRepository> { RoomInjectionSiteRepository(get(), get()) }
     single<InventoryRepository> { RoomInventoryRepository(get(), get()) }
 }

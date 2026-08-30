@@ -3,8 +3,7 @@ package com.stax.core.data.repository
 import com.stax.core.data.mapper.toDomain
 import com.stax.core.data.mapper.toEntity
 import com.stax.core.database.InjectionSiteDao
-import com.stax.core.database.InjectionSiteEntity
-import com.stax.core.domain.BodyRegion
+import com.stax.core.database.SettingsDao
 import com.stax.core.domain.DataError
 import com.stax.core.domain.EmptyResult
 import com.stax.core.domain.InjectionSite
@@ -12,6 +11,9 @@ import com.stax.core.domain.Protocol
 import com.stax.core.domain.Result
 import com.stax.core.domain.Route
 import com.stax.core.domain.repository.InjectionSiteRepository
+import com.stax.core.domain.requiresInjectionSite
+import com.stax.core.domain.siteCooldownDays
+import com.stax.core.domain.suggestNextSite
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
@@ -19,6 +21,7 @@ import kotlin.time.Instant
 
 class RoomInjectionSiteRepository(
     private val dao: InjectionSiteDao,
+    private val settingsDao: SettingsDao,
     private val now: () -> Instant = { Clock.System.now() },
 ) : InjectionSiteRepository {
 
@@ -52,34 +55,34 @@ class RoomInjectionSiteRepository(
         Result.Error(DataError.Local.UNKNOWN)
     }
 
+    /**
+     * §4.12.4's Suggested site for this protocol, through the one rotation rule (`SiteRotation`).
+     *
+     * Every site is read rather than the ready ones: which sites are ready depends on the cooldown
+     * §5.3 resolves for *this* protocol, and a site whose stamped `avoidUntil` has passed may still
+     * be inside a longer override. That is fourteen rows (§5.8.6), filtered in Kotlin.
+     */
     override suspend fun suggestNext(protocol: Protocol, route: Route): Result<InjectionSite?, DataError.Local> = try {
-        if (!route.requiresInjectionSite()) return Result.Success(null)
-
-        val restriction = protocol.injectionSiteRestriction
-        val selected = dao.getReadySites(now())
-            .asSequence()
-            .filter { site -> restriction == null || site.bodyRegion.toDomainRegion() == restriction }
-            .sortedWith(rotationComparator)
-            .firstOrNull()
-            ?.toDomain()
-
-        Result.Success(selected)
-    } catch (e: Exception) {
+        if (!route.requiresInjectionSite()) {
+            Result.Success(null)
+        } else {
+            val cooldownDays = siteCooldownDays(
+                route = route,
+                protocolCooldownDays = protocol.siteCooldownDays,
+                settings = settingsDao.get()?.toDomain(),
+            )
+            Result.Success(
+                dao.getAll()
+                    .map { it.toDomain() }
+                    .suggestNextSite(
+                        now = now(),
+                        route = route,
+                        restriction = protocol.injectionSiteRestriction,
+                        cooldownDays = cooldownDays,
+                    ),
+            )
+        }
+    } catch (_: Exception) {
         Result.Error(DataError.Local.UNKNOWN)
-    }
-
-    private fun Route.requiresInjectionSite(): Boolean = this == Route.SUBCUTANEOUS || this == Route.INTRAMUSCULAR
-
-    private fun com.stax.core.database.BodyRegion.toDomainRegion(): BodyRegion = BodyRegion.valueOf(name)
-
-    private companion object {
-        val rotationComparator: Comparator<InjectionSiteEntity> =
-            compareBy<InjectionSiteEntity> { it.lastUsedAt != null }
-                .thenBy { it.lastUsedAt }
-                .thenBy { it.bodyRegion.name }
-                .thenBy { it.side.name }
-                .thenBy { it.sublocation?.name.orEmpty() }
-                .thenBy { it.name.lowercase() }
-                .thenBy { it.id }
     }
 }

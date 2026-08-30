@@ -3,9 +3,9 @@ package com.stax.feature.sites.presentation
 import androidx.compose.runtime.Immutable
 import com.stax.core.domain.BodyRegion
 import com.stax.core.domain.InjectionSide
-import com.stax.core.domain.InjectionSite
 import com.stax.core.domain.Route
 import com.stax.core.domain.Sublocation
+import com.stax.core.domain.routes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Instant
@@ -160,33 +160,3 @@ internal val BodyRegion.bodyView: BodyView
         BodyRegion.GLUTE, BodyRegion.HAMSTRING, BodyRegion.LOWER_BACK -> BodyView.BACK
         else -> BodyView.FRONT
     }
-
-/**
- * The routes a region can take (§4.12.2).
- *
- * Derived rather than stored: an [com.stax.core.domain.InjectionSite] carries no route (§3.6), and
- * §4.12.2's SC / IM chips still have to narrow the map to the sites that route is given at. Muscle
- * bellies — deltoid, glute, vastus lateralis — take an intramuscular dose; subcutaneous tissue takes
- * a subcutaneous one; the lateral thigh is both, which is why this returns a set and not a route.
- */
-internal fun BodyRegion.routes(): Set<Route> = when (this) {
-    BodyRegion.DELT, BodyRegion.GLUTE -> INTRAMUSCULAR_ONLY
-    BodyRegion.QUADRICEPS -> BOTH_ROUTES
-    else -> SUBCUTANEOUS_ONLY
-}
-
-private val SUBCUTANEOUS_ONLY = setOf(Route.SUBCUTANEOUS)
-private val INTRAMUSCULAR_ONLY = setOf(Route.INTRAMUSCULAR)
-private val BOTH_ROUTES = setOf(Route.SUBCUTANEOUS, Route.INTRAMUSCULAR)
-
-/**
- * The rotation's next pick (§4.12.5), and the order M10-06 will hoist into the domain: a site never
- * used yet before one that has been, then the least recently used.
- *
- * Shared by the Sites screen and §4.12.7's picker rather than written down in each: the picker's
- * "Suggested" row and §4.12.5's hero name one site, and two copies of this rule is how they end up
- * naming two.
- */
-internal val ROTATION_ORDER: Comparator<InjectionSite> = compareBy<InjectionSite> { it.lastUsedAt != null }
-    .thenBy { it.lastUsedAt }
-    .thenBy { it.name }

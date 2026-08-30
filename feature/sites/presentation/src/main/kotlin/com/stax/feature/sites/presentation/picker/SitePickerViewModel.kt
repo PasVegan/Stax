@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.stax.core.domain.BodyRegion
 import com.stax.core.domain.InjectionSite
 import com.stax.core.domain.Route
+import com.stax.core.domain.SITE_ROTATION_ORDER
+import com.stax.core.domain.isCoolingAt
 import com.stax.core.domain.repository.InjectionSiteRepository
-import com.stax.feature.sites.presentation.ROTATION_ORDER
-import com.stax.feature.sites.presentation.routes
+import com.stax.core.domain.routes
+import com.stax.core.domain.suggestNextSite
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,9 +41,9 @@ data class SitePickerArgs(val compoundName: String? = null, val route: Route? = 
  * lost to process death is a pick the user has to make twice. It is mirrored into the state on every
  * derivation, so the dock reads one value.
  *
- * The rotation's pick reuses `ROTATION_ORDER`, the same comparator §4.12.5's hero is chosen with:
- * two copies of that rule is how the picker's "Suggested" row and the hero end up naming two
- * different sites. M10-06 hoists the full rule into `:core:domain`.
+ * The rotation's pick is `:core:domain`'s `SiteRotation` (M10-06), the same rule §4.12.5's hero and
+ * §4.12.4's `primary` ring are derived from: two copies of it is how the picker's "Suggested" row and
+ * the hero end up naming two different sites.
  *
  * [now] and [timeZone] are parameters so the cooldown counts are testable without freezing the
  * system clock; production resolves the defaults.
@@ -115,12 +117,12 @@ class SitePickerViewModel(
     private fun SitePickerState.withResults(): SitePickerState {
         val instant = now()
         val offered = allSites.filter { it.isAvailable && args.route.accepts(it.bodyRegion) }
-        val suggestion = offered.filterNot { it.isCoolingAt(instant) }.minWithOrNull(ROTATION_ORDER)
+        val suggestion = allSites.suggestNextSite(instant, route = args.route)
         return copy(
             suggested = suggestion?.toUi(instant),
             sites = offered
                 .filter { filter.accepts(it.isCoolingAt(instant)) }
-                .sortedWith(ROTATION_ORDER)
+                .sortedWith(SITE_ROTATION_ORDER)
                 .map { it.toUi(instant) }
                 .toImmutableList(),
             // A selection that is no longer on offer — the site was marked unavailable from another
@@ -143,9 +145,6 @@ class SitePickerViewModel(
             ?.toLocalDateTime(timeZone)?.date
             ?.daysUntil(instant.toLocalDateTime(timeZone).date),
     )
-
-    /** §5.3 wrote an `avoidUntil` and it has not passed yet (§4.12.3's Cooling tile, same rule). */
-    private fun InjectionSite.isCoolingAt(instant: Instant): Boolean = avoidUntil?.let { it > instant } == true
 
     private fun send(event: SitePickerEvent) {
         viewModelScope.launch { _events.send(event) }

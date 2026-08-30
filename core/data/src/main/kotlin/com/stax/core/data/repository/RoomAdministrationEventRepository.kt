@@ -41,6 +41,8 @@ import com.stax.core.domain.SiteUse
 import com.stax.core.domain.UnitCode
 import com.stax.core.domain.repository.AdministrationEventEdit
 import com.stax.core.domain.repository.AdministrationEventRepository
+import com.stax.core.domain.requiresInjectionSite
+import com.stax.core.domain.siteCooldownDays
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
@@ -307,7 +309,7 @@ class RoomAdministrationEventRepository(
     }
 
     private suspend fun updateSiteCooldownForEvent(event: AdministrationEventEntity, components: List<DoseComponent>) {
-        if (!event.route.requiresInjectionSite()) return
+        if (!event.route.toDomain().requiresInjectionSite()) return
         val siteId = event.injectionSiteId ?: throw ConstraintException()
         val site = injectionSiteDao.getById(siteId) ?: throw NotFoundException()
         val cooldownDays = cooldownDaysFor(event.route, components.mapNotNull { it.protocolId })
@@ -331,20 +333,12 @@ class RoomAdministrationEventRepository(
         updateSiteCooldownForEvent(latest, components)
     }
 
-    private suspend fun cooldownDaysFor(route: Route, protocolIds: List<Long>): Int {
-        for (protocolId in protocolIds) {
-            val protocolCooldown = protocolDao.getById(protocolId)?.siteCooldownDays
-            if (protocolCooldown != null) return protocolCooldown
-        }
-        val settings = settingsDao.get()
-        return when (route) {
-            Route.SUBCUTANEOUS -> settings?.defaultSiteCooldownDaysSC ?: FALLBACK_SC_COOLDOWN_DAYS
-            Route.INTRAMUSCULAR -> settings?.defaultSiteCooldownDaysIM ?: FALLBACK_IM_COOLDOWN_DAYS
-            Route.ORAL,
-            Route.TOPICAL,
-            -> 0
-        }
-    }
+    /** §5.3's cooldown source order, over the protocols this dose was logged against. */
+    private suspend fun cooldownDaysFor(route: Route, protocolIds: List<Long>): Int = siteCooldownDays(
+        route = route.toDomain(),
+        protocolCooldownDays = protocolIds.firstNotNullOfOrNull { protocolDao.getById(it)?.siteCooldownDays },
+        settings = settingsDao.get()?.toDomain(),
+    )
 
     private suspend fun <T> runTx(block: suspend () -> T): Result<T, DataError.Local> = try {
         Result.Success(database.withTransaction { block() })
@@ -407,8 +401,6 @@ class RoomAdministrationEventRepository(
         AdministrationEventStatus.PARTIAL -> ScheduledDoseStatus.PARTIAL
     }
 
-    private fun Route.requiresInjectionSite(): Boolean = this == Route.SUBCUTANEOUS || this == Route.INTRAMUSCULAR
-
     private fun com.stax.core.domain.Route.toEntity(): Route = Route.valueOf(name)
 
     private fun DomainAdministrationEventStatus.toEntity(): AdministrationEventStatus =
@@ -425,7 +417,5 @@ class RoomAdministrationEventRepository(
         const val HISTORY_PAGE_SIZE = 30
 
         val ZERO: Decimal = Decimal.parse("0")
-        const val FALLBACK_SC_COOLDOWN_DAYS = 5
-        const val FALLBACK_IM_COOLDOWN_DAYS = 7
     }
 }

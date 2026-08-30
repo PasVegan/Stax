@@ -18,8 +18,9 @@ picker. Includes the rotation-suggestion algorithm surface.
   `SitesScreen` (Root + Screen split) and `SitesSections.kt` (chips, stats strip, body-map hero,
   suggested hero, recent carousel).
 - `SitesState.kt` also holds the screen's enums: `RouteFilter`, `BodyView`, `MapMode`, `SiteStatus`,
-  plus `BodyRegion.bodyView` / `BodyRegion.routes()` — a site carries no route (§3.6), so §4.12.2's
-  SC / IM chips are derived from the region.
+  plus `BodyRegion.bodyView`. A site carries no route (§3.6), so §4.12.2's SC / IM chips derive
+  theirs from the region — through `:core:domain`'s `BodyRegion.routes()`, which the rotation reads
+  too.
 - `SitesBodyArt.kt` — `BodyArt`: every path the map draws, as SVG path data in one fixed viewport
   (`120 × 248`). Silhouette (torso + arm), the muscle groups of each view, and `zoneOf(region,
   sublocation)` — the patch of body a site injects into plus the point its dot sits at. Only the
@@ -76,11 +77,14 @@ Sites feature.
   `BodyArt` (chin `31`, navel `96`, crotch `126`, knee `176`, sole `240`) and the rest has to move.
 - Dots are pixels on a canvas, so each carries a semantics-only node above it ("{site}, {status}")
   for TalkBack (§5.10); the node has no pointer input, so taps fall through to the canvas.
-- Rotation-suggestion logic is deterministic; keep computation testable (consider hoisting to domain).
-  `ROTATION_ORDER` (in `SitesState.kt`) is today's version of it — never-used first, then least
-  recently used, among the ready sites the chip left. It is **shared** by §4.12.5's hero and
-  §4.12.7's Suggested row: two copies of the rule is how the two end up naming different sites.
-  M10-06 hoists the full rule (site restrictions, §5.3's cooldown order) into `:core:domain`.
+- **The rotation rule is `:core:domain`'s `SiteRotation`** (M10-06), not this module's:
+  `List<InjectionSite>.suggestNextSite(now, route, restriction, cooldownDays)` and
+  `SITE_ROTATION_ORDER` — never-used first, then least recently used, ties broken to the id. Both
+  §4.12.5's hero and §4.12.7's Suggested row call it, and so does
+  `InjectionSiteRepository.suggestNext`, which is what §4.10.1's Take Dose sheet prefills from: two
+  copies of the rule is how the three end up naming different sites. Neither screen passes a
+  `cooldownDays` — that argument is §5.3's resolved cooldown for a *protocol being dosed*, and these
+  two are choosing a site, not giving a dose. They read the `avoidUntil` the last dose stamped.
 - Layout thresholds are measured on the **pane**, not the window (`SitesScreen.kt`): one column under
   `520dp`, two panes to `720dp`, both body views side by side above it (§6.4.2).
 - Site detail becomes an end-edge side sheet at Expanded (§6.4.2) — `StaxAdaptiveSheet` handles all

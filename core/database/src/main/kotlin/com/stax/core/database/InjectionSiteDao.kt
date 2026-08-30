@@ -46,14 +46,14 @@ interface InjectionSiteDao {
     )
     fun observeReadySites(now: Instant): Flow<List<InjectionSiteEntity>>
 
-    @Query(
-        """
-        SELECT * FROM injection_site
-        WHERE isAvailable = 1
-            AND (avoidUntil IS NULL OR avoidUntil <= :now)
-        """,
-    )
-    suspend fun getReadySites(now: Instant): List<InjectionSiteEntity>
+    /**
+     * Every site, for the one-shot rotation read (`SiteRotation`, §4.12.5).
+     *
+     * Not the ready ones: which sites are ready depends on the cooldown §5.3 resolves for the
+     * protocol being dosed, which SQL here does not know.
+     */
+    @Query("SELECT * FROM injection_site")
+    suspend fun getAll(): List<InjectionSiteEntity>
 
     @Query(
         """

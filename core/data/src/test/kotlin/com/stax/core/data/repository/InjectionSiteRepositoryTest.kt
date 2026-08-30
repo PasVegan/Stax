@@ -9,6 +9,7 @@ import assertk.assertions.isInstanceOf
 import assertk.assertions.isNull
 import com.stax.core.database.InjectionSide
 import com.stax.core.database.InjectionSiteEntity
+import com.stax.core.database.SettingsEntity
 import com.stax.core.database.StaxDatabase
 import com.stax.core.database.Sublocation
 import com.stax.core.domain.Decimal
@@ -32,7 +33,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Instant
+import com.stax.core.database.AppTheme as DbAppTheme
 import com.stax.core.database.BodyRegion as DbBodyRegion
+import com.stax.core.database.NotificationStyle as DbNotificationStyle
 import com.stax.core.domain.BodyRegion as DomainBodyRegion
 import com.stax.core.domain.InjectionSide as DomainInjectionSide
 
@@ -52,7 +55,11 @@ class InjectionSiteRepositoryTest {
             .allowMainThreadQueries()
             .build()
 
-        repository = RoomInjectionSiteRepository(database.injectionSiteDao(), now = { NOW })
+        repository = RoomInjectionSiteRepository(
+            database.injectionSiteDao(),
+            database.settingsDao(),
+            now = { NOW },
+        )
     }
 
     @After
@@ -129,6 +136,38 @@ class InjectionSiteRepositoryTest {
     }
 
     @Test
+    fun `suggestNext offers only the sites the route is given at`() = runTest {
+        insertSite(name = "Delt", bodyRegion = DbBodyRegion.DELT, lastUsedAt = VERY_OLD)
+        val abdomenId = insertSite(name = "Abdomen", bodyRegion = DbBodyRegion.ABDOMEN, lastUsedAt = OLD)
+
+        val result = repository.suggestNext(protocol(restriction = null), Route.SUBCUTANEOUS)
+
+        assertThat((result as Result.Success).data!!.id).isEqualTo(abdomenId)
+    }
+
+    @Test
+    fun `suggestNext holds back a site inside the protocol's longer cooldown`() = runTest {
+        // Both stamps have run out; only the protocol's 30-day override still covers the newer one.
+        insertSite(name = "Cleared", lastUsedAt = RECENT, avoidUntil = PAST)
+        val restedId = insertSite(name = "Rested", lastUsedAt = VERY_OLD, avoidUntil = PAST)
+
+        val result = repository.suggestNext(protocol(restriction = null, cooldownDays = 30), Route.SUBCUTANEOUS)
+
+        assertThat((result as Result.Success).data!!.id).isEqualTo(restedId)
+    }
+
+    @Test
+    fun `suggestNext falls back to the Settings cooldown for the route`() = runTest {
+        insertSettings(defaultSiteCooldownDaysSC = 60)
+        insertSite(name = "Recent", lastUsedAt = RECENT, avoidUntil = PAST)
+        insertSite(name = "Old", lastUsedAt = OLD, avoidUntil = PAST)
+
+        val result = repository.suggestNext(protocol(restriction = null), Route.SUBCUTANEOUS)
+
+        assertThat((result as Result.Success).data).isNull()
+    }
+
+    @Test
     fun `suggestNext returns null for non-injectable route`() = runTest {
         insertSite(name = "Ready abdomen", bodyRegion = DbBodyRegion.ABDOMEN, lastUsedAt = OLD)
 
@@ -158,6 +197,22 @@ class InjectionSiteRepositoryTest {
         ),
     )
 
+    private suspend fun insertSettings(defaultSiteCooldownDaysSC: Int) = database.settingsDao().insert(
+        SettingsEntity(
+            theme = DbAppTheme.SYSTEM,
+            dynamicColor = true,
+            notificationStyle = DbNotificationStyle.NORMAL,
+            timeZoneOverride = null,
+            missedDoseWindowMinutes = 120,
+            onboardingCompleted = true,
+            exactAlarmDegraded = false,
+            defaultSiteCooldownDaysSC = defaultSiteCooldownDaysSC,
+            defaultSiteCooldownDaysIM = 7,
+            createdAt = NOW,
+            updatedAt = NOW,
+        ),
+    )
+
     private fun domainSite(name: String): InjectionSite = InjectionSite(
         id = 0,
         name = name,
@@ -170,7 +225,7 @@ class InjectionSiteRepositoryTest {
         isAvailable = true,
     )
 
-    private fun protocol(restriction: DomainBodyRegion?): Protocol = Protocol(
+    private fun protocol(restriction: DomainBodyRegion?, cooldownDays: Int? = null): Protocol = Protocol(
         id = 1,
         name = "Protocol",
         compoundSupplyId = 1,
@@ -193,7 +248,7 @@ class InjectionSiteRepositoryTest {
         reminderOffsetMinutes = 0,
         reminderBucket = null,
         injectionSiteRestriction = restriction,
-        siteCooldownDays = null,
+        siteCooldownDays = cooldownDays,
         notes = null,
         status = ProtocolStatus.ACTIVE,
         deletedAt = null,

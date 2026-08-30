@@ -6,8 +6,10 @@ import com.stax.core.domain.InjectionSite
 import com.stax.core.domain.Result
 import com.stax.core.domain.SiteDose
 import com.stax.core.domain.SiteUse
+import com.stax.core.domain.isCoolingAt
 import com.stax.core.domain.repository.AdministrationEventRepository
 import com.stax.core.domain.repository.InjectionSiteRepository
+import com.stax.core.domain.suggestNextSite
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -181,7 +183,7 @@ class SitesViewModel(
     private fun SitesState.withResults(): SitesState {
         val instant = now()
         val visible = sites.filter { routeFilter.accepts(it.bodyRegion) }
-        val suggestion = visible.filter { it.isReadyAt(instant) }.minWithOrNull(ROTATION_ORDER)
+        val suggestion = visible.suggestNextSite(instant)
         val heatCounts = siteUses.filter { it.loggedAt >= heatStart }
             .groupingBy { it.injectionSiteId }
             .eachCount()
@@ -240,9 +242,6 @@ class SitesViewModel(
 
     /** §4.12.3's Ready tile: past its cooldown and not marked unavailable (§4.12.8). */
     private fun InjectionSite.isReadyAt(instant: Instant): Boolean = isAvailable && !isCoolingAt(instant)
-
-    /** §4.12.3's Cooling tile: §5.3 wrote an `avoidUntil` and it has not passed yet. */
-    private fun InjectionSite.isCoolingAt(instant: Instant): Boolean = avoidUntil?.let { it > instant } == true
 
     private fun InjectionSite.toUi(instant: Instant, isSuggested: Boolean, heat: Float): SiteUi {
         val daysSinceLastUse = daysSinceLastUse(instant)
